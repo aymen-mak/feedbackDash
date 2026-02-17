@@ -25,16 +25,9 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-makina-border bg-makina-surface/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-accent text-makina-bg font-bold text-sm">
-            M
-          </div>
-          <span className="text-lg font-semibold tracking-tight">
-            makina
-          </span>
-          <span className="rounded-full bg-makina-accent-dim px-2 py-0.5 text-xs font-medium text-makina-accent">
-            feedback
-          </span>
+        <Link href="/" className="flex items-center gap-2.5">
+          <span className="text-lg font-semibold tracking-tight">Feedback Hub</span>
+          <span className="text-[10px] text-makina-subtle font-medium leading-none self-end mb-0.5">by makina</span>
         </Link>
 
         {/* Desktop nav */}
