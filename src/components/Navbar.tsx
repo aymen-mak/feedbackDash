@@ -50,7 +50,7 @@ export default function Navbar() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-1.5">
           <span className="text-lg font-semibold tracking-tight">
-            makina <span className="gradient-text">pulse</span>
+            Makina <span className="gradient-text">Pulse</span>
           </span>
         </Link>
 

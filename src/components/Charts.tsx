@@ -92,7 +92,7 @@ export function AnalyticsChart() {
   const change = getChange(data, activeMetric);
 
   return (
-    <div className="rounded-2xl bg-makina-card border border-makina-border overflow-hidden animate-fade-in-up">
+    <div className="rounded-xl bg-makina-card border border-makina-border overflow-hidden animate-fade-in-up">
       {/* Chart header */}
       <div className="p-5 pb-0">
         <div className="flex items-start justify-between gap-4 flex-wrap">

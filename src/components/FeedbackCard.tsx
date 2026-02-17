@@ -64,7 +64,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
   return (
     <div
       onClick={handleCardClick}
-      className="group rounded-2xl bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer"
+      className="group rounded-xl bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer"
     >
       <div className="flex items-start gap-3">
         {/* Avatar */}

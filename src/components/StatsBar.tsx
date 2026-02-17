@@ -47,7 +47,7 @@ export default function StatsBar() {
       {stats.map((stat, index) => (
         <div
           key={stat.label}
-          className="rounded-2xl bg-makina-card border border-makina-border p-4 hover-lift animate-fade-in-up"
+          className="rounded-xl bg-makina-card border border-makina-border p-4 hover-lift animate-fade-in-up"
           style={{ animationDelay: `${index * 80}ms` }}
         >
           <div className="flex items-center justify-between">

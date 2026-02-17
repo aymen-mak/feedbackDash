@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import CategorySelector from "@/components/VaultSelector";
 import LiveFeed from "@/components/LiveFeed";
 import { AnalyticsChart } from "@/components/Charts";
+import Tooltip from "@/components/Tooltip";
 import { MOCK_FEEDBACK, FEEDBACK_BY_TYPE, type CategoryId, type FeedbackItem } from "@/lib/mock-data";
 import { Filter, Download, Search, TrendingUp, Users, MessageSquare, ThumbsUp } from "lucide-react";
 
@@ -45,26 +46,34 @@ export default function DashboardPage() {
             </div>
             {/* Inline compact stats */}
             <div className="hidden md:flex items-center gap-4 pl-6 border-l border-makina-border">
-              <div className="flex items-center gap-2 cursor-default" title="Total feedback submissions this period">
-                <MessageSquare size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">771</span>
-                <span className="text-xs text-makina-green font-medium">+12%</span>
-              </div>
-              <div className="flex items-center gap-2 cursor-default" title="Unique contributors who submitted feedback">
-                <Users size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">284</span>
-                <span className="text-xs text-makina-green font-medium">+8%</span>
-              </div>
-              <div className="flex items-center gap-2 cursor-default" title="Positive sentiment ratio across all feedback">
-                <ThumbsUp size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">74%</span>
-                <span className="text-xs text-makina-green font-medium">+5</span>
-              </div>
-              <div className="flex items-center gap-2 cursor-default" title="Resolution rate — feedback addressed vs total">
-                <TrendingUp size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">89%</span>
-                <span className="text-xs text-makina-red font-medium">-2%</span>
-              </div>
+              <Tooltip content="Total feedback submissions this period">
+                <div className="flex items-center gap-2 cursor-default">
+                  <MessageSquare size={13} className="text-makina-muted" />
+                  <span className="text-sm font-semibold">771</span>
+                  <span className="text-xs text-makina-green font-medium">+12%</span>
+                </div>
+              </Tooltip>
+              <Tooltip content="Unique contributors who submitted feedback">
+                <div className="flex items-center gap-2 cursor-default">
+                  <Users size={13} className="text-makina-muted" />
+                  <span className="text-sm font-semibold">284</span>
+                  <span className="text-xs text-makina-green font-medium">+8%</span>
+                </div>
+              </Tooltip>
+              <Tooltip content="Positive sentiment ratio across all feedback">
+                <div className="flex items-center gap-2 cursor-default">
+                  <ThumbsUp size={13} className="text-makina-muted" />
+                  <span className="text-sm font-semibold">74%</span>
+                  <span className="text-xs text-makina-green font-medium">+5</span>
+                </div>
+              </Tooltip>
+              <Tooltip content="Resolution rate — feedback addressed vs total">
+                <div className="flex items-center gap-2 cursor-default">
+                  <TrendingUp size={13} className="text-makina-muted" />
+                  <span className="text-sm font-semibold">89%</span>
+                  <span className="text-xs text-makina-red font-medium">-2%</span>
+                </div>
+              </Tooltip>
             </div>
           </div>
           <button className="flex items-center gap-2 rounded-lg bg-makina-surface border border-makina-border px-3 py-1.5 text-xs text-makina-muted hover:text-makina-text hover:border-makina-subtle transition-colors">
@@ -77,7 +86,7 @@ export default function DashboardPage() {
         <AnalyticsChart />
 
         {/* Type breakdown — compact horizontal bar */}
-        <div className="flex items-center gap-3 rounded-2xl bg-makina-card border border-makina-border p-4 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+        <div className="flex items-center gap-3 rounded-xl bg-makina-card border border-makina-border p-4 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
           {FEEDBACK_BY_TYPE.map((type) => (
             <div key={type.name} className="flex-1">
               <div className="flex items-center justify-between mb-1.5">
@@ -149,7 +158,7 @@ export default function DashboardPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search feedback..."
-                className="rounded-full bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
+                className="rounded-lg bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
               />
             </div>
           </div>
