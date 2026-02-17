@@ -10,9 +10,10 @@ interface LiveFeedProps {
   showStatus?: boolean;
   onStatusChange?: (id: string, status: FeedbackItem["status"]) => void;
   onReply?: (id: string, message: string) => void;
+  columns?: 1 | 2;
 }
 
-export default function LiveFeed({ feedback, category, showStatus, onStatusChange, onReply }: LiveFeedProps) {
+export default function LiveFeed({ feedback, category, showStatus, onStatusChange, onReply, columns = 1 }: LiveFeedProps) {
   const filtered = category === "all" ? feedback : feedback.filter((f) => f.category === category);
 
   return (
@@ -24,7 +25,7 @@ export default function LiveFeed({ feedback, category, showStatus, onStatusChang
         </span>
         <span className="text-sm text-makina-muted">Community Feedback</span>
       </div>
-      <div className="space-y-2">
+      <div className={columns === 2 ? "grid grid-cols-1 md:grid-cols-2 gap-3" : "space-y-2"}>
         {filtered.map((item, index) => (
           <div
             key={item.id}
