@@ -123,7 +123,7 @@ export function TopActionsChart() {
               {TOP_QUICK_ACTIONS.map((_, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={index < 3 ? "#CAEF45" : "#334155"}
+                  fill={index < 3 ? "#C4B5FD" : "#334155"}
                 />
               ))}
             </Bar>

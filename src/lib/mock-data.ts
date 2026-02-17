@@ -190,7 +190,7 @@ export const FEEDBACK_BY_TYPE = [
   { name: "Praise", value: 45, color: "#22c55e" },
   { name: "Suggestion", value: 28, color: "#3b82f6" },
   { name: "Issue", value: 17, color: "#ef4444" },
-  { name: "Question", value: 10, color: "#CAEF45" },
+  { name: "Question", value: 10, color: "#C4B5FD" },
 ];
 
 export const TOP_QUICK_ACTIONS = [
