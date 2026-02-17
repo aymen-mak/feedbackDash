@@ -58,7 +58,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 border-b border-makina-border bg-makina-surface/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 relative">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-1.5">
           <span className="text-lg font-semibold tracking-tight">
@@ -66,8 +66,8 @@ export default function Navbar() {
           </span>
         </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-1">
+        {/* Desktop nav — absolutely centered */}
+        <div className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
