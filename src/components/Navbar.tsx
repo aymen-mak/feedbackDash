@@ -26,7 +26,9 @@ export default function Navbar() {
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5">
-          <span className="text-lg font-semibold tracking-tight">Feedback Hub</span>
+          <span className="text-lg font-semibold tracking-tight">
+            Feedback<span className="gradient-accent bg-clip-text text-transparent">Hub</span>
+          </span>
           <span className="text-[10px] text-makina-subtle font-medium leading-none self-end mb-0.5">by makina</span>
         </Link>
 

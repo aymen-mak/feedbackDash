@@ -1,24 +1,26 @@
 "use client";
 
+import { useState } from "react";
 import {
-  AreaChart,
+  ComposedChart,
   Area,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell,
-  PieChart,
-  Pie,
 } from "recharts";
-import {
-  SENTIMENT_OVER_TIME,
-  FEEDBACK_BY_TYPE,
-  TOP_QUICK_ACTIONS,
-} from "@/lib/mock-data";
+import { DAILY_METRICS } from "@/lib/mock-data";
+
+type MetricKey = "submissions" | "sentiment" | "issues";
+type TimeRange = "7D" | "14D" | "All";
+
+const METRICS: { key: MetricKey; label: string; color: string; format: (v: number) => string }[] = [
+  { key: "submissions", label: "Submissions", color: "#C4B5FD", format: (v) => String(v) },
+  { key: "sentiment", label: "Sentiment", color: "#22c55e", format: (v) => `${v}%` },
+  { key: "issues", label: "Open Issues", color: "#ef4444", format: (v) => String(v) },
+];
 
 const tooltipStyle = {
   backgroundColor: "#141c2b",
@@ -28,106 +30,138 @@ const tooltipStyle = {
   color: "#f1f5f9",
 };
 
-export function SentimentChart() {
+function getTimeSlice(range: TimeRange) {
+  if (range === "7D") return DAILY_METRICS.slice(-7);
+  if (range === "14D") return DAILY_METRICS.slice(-14);
+  return DAILY_METRICS;
+}
+
+function getTotal(data: typeof DAILY_METRICS, key: MetricKey) {
+  if (key === "sentiment") {
+    const avg = data.reduce((sum, d) => sum + d[key], 0) / data.length;
+    return Math.round(avg);
+  }
+  return data.reduce((sum, d) => sum + d[key], 0);
+}
+
+function getChange(data: typeof DAILY_METRICS, key: MetricKey) {
+  if (data.length < 2) return 0;
+  const half = Math.floor(data.length / 2);
+  const recent = data.slice(half);
+  const earlier = data.slice(0, half);
+  const recentAvg = recent.reduce((s, d) => s + d[key], 0) / recent.length;
+  const earlierAvg = earlier.reduce((s, d) => s + d[key], 0) / earlier.length;
+  if (earlierAvg === 0) return 0;
+  return Math.round(((recentAvg - earlierAvg) / earlierAvg) * 100);
+}
+
+export function AnalyticsChart() {
+  const [activeMetric, setActiveMetric] = useState<MetricKey>("submissions");
+  const [timeRange, setTimeRange] = useState<TimeRange>("14D");
+
+  const data = getTimeSlice(timeRange);
+  const metric = METRICS.find((m) => m.key === activeMetric)!;
+  const total = getTotal(data, activeMetric);
+  const change = getChange(data, activeMetric);
+
   return (
-    <div className="rounded-2xl bg-makina-card border border-makina-border p-5">
-      <h3 className="text-sm font-semibold mb-4">Sentiment Over Time</h3>
-      <div className="h-56">
+    <div className="rounded-2xl bg-makina-card border border-makina-border overflow-hidden animate-fade-in-up">
+      {/* Chart header */}
+      <div className="p-5 pb-0">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          {/* Featured metric */}
+          <div>
+            <p className="text-xs text-makina-muted font-medium uppercase tracking-wider mb-1">{metric.label}</p>
+            <div className="flex items-baseline gap-3">
+              <span className="text-4xl font-bold tracking-tight" style={{ color: metric.color }}>
+                {metric.format(total)}
+              </span>
+              <span className={`text-sm font-semibold ${change >= 0 ? "text-makina-green" : "text-makina-red"}`}>
+                {change >= 0 ? "+" : ""}{change}%
+              </span>
+            </div>
+          </div>
+
+          {/* Time range */}
+          <div className="flex items-center rounded-lg bg-makina-surface border border-makina-border p-0.5">
+            {(["7D", "14D", "All"] as TimeRange[]).map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                  timeRange === range
+                    ? "bg-makina-card text-makina-text shadow-sm"
+                    : "text-makina-muted hover:text-makina-text"
+                }`}
+              >
+                {range}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Metric toggles */}
+        <div className="flex items-center gap-2 mt-4">
+          {METRICS.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setActiveMetric(m.key)}
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                activeMetric === m.key
+                  ? "bg-makina-surface text-makina-text border border-makina-border"
+                  : "text-makina-subtle hover:text-makina-muted"
+              }`}
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: m.color, opacity: activeMetric === m.key ? 1 : 0.4 }}
+              />
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chart */}
+      <div className="h-72 px-2 pt-4">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={SENTIMENT_OVER_TIME}>
+          <ComposedChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
             <defs>
-              <linearGradient id="gradPositive" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="gradNegative" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
+              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={metric.color} stopOpacity={0.2} />
+                <stop offset="100%" stopColor={metric.color} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3d" />
-            <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+            <CartesianGrid vertical={false} stroke="#1e2a3d" strokeDasharray="3 3" />
+            <XAxis
+              dataKey="date"
+              tick={{ fontSize: 11, fill: "#64748b" }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => v.replace("Feb ", "")}
+            />
             <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Area type="monotone" dataKey="positive" stroke="#22c55e" fill="url(#gradPositive)" strokeWidth={2} />
-            <Area type="monotone" dataKey="neutral" stroke="#64748b" fill="transparent" strokeWidth={1.5} strokeDasharray="4 4" />
-            <Area type="monotone" dataKey="negative" stroke="#ef4444" fill="url(#gradNegative)" strokeWidth={2} />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="mt-3 flex items-center gap-4 text-xs text-makina-muted">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-green-500" /> Positive
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-makina-muted" /> Neutral
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-red-500" /> Negative
-        </span>
-      </div>
-    </div>
-  );
-}
-
-export function FeedbackTypePie() {
-  return (
-    <div className="rounded-2xl bg-makina-card border border-makina-border p-5">
-      <h3 className="text-sm font-semibold mb-4">Feedback by Type</h3>
-      <div className="h-48">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={FEEDBACK_BY_TYPE}
-              cx="50%"
-              cy="50%"
-              innerRadius={50}
-              outerRadius={75}
-              paddingAngle={4}
-              dataKey="value"
-              stroke="none"
-            >
-              {FEEDBACK_BY_TYPE.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip contentStyle={tooltipStyle} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="mt-2 grid grid-cols-2 gap-2">
-        {FEEDBACK_BY_TYPE.map((item) => (
-          <div key={item.name} className="flex items-center gap-2 text-xs">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-            <span className="text-makina-muted">{item.name}</span>
-            <span className="ml-auto font-medium">{item.value}%</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function TopActionsChart() {
-  return (
-    <div className="rounded-2xl bg-makina-card border border-makina-border p-5">
-      <h3 className="text-sm font-semibold mb-4">Top Quick Actions</h3>
-      <div className="h-56">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={TOP_QUICK_ACTIONS} layout="vertical" margin={{ left: 10 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1e2a3d" horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
-            <YAxis type="category" dataKey="action" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={120} />
-            <Tooltip contentStyle={tooltipStyle} />
-            <Bar dataKey="count" radius={[0, 6, 6, 0]} maxBarSize={24}>
-              {TOP_QUICK_ACTIONS.map((_, index) => (
-                <Cell
-                  key={`cell-${index}`}
-                  fill={index < 3 ? "#C4B5FD" : "#334155"}
-                />
-              ))}
-            </Bar>
-          </BarChart>
+            <Tooltip
+              contentStyle={tooltipStyle}
+              cursor={{ stroke: "#334155", strokeDasharray: "4 4" }}
+            />
+            <Bar
+              dataKey={activeMetric}
+              fill={metric.color}
+              opacity={0.15}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={32}
+            />
+            <Area
+              type="monotone"
+              dataKey={activeMetric}
+              stroke={metric.color}
+              strokeWidth={2}
+              fill="url(#areaGrad)"
+              dot={false}
+              activeDot={{ r: 4, fill: metric.color, stroke: "#141c2b", strokeWidth: 2 }}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

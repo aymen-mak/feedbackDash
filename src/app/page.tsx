@@ -43,7 +43,7 @@ export default function FeedbackPage() {
             <MessageSquare size={14} className="text-makina-accent" />
             <span className="text-xs font-medium text-makina-accent">We read every submission</span>
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">Feedback Hub</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Feedback<span className="gradient-accent bg-clip-text text-transparent">Hub</span></h1>
           <p className="text-sm text-makina-subtle">
             powered by <span className="text-makina-muted font-medium">makina</span>
           </p>

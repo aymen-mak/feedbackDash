@@ -175,29 +175,28 @@ export const MOCK_FEEDBACK: FeedbackItem[] = [
   },
 ];
 
-export const SENTIMENT_OVER_TIME = [
-  { date: "Feb 10", positive: 65, neutral: 25, negative: 10 },
-  { date: "Feb 11", positive: 70, neutral: 20, negative: 10 },
-  { date: "Feb 12", positive: 62, neutral: 28, negative: 10 },
-  { date: "Feb 13", positive: 75, neutral: 18, negative: 7 },
-  { date: "Feb 14", positive: 68, neutral: 22, negative: 10 },
-  { date: "Feb 15", positive: 72, neutral: 20, negative: 8 },
-  { date: "Feb 16", positive: 78, neutral: 16, negative: 6 },
-  { date: "Feb 17", positive: 74, neutral: 19, negative: 7 },
+// Daily metrics for the main analytics chart
+export const DAILY_METRICS = [
+  { date: "Feb 3",  submissions: 42, sentiment: 68, issues: 5, resolved: 3 },
+  { date: "Feb 4",  submissions: 38, sentiment: 65, issues: 7, resolved: 5 },
+  { date: "Feb 5",  submissions: 55, sentiment: 72, issues: 4, resolved: 4 },
+  { date: "Feb 6",  submissions: 47, sentiment: 70, issues: 6, resolved: 3 },
+  { date: "Feb 7",  submissions: 61, sentiment: 74, issues: 3, resolved: 6 },
+  { date: "Feb 8",  submissions: 34, sentiment: 66, issues: 8, resolved: 4 },
+  { date: "Feb 9",  submissions: 29, sentiment: 63, issues: 5, resolved: 5 },
+  { date: "Feb 10", submissions: 52, sentiment: 71, issues: 4, resolved: 3 },
+  { date: "Feb 11", submissions: 58, sentiment: 73, issues: 3, resolved: 4 },
+  { date: "Feb 12", submissions: 45, sentiment: 69, issues: 6, resolved: 5 },
+  { date: "Feb 13", submissions: 67, sentiment: 78, issues: 2, resolved: 6 },
+  { date: "Feb 14", submissions: 72, sentiment: 76, issues: 5, resolved: 4 },
+  { date: "Feb 15", submissions: 63, sentiment: 75, issues: 3, resolved: 5 },
+  { date: "Feb 16", submissions: 81, sentiment: 80, issues: 2, resolved: 3 },
+  { date: "Feb 17", submissions: 77, sentiment: 77, issues: 4, resolved: 4 },
 ];
 
 export const FEEDBACK_BY_TYPE = [
-  { name: "Praise", value: 45, color: "#22c55e" },
-  { name: "Suggestion", value: 28, color: "#3b82f6" },
-  { name: "Issue", value: 17, color: "#ef4444" },
-  { name: "Question", value: 10, color: "#C4B5FD" },
-];
-
-export const TOP_QUICK_ACTIONS = [
-  { action: "Love it!", count: 89 },
-  { action: "Easy to use", count: 67 },
-  { action: "Feature request", count: 54 },
-  { action: "Great support", count: 48 },
-  { action: "Too slow", count: 31 },
-  { action: "Confusing", count: 24 },
+  { name: "Praise", value: 348, pct: 45, color: "#22c55e" },
+  { name: "Suggestion", value: 216, pct: 28, color: "#3b82f6" },
+  { name: "Issue", value: 131, pct: 17, color: "#ef4444" },
+  { name: "Question", value: 76, pct: 10, color: "#C4B5FD" },
 ];

@@ -3,11 +3,10 @@
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
 import CategorySelector from "@/components/VaultSelector";
-import StatsBar from "@/components/StatsBar";
 import LiveFeed from "@/components/LiveFeed";
-import { SentimentChart, FeedbackTypePie, TopActionsChart } from "@/components/Charts";
-import { MOCK_FEEDBACK, type CategoryId, type FeedbackItem } from "@/lib/mock-data";
-import { Filter, Download, Search } from "lucide-react";
+import { AnalyticsChart } from "@/components/Charts";
+import { MOCK_FEEDBACK, FEEDBACK_BY_TYPE, type CategoryId, type FeedbackItem } from "@/lib/mock-data";
+import { Filter, Download, Search, TrendingUp, Users, MessageSquare, ThumbsUp } from "lucide-react";
 
 type FilterType = "all" | FeedbackItem["type"];
 type FilterStatus = "all" | FeedbackItem["status"];
@@ -37,36 +36,70 @@ export default function DashboardPage() {
     <div className="min-h-screen">
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-bold">Team Dashboard</h1>
-            <p className="text-sm text-makina-muted">Review and manage community feedback</p>
+        {/* Header row — compact, integrated */}
+        <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up">
+          <div className="flex items-center gap-6">
+            <div>
+              <p className="text-xs text-makina-muted font-medium uppercase tracking-wider">Overview</p>
+              <h1 className="text-xl font-bold">Dashboard</h1>
+            </div>
+            {/* Inline compact stats */}
+            <div className="hidden md:flex items-center gap-4 pl-6 border-l border-makina-border">
+              <div className="flex items-center gap-2">
+                <MessageSquare size={13} className="text-makina-muted" />
+                <span className="text-sm font-semibold">771</span>
+                <span className="text-xs text-makina-green font-medium">+12%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Users size={13} className="text-makina-muted" />
+                <span className="text-sm font-semibold">284</span>
+                <span className="text-xs text-makina-green font-medium">+8%</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <ThumbsUp size={13} className="text-makina-muted" />
+                <span className="text-sm font-semibold">74%</span>
+                <span className="text-xs text-makina-green font-medium">+5</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <TrendingUp size={13} className="text-makina-muted" />
+                <span className="text-sm font-semibold">89%</span>
+                <span className="text-xs text-makina-red font-medium">-2%</span>
+              </div>
+            </div>
           </div>
-          <button className="flex items-center gap-2 self-start rounded-xl bg-makina-card border border-makina-border px-4 py-2 text-sm text-makina-muted hover:text-makina-text hover:border-makina-subtle transition-colors">
-            <Download size={14} />
-            Export CSV
+          <button className="flex items-center gap-2 rounded-lg bg-makina-surface border border-makina-border px-3 py-1.5 text-xs text-makina-muted hover:text-makina-text hover:border-makina-subtle transition-colors">
+            <Download size={13} />
+            Export
           </button>
         </div>
 
-        {/* Stats overview */}
-        <StatsBar />
+        {/* Main analytics chart */}
+        <AnalyticsChart />
 
-        {/* Charts row */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2">
-            <SentimentChart />
-          </div>
-          <FeedbackTypePie />
+        {/* Type breakdown — compact horizontal bar */}
+        <div className="flex items-center gap-3 rounded-2xl bg-makina-card border border-makina-border p-4 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+          {FEEDBACK_BY_TYPE.map((type) => (
+            <div key={type.name} className="flex-1">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="flex items-center gap-1.5 text-xs text-makina-muted">
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: type.color }} />
+                  {type.name}
+                </span>
+                <span className="text-xs font-semibold">{type.value}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-makina-surface overflow-hidden">
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${type.pct}%`, backgroundColor: type.color }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
-
-        {/* Top quick actions chart */}
-        <TopActionsChart />
 
         {/* Feedback management section */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
-            {/* Category filter */}
             <CategorySelector selected={selectedCategory} onSelect={setSelectedCategory} />
           </div>
 
@@ -77,7 +110,6 @@ export default function DashboardPage() {
               <span>Filters:</span>
             </div>
 
-            {/* Type filter */}
             <div className="flex gap-1">
               {(["all", "praise", "issue", "suggestion", "question"] as FilterType[]).map((type) => (
                 <button
@@ -94,7 +126,6 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Status filter */}
             <div className="flex gap-1">
               {(["all", "new", "reviewed", "addressed", "dismissed"] as FilterStatus[]).map((status) => (
                 <button
@@ -111,7 +142,6 @@ export default function DashboardPage() {
               ))}
             </div>
 
-            {/* Search */}
             <div className="relative ml-auto">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
               <input
@@ -124,12 +154,10 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Results count */}
           <p className="text-xs text-makina-muted">
             Showing {filtered.length} of {feedback.length} feedback items
           </p>
 
-          {/* Feed with status management */}
           <LiveFeed
             feedback={filtered}
             category="all"
