@@ -1,0 +1,102 @@
+"use client";
+
+import { ChevronUp, Clock, MessageSquare } from "lucide-react";
+import { type FeedbackItem, QUICK_ACTIONS } from "@/lib/mock-data";
+
+function timeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
+const typeColors: Record<string, string> = {
+  praise: "bg-makina-green/15 text-green-400",
+  issue: "bg-red-500/15 text-red-400",
+  suggestion: "bg-blue-500/15 text-blue-400",
+  question: "bg-makina-accent-dim text-makina-accent",
+};
+
+interface FeedbackCardProps {
+  item: FeedbackItem;
+  showStatus?: boolean;
+  onStatusChange?: (id: string, status: FeedbackItem["status"]) => void;
+}
+
+export default function FeedbackCard({ item, showStatus, onStatusChange }: FeedbackCardProps) {
+  const quickAction = item.quickAction
+    ? QUICK_ACTIONS.find((a) => a.id === item.quickAction)
+    : null;
+
+  return (
+    <div className="group rounded-2xl bg-makina-card border border-makina-border p-4 transition-all hover:border-makina-subtle hover:bg-makina-card-hover">
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-makina-surface text-sm font-bold text-makina-accent border border-makina-border">
+          {item.user.avatar}
+        </div>
+
+        <div className="min-w-0 flex-1">
+          {/* Header */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold">{item.user.displayName}</span>
+            <span className="rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-accent">
+              {item.vault}
+            </span>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeColors[item.type]}`}>
+              {item.type}
+            </span>
+            <span className="flex items-center gap-1 text-[11px] text-makina-muted ml-auto">
+              <Clock size={10} />
+              {timeAgo(item.timestamp)}
+            </span>
+          </div>
+
+          {/* Content */}
+          <div className="mt-2">
+            {quickAction && (
+              <div className="inline-flex items-center gap-1.5 rounded-lg bg-makina-surface px-3 py-1.5 text-sm">
+                <span>{quickAction.emoji}</span>
+                <span className="font-medium">{quickAction.label}</span>
+              </div>
+            )}
+            {item.message && (
+              <p className="mt-1 text-sm text-makina-text/85 leading-relaxed">
+                {item.message}
+              </p>
+            )}
+          </div>
+
+          {/* Footer */}
+          <div className="mt-3 flex items-center gap-3">
+            <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-makina-muted hover:text-makina-accent hover:bg-makina-accent-dim transition-colors">
+              <ChevronUp size={14} />
+              <span className="font-medium">{item.upvotes}</span>
+            </button>
+            <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-colors">
+              <MessageSquare size={12} />
+              <span>Reply</span>
+            </button>
+            {showStatus && onStatusChange && (
+              <div className="ml-auto">
+                <select
+                  value={item.status}
+                  onChange={(e) => onStatusChange(item.id, e.target.value as FeedbackItem["status"])}
+                  className="rounded-lg bg-makina-surface border border-makina-border px-2 py-1 text-xs text-makina-muted focus:outline-none focus:border-makina-accent cursor-pointer"
+                >
+                  <option value="new">New</option>
+                  <option value="reviewed">Reviewed</option>
+                  <option value="addressed">Addressed</option>
+                  <option value="dismissed">Dismissed</option>
+                </select>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+@theme {
+  /* Makina color palette */
+  --color-makina-bg: #080c14;
+  --color-makina-surface: #0f1520;
+  --color-makina-card: #141c2b;
+  --color-makina-card-hover: #1a2436;
+  --color-makina-border: #1e2a3d;
+  --color-makina-accent: #e8e034;
+  --color-makina-accent-dim: #e8e03420;
+  --color-makina-blue: #3b82f6;
+  --color-makina-green: #22c55e;
+  --color-makina-red: #ef4444;
+  --color-makina-text: #f1f5f9;
+  --color-makina-muted: #64748b;
+  --color-makina-subtle: #334155;
+}
+
+body {
+  background: var(--color-makina-bg);
+  color: var(--color-makina-text);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-makina-bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-makina-border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-makina-subtle);
+}
+
+/* Glow effects */
+.glow-accent {
+  box-shadow: 0 0 20px var(--color-makina-accent-dim);
+}
+
+.glow-blue {
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
+}
+
+/* Pulse animation for live indicator */
+@keyframes pulse-live {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-live {
+  animation: pulse-live 2s ease-in-out infinite;
+}
