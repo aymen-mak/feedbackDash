@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronUp, Clock, MessageSquare, Send, X } from "lucide-react";
-import { type FeedbackItem, QUICK_ACTIONS } from "@/lib/mock-data";
+import { ChevronUp, Clock, MessageSquare, Send, X, Box, Paintbrush, Headphones } from "lucide-react";
+import { type FeedbackItem, type CategoryId, QUICK_ACTIONS } from "@/lib/mock-data";
 
 function timeAgo(date: Date): string {
   const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
@@ -19,6 +19,12 @@ const typeColors: Record<string, string> = {
   issue: "bg-red-500/15 text-red-400",
   suggestion: "bg-blue-500/15 text-blue-400",
   question: "bg-makina-accent-dim text-makina-accent",
+};
+
+const categoryIcons: Record<CategoryId, React.ComponentType<{ size?: number; className?: string }>> = {
+  Product: Box,
+  UX: Paintbrush,
+  Support: Headphones,
 };
 
 interface FeedbackCardProps {
@@ -46,8 +52,20 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
     setTimeout(() => setReplySent(false), 2000);
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't toggle reply if clicking an interactive element
+    const target = e.target as HTMLElement;
+    if (target.closest("button, select, input, a, textarea")) return;
+    setReplyOpen(!replyOpen);
+  };
+
+  const CategoryIcon = categoryIcons[item.category];
+
   return (
-    <div className="group rounded-2xl bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover">
+    <div
+      onClick={handleCardClick}
+      className="group rounded-2xl bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer"
+    >
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-makina-surface text-sm font-bold text-makina-accent border border-makina-border">
@@ -58,7 +76,8 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
           {/* Header */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold">{item.user.displayName}</span>
-            <span className="rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-accent">
+            <span className="flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
+              <CategoryIcon size={9} />
               {item.category}
             </span>
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeColors[item.type]}`}>
