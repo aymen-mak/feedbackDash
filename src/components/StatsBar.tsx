@@ -44,10 +44,11 @@ const stats: Stat[] = [
 export default function StatsBar() {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      {stats.map((stat) => (
+      {stats.map((stat, index) => (
         <div
           key={stat.label}
-          className="rounded-2xl bg-makina-card border border-makina-border p-4 transition-colors hover:border-makina-subtle"
+          className="rounded-2xl bg-makina-card border border-makina-border p-4 hover-lift animate-fade-in-up"
+          style={{ animationDelay: `${index * 80}ms` }}
         >
           <div className="flex items-center justify-between">
             <stat.icon size={16} className="text-makina-muted" />

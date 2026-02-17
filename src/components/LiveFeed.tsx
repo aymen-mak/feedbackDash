@@ -9,9 +9,10 @@ interface LiveFeedProps {
   category: CategoryId | "all";
   showStatus?: boolean;
   onStatusChange?: (id: string, status: FeedbackItem["status"]) => void;
+  onReply?: (id: string, message: string) => void;
 }
 
-export default function LiveFeed({ feedback, category, showStatus, onStatusChange }: LiveFeedProps) {
+export default function LiveFeed({ feedback, category, showStatus, onStatusChange, onReply }: LiveFeedProps) {
   const filtered = category === "all" ? feedback : feedback.filter((f) => f.category === category);
 
   return (
@@ -24,13 +25,19 @@ export default function LiveFeed({ feedback, category, showStatus, onStatusChang
         <span className="text-sm text-makina-muted">Community Feedback</span>
       </div>
       <div className="space-y-2">
-        {filtered.map((item) => (
-          <FeedbackCard
+        {filtered.map((item, index) => (
+          <div
             key={item.id}
-            item={item}
-            showStatus={showStatus}
-            onStatusChange={onStatusChange}
-          />
+            className="animate-fade-in-up"
+            style={{ animationDelay: `${index * 60}ms` }}
+          >
+            <FeedbackCard
+              item={item}
+              showStatus={showStatus}
+              onStatusChange={onStatusChange}
+              onReply={onReply}
+            />
+          </div>
         ))}
       </div>
     </div>

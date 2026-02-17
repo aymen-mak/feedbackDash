@@ -135,6 +135,7 @@ export default function DashboardPage() {
             category="all"
             showStatus
             onStatusChange={handleStatusChange}
+            onReply={(id, msg) => console.log("Reply to", id, ":", msg)}
           />
         </div>
       </main>

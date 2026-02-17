@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronUp, Clock, MessageSquare } from "lucide-react";
+import { useState } from "react";
+import { ChevronUp, Clock, MessageSquare, Send, X } from "lucide-react";
 import { type FeedbackItem, QUICK_ACTIONS } from "@/lib/mock-data";
 
 function timeAgo(date: Date): string {
@@ -24,15 +25,29 @@ interface FeedbackCardProps {
   item: FeedbackItem;
   showStatus?: boolean;
   onStatusChange?: (id: string, status: FeedbackItem["status"]) => void;
+  onReply?: (id: string, message: string) => void;
 }
 
-export default function FeedbackCard({ item, showStatus, onStatusChange }: FeedbackCardProps) {
+export default function FeedbackCard({ item, showStatus, onStatusChange, onReply }: FeedbackCardProps) {
+  const [replyOpen, setReplyOpen] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replySent, setReplySent] = useState(false);
+
   const quickAction = item.quickAction
     ? QUICK_ACTIONS.find((a) => a.id === item.quickAction)
     : null;
 
+  const handleReply = () => {
+    if (!replyText.trim()) return;
+    onReply?.(item.id, replyText);
+    setReplyText("");
+    setReplySent(true);
+    setReplyOpen(false);
+    setTimeout(() => setReplySent(false), 2000);
+  };
+
   return (
-    <div className="group rounded-2xl bg-makina-card border border-makina-border p-4 transition-all hover:border-makina-subtle hover:bg-makina-card-hover">
+    <div className="group rounded-2xl bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover">
       <div className="flex items-start gap-3">
         {/* Avatar */}
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-makina-surface text-sm font-bold text-makina-accent border border-makina-border">
@@ -76,10 +91,20 @@ export default function FeedbackCard({ item, showStatus, onStatusChange }: Feedb
               <ChevronUp size={14} />
               <span className="font-medium">{item.upvotes}</span>
             </button>
-            <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-colors">
+            <button
+              onClick={() => setReplyOpen(!replyOpen)}
+              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors ${
+                replyOpen
+                  ? "text-makina-accent bg-makina-accent-dim"
+                  : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
+              }`}
+            >
               <MessageSquare size={12} />
               <span>Reply</span>
             </button>
+            {replySent && (
+              <span className="text-xs text-makina-green font-medium animate-success">Sent!</span>
+            )}
             {showStatus && onStatusChange && (
               <div className="ml-auto">
                 <select
@@ -95,6 +120,34 @@ export default function FeedbackCard({ item, showStatus, onStatusChange }: Feedb
               </div>
             )}
           </div>
+
+          {/* Inline reply */}
+          {replyOpen && (
+            <div className="mt-3 flex gap-2 animate-fade-in-up">
+              <input
+                type="text"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleReply()}
+                placeholder="Write a quick reply..."
+                className="flex-1 rounded-lg bg-makina-surface border border-makina-border px-3 py-2 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50"
+                autoFocus
+              />
+              <button
+                onClick={handleReply}
+                disabled={!replyText.trim()}
+                className="rounded-lg gradient-accent p-2 text-makina-bg transition-all hover:brightness-110 disabled:opacity-40"
+              >
+                <Send size={12} />
+              </button>
+              <button
+                onClick={() => { setReplyOpen(false); setReplyText(""); }}
+                className="rounded-lg bg-makina-surface border border-makina-border p-2 text-makina-muted hover:text-makina-text transition-colors"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

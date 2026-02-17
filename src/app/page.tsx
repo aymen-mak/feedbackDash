@@ -25,15 +25,16 @@ export default function FeedbackPage() {
 
         {/* Category overview cards */}
         <div className="grid grid-cols-3 gap-3">
-          {CATEGORY_STATS.map((cat) => (
+          {CATEGORY_STATS.map((cat, index) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`rounded-2xl border p-4 text-center transition-all ${
+              className={`rounded-2xl border p-4 text-center hover-lift animate-fade-in-up ${
                 selectedCategory === cat.id
                   ? "border-makina-accent bg-makina-accent-dim glow-accent"
                   : "border-makina-border bg-makina-card hover:border-makina-subtle"
               }`}
+              style={{ animationDelay: `${index * 80}ms` }}
             >
               <p className="text-lg font-bold">{cat.id}</p>
               <p className="text-xl font-bold text-makina-accent">{cat.submissions}</p>
