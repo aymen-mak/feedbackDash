@@ -76,7 +76,7 @@ export default function DashboardPage() {
               </Tooltip>
             </div>
           </div>
-          <button className="flex items-center gap-2 rounded-lg bg-makina-surface border border-makina-border px-3 py-1.5 text-xs text-makina-muted hover:text-makina-text hover:border-makina-subtle transition-colors">
+          <button className="flex items-center gap-2 rounded-md bg-makina-surface border border-makina-border px-3 py-1.5 text-xs text-makina-muted hover:text-makina-text hover:border-makina-subtle transition-colors">
             <Download size={13} />
             Export
           </button>
@@ -86,7 +86,7 @@ export default function DashboardPage() {
         <AnalyticsChart />
 
         {/* Type breakdown — compact horizontal bar */}
-        <div className="flex items-center gap-3 rounded-xl bg-makina-card border border-makina-border p-4 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+        <div className="flex items-center gap-3 rounded-lg bg-makina-card border border-makina-border p-4 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
           {FEEDBACK_BY_TYPE.map((type) => (
             <div key={type.name} className="flex-1">
               <div className="flex items-center justify-between mb-1.5">
@@ -158,7 +158,7 @@ export default function DashboardPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search feedback..."
-                className="rounded-lg bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
+                className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
               />
             </div>
           </div>

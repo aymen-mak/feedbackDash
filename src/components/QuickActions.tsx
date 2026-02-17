@@ -35,7 +35,7 @@ export default function QuickActions({ onSubmit }: QuickActionsProps) {
             key={action.id}
             onClick={() => handleSelect(action.id)}
             disabled={submitted}
-            className={`flex items-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-all animate-fade-in-up hover-lift ${
+            className={`flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium transition-all animate-fade-in-up hover-lift ${
               selected === action.id
                 ? "gradient-accent text-makina-bg scale-[1.02]"
                 : submitted
@@ -52,7 +52,7 @@ export default function QuickActions({ onSubmit }: QuickActionsProps) {
       {selected && !submitted && (
         <button
           onClick={handleSubmit}
-          className="w-full rounded-lg gradient-accent py-3 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 glow-accent animate-fade-in-up"
+          className="w-full rounded-md gradient-accent py-3 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 glow-accent animate-fade-in-up"
         >
           Send Feedback
         </button>

@@ -64,7 +64,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
   return (
     <div
       onClick={handleCardClick}
-      className="group rounded-xl bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer"
+      className="group rounded-md bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer"
     >
       <div className="flex items-start gap-3">
         {/* Avatar */}
@@ -92,7 +92,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
           {/* Content */}
           <div className="mt-2">
             {quickAction && (
-              <div className="inline-flex items-center gap-1.5 rounded-lg bg-makina-surface px-3 py-1.5 text-sm">
+              <div className="inline-flex items-center gap-1.5 rounded-md bg-makina-surface px-3 py-1.5 text-sm">
                 <span>{quickAction.emoji}</span>
                 <span className="font-medium">{quickAction.label}</span>
               </div>
@@ -106,13 +106,13 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
 
           {/* Footer */}
           <div className="mt-3 flex items-center gap-3">
-            <button className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-makina-muted hover:text-makina-accent hover:bg-makina-accent-dim transition-colors">
+            <button className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-makina-muted hover:text-makina-accent hover:bg-makina-accent-dim transition-colors">
               <ChevronUp size={14} />
               <span className="font-medium">{item.upvotes}</span>
             </button>
             <button
               onClick={() => setReplyOpen(!replyOpen)}
-              className={`flex items-center gap-1 rounded-lg px-2 py-1 text-xs transition-colors ${
+              className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
                 replyOpen
                   ? "text-makina-accent bg-makina-accent-dim"
                   : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
@@ -129,7 +129,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
                 <select
                   value={item.status}
                   onChange={(e) => onStatusChange(item.id, e.target.value as FeedbackItem["status"])}
-                  className="rounded-lg bg-makina-surface border border-makina-border px-2 py-1 text-xs text-makina-muted focus:outline-none focus:border-makina-accent cursor-pointer"
+                  className="rounded-md bg-makina-surface border border-makina-border px-2 py-1 text-xs text-makina-muted focus:outline-none focus:border-makina-accent cursor-pointer"
                 >
                   <option value="new">New</option>
                   <option value="reviewed">Reviewed</option>
@@ -149,19 +149,19 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
                 onChange={(e) => setReplyText(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleReply()}
                 placeholder="Write a quick reply..."
-                className="flex-1 rounded-lg bg-makina-surface border border-makina-border px-3 py-2 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50"
+                className="flex-1 rounded-md bg-makina-surface border border-makina-border px-3 py-2 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50"
                 autoFocus
               />
               <button
                 onClick={handleReply}
                 disabled={!replyText.trim()}
-                className="rounded-lg gradient-accent p-2 text-makina-bg transition-all hover:brightness-110 disabled:opacity-40"
+                className="rounded-md gradient-accent p-2 text-makina-bg transition-all hover:brightness-110 disabled:opacity-40"
               >
                 <Send size={12} />
               </button>
               <button
                 onClick={() => { setReplyOpen(false); setReplyText(""); }}
-                className="rounded-lg bg-makina-surface border border-makina-border p-2 text-makina-muted hover:text-makina-text transition-colors"
+                className="rounded-md bg-makina-surface border border-makina-border p-2 text-makina-muted hover:text-makina-text transition-colors"
               >
                 <X size={12} />
               </button>

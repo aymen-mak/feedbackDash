@@ -105,7 +105,7 @@ export default function FeedbackPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
 
           {/* Form card */}
-          <div className="rounded-xl bg-makina-card border border-makina-border p-6 space-y-5 hover-lift">
+          <div className="rounded-lg bg-makina-card border border-makina-border p-6 space-y-5 hover-lift">
             <div className="space-y-2">
               <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Category</label>
               <div className="flex gap-2">
@@ -165,13 +165,13 @@ export default function FeedbackPage() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={categoryPrompts[category]}
-                className="w-full resize-none rounded-lg bg-makina-surface border border-makina-border px-4 py-3 text-sm text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 transition-colors"
+                className="w-full resize-none rounded-md bg-makina-surface border border-makina-border px-4 py-3 text-sm text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 transition-colors"
                 rows={3}
               />
             </div>
 
             {submitted ? (
-              <div className="flex items-center justify-center gap-2 rounded-lg bg-makina-green/10 py-3 animate-success">
+              <div className="flex items-center justify-center gap-2 rounded-md bg-makina-green/10 py-3 animate-success">
                 <Check size={16} className="text-makina-green" />
                 <span className="text-sm font-medium text-makina-green">Feedback submitted! Thank you.</span>
               </div>
@@ -179,7 +179,7 @@ export default function FeedbackPage() {
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                className="w-full flex items-center justify-center gap-2 rounded-lg gradient-accent py-3 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed glow-accent"
+                className="w-full flex items-center justify-center gap-2 rounded-md gradient-accent py-3 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed glow-accent"
               >
                 <Send size={14} />
                 Submit Feedback
@@ -190,7 +190,7 @@ export default function FeedbackPage() {
           {/* Context panel */}
           <div className="space-y-4">
             {/* Trending reactions */}
-            <div className="rounded-xl bg-makina-card border border-makina-border p-4 space-y-3">
+            <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
               <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Trending reactions</span>
               <div className="space-y-2">
                 {TRENDING_REACTIONS.map((r) => (
@@ -206,7 +206,7 @@ export default function FeedbackPage() {
             </div>
 
             {/* Category breakdown */}
-            <div className="rounded-xl bg-makina-card border border-makina-border p-4 space-y-3">
+            <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
               <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">By category</span>
               <div className="space-y-2.5">
                 {CATEGORY_STATS.map((cat) => (
@@ -227,7 +227,7 @@ export default function FeedbackPage() {
             </div>
 
             {/* Social proof */}
-            <div className="rounded-xl bg-makina-accent-dim border border-makina-accent/20 p-4 space-y-2">
+            <div className="rounded-lg bg-makina-accent-dim border border-makina-accent/20 p-4 space-y-2">
               <div className="flex items-center gap-2">
                 <Zap size={14} className="text-makina-accent" />
                 <span className="text-xs font-semibold text-makina-accent">Your voice matters</span>
@@ -242,8 +242,8 @@ export default function FeedbackPage() {
         {/* ── Zone 3: Trust strip — recently resolved ── */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
           {RECENTLY_RESOLVED.map((item, i) => (
-            <div key={i} className="flex items-start gap-3 rounded-xl bg-makina-card border border-makina-border p-4">
-              <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-makina-green/10 shrink-0">
+            <div key={i} className="flex items-start gap-3 rounded-lg bg-makina-card border border-makina-border p-4">
+              <div className="flex items-center justify-center h-7 w-7 rounded-md bg-makina-green/10 shrink-0">
                 <CheckCircle2 size={13} className="text-makina-green" />
               </div>
               <div className="min-w-0">

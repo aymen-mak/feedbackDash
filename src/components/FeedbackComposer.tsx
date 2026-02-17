@@ -33,7 +33,7 @@ export default function FeedbackComposer({ category, onSubmit }: FeedbackCompose
   };
 
   return (
-    <div className="rounded-xl bg-makina-card border border-makina-border p-4 hover-lift animate-fade-in-up">
+    <div className="rounded-md bg-makina-card border border-makina-border p-4 hover-lift animate-fade-in-up">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-sm font-medium text-makina-muted">Share detailed feedback</span>
         <div className="ml-auto flex items-center gap-3">
@@ -68,13 +68,13 @@ export default function FeedbackComposer({ category, onSubmit }: FeedbackCompose
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           placeholder={placeholder}
-          className="flex-1 resize-none rounded-lg bg-makina-surface border border-makina-border px-4 py-3 text-sm text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 transition-colors"
+          className="flex-1 resize-none rounded-md bg-makina-surface border border-makina-border px-4 py-3 text-sm text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 transition-colors"
           rows={2}
         />
         <button
           onClick={handleSubmit}
           disabled={!message.trim() || submitted}
-          className="self-end rounded-lg gradient-accent p-3 text-makina-bg transition-all hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="self-end rounded-md gradient-accent p-3 text-makina-bg transition-all hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {submitted ? <Check size={16} /> : <Send size={16} />}
         </button>

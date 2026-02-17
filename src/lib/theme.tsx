@@ -2,7 +2,9 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-type Theme = "dark" | "light";
+type Theme = "dark" | "light" | "glass";
+
+const THEME_ORDER: Theme[] = ["dark", "light", "glass"];
 
 const ThemeContext = createContext<{
   theme: Theme;
@@ -14,20 +16,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const stored = localStorage.getItem("fh-theme") as Theme | null;
-    if (stored === "light") {
-      setTheme("light");
-      document.documentElement.classList.add("light");
+    if (stored && THEME_ORDER.includes(stored)) {
+      setTheme(stored);
+      document.documentElement.classList.remove("light", "glass");
+      if (stored !== "dark") {
+        document.documentElement.classList.add(stored);
+      }
     }
   }, []);
 
   const toggle = () => {
-    const next = theme === "dark" ? "light" : "dark";
+    const idx = THEME_ORDER.indexOf(theme);
+    const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
     setTheme(next);
     localStorage.setItem("fh-theme", next);
-    if (next === "light") {
-      document.documentElement.classList.add("light");
-    } else {
-      document.documentElement.classList.remove("light");
+    document.documentElement.classList.remove("light", "glass");
+    if (next !== "dark") {
+      document.documentElement.classList.add(next);
     }
   };
 
