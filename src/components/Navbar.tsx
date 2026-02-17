@@ -7,14 +7,37 @@ import {
   MessageSquare,
   LayoutDashboard,
   Zap,
-  Bell,
+  Link2,
   Menu,
   X,
+  Sun,
+  Moon,
+  Check,
 } from "lucide-react";
+import { useTheme } from "@/lib/theme";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { theme, toggle } = useTheme();
+
+  const handleShare = async () => {
+    const url = window.location.origin;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // fallback
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   const links = [
     { href: "/", label: "Feedback", icon: MessageSquare },
@@ -25,11 +48,10 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 border-b border-makina-border bg-makina-surface/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5">
+        <Link href="/" className="flex items-center gap-1.5">
           <span className="text-lg font-semibold tracking-tight">
-            Feedback<span className="gradient-accent bg-clip-text text-transparent">Hub</span>
+            makina <span className="gradient-text">pulse</span>
           </span>
-          <span className="text-[10px] text-makina-subtle font-medium leading-none self-end mb-0.5">by makina</span>
         </Link>
 
         {/* Desktop nav */}
@@ -61,9 +83,20 @@ export default function Navbar() {
             <span className="text-makina-muted">feedback today</span>
           </div>
 
-          <button className="relative rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-card transition-colors">
-            <Bell size={18} />
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-makina-accent" />
+          <button
+            onClick={toggle}
+            className="rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-card transition-colors"
+            title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          >
+            {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+
+          <button
+            onClick={handleShare}
+            className="relative rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-card transition-colors"
+            title="Copy feedback link"
+          >
+            {copied ? <Check size={18} className="text-makina-green" /> : <Link2 size={18} />}
           </button>
 
           {/* Mobile menu toggle */}

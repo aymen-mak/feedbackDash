@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* Makina color palette */
+  /* Makina color palette — dark mode defaults */
   --color-makina-bg: #080c14;
   --color-makina-surface: #0f1520;
   --color-makina-card: #141c2b;
@@ -18,10 +18,48 @@
   --color-makina-subtle: #334155;
 }
 
+/* Light mode overrides */
+html.light {
+  --color-makina-bg: #f8fafc;
+  --color-makina-surface: #f1f5f9;
+  --color-makina-card: #ffffff;
+  --color-makina-card-hover: #f8fafc;
+  --color-makina-border: #e2e8f0;
+  --color-makina-accent: #8b5cf6;
+  --color-makina-accent-dim: #8b5cf620;
+  --color-makina-accent-deep: #7c3aed;
+  --color-makina-blue: #3b82f6;
+  --color-makina-green: #16a34a;
+  --color-makina-red: #dc2626;
+  --color-makina-text: #0f172a;
+  --color-makina-muted: #64748b;
+  --color-makina-subtle: #94a3b8;
+  /* Chart-specific overrides */
+  --chart-grid: #e2e8f0;
+  --chart-tick: #64748b;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #e2e8f0;
+  --chart-tooltip-text: #0f172a;
+  --chart-cursor: #cbd5e1;
+  --chart-dot-stroke: #ffffff;
+}
+
+/* Dark mode chart defaults */
+:root {
+  --chart-grid: #1e2a3d;
+  --chart-tick: #64748b;
+  --chart-tooltip-bg: #141c2b;
+  --chart-tooltip-border: #1e2a3d;
+  --chart-tooltip-text: #f1f5f9;
+  --chart-cursor: #334155;
+  --chart-dot-stroke: #141c2b;
+}
+
 body {
   background: var(--color-makina-bg);
   color: var(--color-makina-text);
   font-family: "Inter", system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 /* Subtle background texture — radial glow */
@@ -34,6 +72,12 @@ body::before {
     radial-gradient(ellipse 60% 40% at 50% 0%, rgba(196, 181, 253, 0.04) 0%, transparent 70%),
     radial-gradient(ellipse 40% 30% at 80% 80%, rgba(167, 139, 250, 0.03) 0%, transparent 60%);
   pointer-events: none;
+}
+
+html.light body::before {
+  background:
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(139, 92, 246, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(124, 58, 237, 0.03) 0%, transparent 60%);
 }
 
 /* Custom scrollbar */
@@ -56,6 +100,14 @@ body::before {
   background: linear-gradient(135deg, var(--color-makina-accent), var(--color-makina-accent-deep));
 }
 
+/* Gradient text — clipped to text shape */
+.gradient-text {
+  background: linear-gradient(135deg, var(--color-makina-accent), var(--color-makina-accent-deep));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 /* Glow effects */
 .glow-accent {
   box-shadow: 0 0 20px var(--color-makina-accent-dim);
@@ -72,6 +124,9 @@ body::before {
 .hover-lift:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(196, 181, 253, 0.08);
+}
+html.light .hover-lift:hover {
+  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.1);
 }
 
 /* Stagger fade-in animation */

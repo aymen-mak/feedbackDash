@@ -45,22 +45,22 @@ export default function DashboardPage() {
             </div>
             {/* Inline compact stats */}
             <div className="hidden md:flex items-center gap-4 pl-6 border-l border-makina-border">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 cursor-default" title="Total feedback submissions this period">
                 <MessageSquare size={13} className="text-makina-muted" />
                 <span className="text-sm font-semibold">771</span>
                 <span className="text-xs text-makina-green font-medium">+12%</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 cursor-default" title="Unique contributors who submitted feedback">
                 <Users size={13} className="text-makina-muted" />
                 <span className="text-sm font-semibold">284</span>
                 <span className="text-xs text-makina-green font-medium">+8%</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 cursor-default" title="Positive sentiment ratio across all feedback">
                 <ThumbsUp size={13} className="text-makina-muted" />
                 <span className="text-sm font-semibold">74%</span>
                 <span className="text-xs text-makina-green font-medium">+5</span>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 cursor-default" title="Resolution rate — feedback addressed vs total">
                 <TrendingUp size={13} className="text-makina-muted" />
                 <span className="text-sm font-semibold">89%</span>
                 <span className="text-xs text-makina-red font-medium">-2%</span>

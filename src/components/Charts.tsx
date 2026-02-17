@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ComposedChart,
   Area,
@@ -22,13 +22,39 @@ const METRICS: { key: MetricKey; label: string; color: string; format: (v: numbe
   { key: "issues", label: "Open Issues", color: "#ef4444", format: (v) => String(v) },
 ];
 
-const tooltipStyle = {
-  backgroundColor: "#141c2b",
-  border: "1px solid #1e2a3d",
-  borderRadius: "12px",
-  fontSize: "12px",
-  color: "#f1f5f9",
-};
+function useChartColors() {
+  const [colors, setColors] = useState({
+    grid: "#1e2a3d",
+    tick: "#64748b",
+    tooltipBg: "#141c2b",
+    tooltipBorder: "#1e2a3d",
+    tooltipText: "#f1f5f9",
+    cursor: "#334155",
+    dotStroke: "#141c2b",
+  });
+
+  useEffect(() => {
+    const update = () => {
+      const s = getComputedStyle(document.documentElement);
+      setColors({
+        grid: s.getPropertyValue("--chart-grid").trim() || "#1e2a3d",
+        tick: s.getPropertyValue("--chart-tick").trim() || "#64748b",
+        tooltipBg: s.getPropertyValue("--chart-tooltip-bg").trim() || "#141c2b",
+        tooltipBorder: s.getPropertyValue("--chart-tooltip-border").trim() || "#1e2a3d",
+        tooltipText: s.getPropertyValue("--chart-tooltip-text").trim() || "#f1f5f9",
+        cursor: s.getPropertyValue("--chart-cursor").trim() || "#334155",
+        dotStroke: s.getPropertyValue("--chart-dot-stroke").trim() || "#141c2b",
+      });
+    };
+
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  return colors;
+}
 
 function getTimeSlice(range: TimeRange) {
   if (range === "7D") return DAILY_METRICS.slice(-7);
@@ -58,6 +84,7 @@ function getChange(data: typeof DAILY_METRICS, key: MetricKey) {
 export function AnalyticsChart() {
   const [activeMetric, setActiveMetric] = useState<MetricKey>("submissions");
   const [timeRange, setTimeRange] = useState<TimeRange>("14D");
+  const c = useChartColors();
 
   const data = getTimeSlice(timeRange);
   const metric = METRICS.find((m) => m.key === activeMetric)!;
@@ -132,18 +159,24 @@ export function AnalyticsChart() {
                 <stop offset="100%" stopColor={metric.color} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid vertical={false} stroke="#1e2a3d" strokeDasharray="3 3" />
+            <CartesianGrid vertical={false} stroke={c.grid} strokeDasharray="3 3" />
             <XAxis
               dataKey="date"
-              tick={{ fontSize: 11, fill: "#64748b" }}
+              tick={{ fontSize: 11, fill: c.tick }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => v.replace("Feb ", "")}
             />
-            <YAxis tick={{ fontSize: 11, fill: "#64748b" }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
             <Tooltip
-              contentStyle={tooltipStyle}
-              cursor={{ stroke: "#334155", strokeDasharray: "4 4" }}
+              contentStyle={{
+                backgroundColor: c.tooltipBg,
+                border: `1px solid ${c.tooltipBorder}`,
+                borderRadius: "12px",
+                fontSize: "12px",
+                color: c.tooltipText,
+              }}
+              cursor={{ stroke: c.cursor, strokeDasharray: "4 4" }}
             />
             <Bar
               dataKey={activeMetric}
@@ -159,7 +192,7 @@ export function AnalyticsChart() {
               strokeWidth={2}
               fill="url(#areaGrad)"
               dot={false}
-              activeDot={{ r: 4, fill: metric.color, stroke: "#141c2b", strokeWidth: 2 }}
+              activeDot={{ r: 4, fill: metric.color, stroke: c.dotStroke, strokeWidth: 2 }}
             />
           </ComposedChart>
         </ResponsiveContainer>
