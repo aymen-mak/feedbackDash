@@ -2,17 +2,17 @@
 
 import { Radio } from "lucide-react";
 import FeedbackCard from "./FeedbackCard";
-import { type FeedbackItem, type VaultId } from "@/lib/mock-data";
+import { type FeedbackItem, type CategoryId } from "@/lib/mock-data";
 
 interface LiveFeedProps {
   feedback: FeedbackItem[];
-  vault: VaultId | "all";
+  category: CategoryId | "all";
   showStatus?: boolean;
   onStatusChange?: (id: string, status: FeedbackItem["status"]) => void;
 }
 
-export default function LiveFeed({ feedback, vault, showStatus, onStatusChange }: LiveFeedProps) {
-  const filtered = vault === "all" ? feedback : feedback.filter((f) => f.vault === vault);
+export default function LiveFeed({ feedback, category, showStatus, onStatusChange }: LiveFeedProps) {
+  const filtered = category === "all" ? feedback : feedback.filter((f) => f.category === category);
 
   return (
     <div className="space-y-3">

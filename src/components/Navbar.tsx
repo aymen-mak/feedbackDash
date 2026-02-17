@@ -71,10 +71,6 @@ export default function Navbar() {
             <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-makina-accent" />
           </button>
 
-          <button className="rounded-lg bg-makina-card px-3 py-1.5 text-sm font-medium text-makina-muted hover:text-makina-text border border-makina-border hover:border-makina-subtle transition-colors">
-            0x1a2b...3c4d
-          </button>
-
           {/* Mobile menu toggle */}
           <button
             className="md:hidden rounded-lg p-2 text-makina-muted hover:text-makina-text"

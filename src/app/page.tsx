@@ -2,14 +2,14 @@
 
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
-import VaultSelector from "@/components/VaultSelector";
+import CategorySelector from "@/components/VaultSelector";
 import QuickActions from "@/components/QuickActions";
 import FeedbackComposer from "@/components/FeedbackComposer";
 import LiveFeed from "@/components/LiveFeed";
-import { MOCK_FEEDBACK, VAULT_STATS, type VaultId } from "@/lib/mock-data";
+import { MOCK_FEEDBACK, CATEGORY_STATS, type CategoryId } from "@/lib/mock-data";
 
 export default function FeedbackPage() {
-  const [selectedVault, setSelectedVault] = useState<VaultId | "all">("all");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | "all">("all");
 
   return (
     <div className="min-h-screen">
@@ -19,44 +19,44 @@ export default function FeedbackPage() {
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold">Share Your Feedback</h1>
           <p className="text-sm text-makina-muted">
-            Help shape the future of Makina vaults. Your voice matters.
+            Help us improve. Report issues, suggest features, or tell us what you love.
           </p>
         </div>
 
-        {/* Vault overview cards */}
+        {/* Category overview cards */}
         <div className="grid grid-cols-3 gap-3">
-          {VAULT_STATS.map((vault) => (
+          {CATEGORY_STATS.map((cat) => (
             <button
-              key={vault.id}
-              onClick={() => setSelectedVault(vault.id)}
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
               className={`rounded-2xl border p-4 text-center transition-all ${
-                selectedVault === vault.id
+                selectedCategory === cat.id
                   ? "border-makina-accent bg-makina-accent-dim glow-accent"
                   : "border-makina-border bg-makina-card hover:border-makina-subtle"
               }`}
             >
-              <p className="text-lg font-bold">{vault.id}</p>
-              <p className="text-xl font-bold text-makina-accent">{vault.apy}%</p>
-              <p className="text-[11px] text-makina-muted mt-0.5">APY · {vault.tvl} TVL</p>
+              <p className="text-lg font-bold">{cat.id}</p>
+              <p className="text-xl font-bold text-makina-accent">{cat.submissions}</p>
+              <p className="text-[11px] text-makina-muted mt-0.5">submissions · {cat.openIssues} open</p>
               <div className="mt-2 flex items-center justify-center gap-1">
                 <div className="h-1.5 flex-1 rounded-full bg-makina-surface overflow-hidden">
                   <div
                     className="h-full rounded-full bg-makina-green"
-                    style={{ width: `${vault.sentiment * 100}%` }}
+                    style={{ width: `${cat.satisfaction * 100}%` }}
                   />
                 </div>
                 <span className="text-[10px] text-makina-muted">
-                  {Math.round(vault.sentiment * 100)}%
+                  {Math.round(cat.satisfaction * 100)}%
                 </span>
               </div>
             </button>
           ))}
         </div>
 
-        {/* Vault filter pills */}
-        <VaultSelector selected={selectedVault} onSelect={setSelectedVault} />
+        {/* Category filter pills */}
+        <CategorySelector selected={selectedCategory} onSelect={setSelectedCategory} />
 
-        {/* Quick action buttons (still.fun style) */}
+        {/* Quick action buttons */}
         <div className="rounded-2xl bg-makina-surface border border-makina-border p-5 space-y-3">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Quick Feedback</h2>
@@ -67,19 +67,12 @@ export default function FeedbackPage() {
 
         {/* Detailed feedback composer */}
         <FeedbackComposer
-          vault={selectedVault}
-          onSubmit={(msg, vault) => console.log("Feedback:", msg, vault)}
+          category={selectedCategory}
+          onSubmit={(msg, cat) => console.log("Feedback:", msg, cat)}
         />
 
         {/* Live community feed */}
-        <LiveFeed feedback={MOCK_FEEDBACK} vault={selectedVault} />
-
-        {/* Footer gamification hint */}
-        <div className="text-center py-4 border-t border-makina-border">
-          <p className="text-xs text-makina-subtle">
-            Earn ethos by providing quality feedback · Active depositors get 2x ethos
-          </p>
-        </div>
+        <LiveFeed feedback={MOCK_FEEDBACK} category={selectedCategory} />
       </main>
     </div>
   );

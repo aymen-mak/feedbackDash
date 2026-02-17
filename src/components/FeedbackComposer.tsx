@@ -2,21 +2,21 @@
 
 import { useState } from "react";
 import { Send } from "lucide-react";
-import type { VaultId } from "@/lib/mock-data";
+import type { CategoryId } from "@/lib/mock-data";
 
 interface FeedbackComposerProps {
-  vault: VaultId | "all";
-  onSubmit: (message: string, vault: VaultId) => void;
+  category: CategoryId | "all";
+  onSubmit: (message: string, category: CategoryId) => void;
 }
 
-export default function FeedbackComposer({ vault, onSubmit }: FeedbackComposerProps) {
+export default function FeedbackComposer({ category, onSubmit }: FeedbackComposerProps) {
   const [message, setMessage] = useState("");
-  const [selectedVault, setSelectedVault] = useState<VaultId>(vault === "all" ? "DUSD" : vault);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>(category === "all" ? "Product" : category);
   const [submitted, setSubmitted] = useState(false);
 
   const handleSubmit = () => {
     if (!message.trim()) return;
-    onSubmit(message, selectedVault);
+    onSubmit(message, selectedCategory);
     setMessage("");
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 2000);
@@ -26,15 +26,15 @@ export default function FeedbackComposer({ vault, onSubmit }: FeedbackComposerPr
     <div className="rounded-2xl bg-makina-card border border-makina-border p-4">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-sm font-medium text-makina-muted">Share detailed feedback</span>
-        {vault === "all" && (
+        {category === "all" && (
           <select
-            value={selectedVault}
-            onChange={(e) => setSelectedVault(e.target.value as VaultId)}
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value as CategoryId)}
             className="ml-auto rounded-full bg-makina-surface border border-makina-border px-3 py-1 text-xs text-makina-text focus:outline-none focus:border-makina-accent cursor-pointer"
           >
-            <option value="DBIT">DBIT</option>
-            <option value="DETH">DETH</option>
-            <option value="DUSD">DUSD</option>
+            <option value="Product">Product</option>
+            <option value="UX">UX</option>
+            <option value="Support">Support</option>
           </select>
         )}
       </div>
@@ -42,7 +42,7 @@ export default function FeedbackComposer({ vault, onSubmit }: FeedbackComposerPr
         <textarea
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder="What's on your mind about the vaults?"
+          placeholder="What's on your mind? Report a bug, suggest a feature, or share praise..."
           className="flex-1 resize-none rounded-xl bg-makina-surface border border-makina-border px-4 py-3 text-sm text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 transition-colors"
           rows={2}
         />
@@ -55,11 +55,8 @@ export default function FeedbackComposer({ vault, onSubmit }: FeedbackComposerPr
         </button>
       </div>
       {submitted && (
-        <p className="mt-2 text-xs text-makina-green font-medium">Feedback submitted!</p>
+        <p className="mt-2 text-xs text-makina-green font-medium">Feedback submitted! Thank you.</p>
       )}
-      <p className="mt-2 text-[11px] text-makina-subtle">
-        Custom messages unlock at 500 ethos · your ethos: 67
-      </p>
     </div>
   );
 }

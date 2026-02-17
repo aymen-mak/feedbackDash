@@ -44,7 +44,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange }: Feedb
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold">{item.user.displayName}</span>
             <span className="rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-accent">
-              {item.vault}
+              {item.category}
             </span>
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeColors[item.type]}`}>
               {item.type}

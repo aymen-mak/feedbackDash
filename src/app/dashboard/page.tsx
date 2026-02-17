@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
-import VaultSelector from "@/components/VaultSelector";
+import CategorySelector from "@/components/VaultSelector";
 import StatsBar from "@/components/StatsBar";
 import LiveFeed from "@/components/LiveFeed";
 import { SentimentChart, FeedbackTypePie, TopActionsChart } from "@/components/Charts";
-import { MOCK_FEEDBACK, type VaultId, type FeedbackItem } from "@/lib/mock-data";
+import { MOCK_FEEDBACK, type CategoryId, type FeedbackItem } from "@/lib/mock-data";
 import { Filter, Download, Search } from "lucide-react";
 
 type FilterType = "all" | FeedbackItem["type"];
 type FilterStatus = "all" | FeedbackItem["status"];
 
 export default function DashboardPage() {
-  const [selectedVault, setSelectedVault] = useState<VaultId | "all">("all");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId | "all">("all");
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [search, setSearch] = useState("");
@@ -26,7 +26,7 @@ export default function DashboardPage() {
   };
 
   const filtered = feedback.filter((f) => {
-    if (selectedVault !== "all" && f.vault !== selectedVault) return false;
+    if (selectedCategory !== "all" && f.category !== selectedCategory) return false;
     if (filterType !== "all" && f.type !== filterType) return false;
     if (filterStatus !== "all" && f.status !== filterStatus) return false;
     if (search && !f.message.toLowerCase().includes(search.toLowerCase()) && !f.user.displayName.toLowerCase().includes(search.toLowerCase())) return false;
@@ -66,8 +66,8 @@ export default function DashboardPage() {
         {/* Feedback management section */}
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3">
-            {/* Vault filter */}
-            <VaultSelector selected={selectedVault} onSelect={setSelectedVault} />
+            {/* Category filter */}
+            <CategorySelector selected={selectedCategory} onSelect={setSelectedCategory} />
           </div>
 
           {/* Filters row */}
@@ -132,7 +132,7 @@ export default function DashboardPage() {
           {/* Feed with status management */}
           <LiveFeed
             feedback={filtered}
-            vault="all"
+            category="all"
             showStatus
             onStatusChange={handleStatusChange}
           />
