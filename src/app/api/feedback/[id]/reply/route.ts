@@ -5,18 +5,23 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const body = await req.json();
-  const message = body.message as string;
+  try {
+    const { id } = await params;
+    const body = await req.json();
+    const message = body.message as string;
 
-  if (!message?.trim()) {
-    return NextResponse.json({ error: "Message required" }, { status: 400 });
+    if (!message?.trim()) {
+      return NextResponse.json({ error: "Message required" }, { status: 400 });
+    }
+
+    const updated = addReply(id, message.trim());
+    if (!updated) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json(updated);
+  } catch (err) {
+    console.error("POST /api/feedback/[id]/reply error:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
   }
-
-  const updated = addReply(id, message.trim());
-  if (!updated) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  return NextResponse.json(updated);
 }
