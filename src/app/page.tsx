@@ -48,18 +48,20 @@ export default function FeedbackPage() {
   const [anonymous, setAnonymous] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
   const [stats, setStats] = useState<Stats | null>(null);
 
   useEffect(() => {
     fetch("/api/stats")
       .then((r) => r.json())
       .then(setStats)
-      .catch(() => {});
+      .catch((err) => console.error("Failed to load stats:", err));
   }, []);
 
   const handleSubmit = async () => {
     if (!message.trim() && !quickAction) return;
     setSubmitting(true);
+    setError("");
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
@@ -81,8 +83,14 @@ export default function FeedbackPage() {
         setTimeout(() => setSubmitted(false), 2500);
         // Refresh stats
         fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {});
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || `Submission failed (${res.status}). Please try again.`);
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      console.error("Submit error:", err);
+      setError("Could not connect to the server. Make sure you're running 'npm run dev'.");
+    }
     setSubmitting(false);
   };
 
@@ -224,6 +232,12 @@ export default function FeedbackPage() {
                 rows={3}
               />
             </div>
+
+            {error && (
+              <div className="flex items-center gap-2 rounded-md bg-red-500/10 border border-red-500/20 px-4 py-3">
+                <span className="text-sm text-red-400">{error}</span>
+              </div>
+            )}
 
             {submitted ? (
               <div className="flex items-center justify-center gap-2 rounded-md bg-makina-green/10 py-3 animate-success">
