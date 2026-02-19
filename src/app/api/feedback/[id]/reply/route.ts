@@ -1,0 +1,22 @@
+import { NextRequest, NextResponse } from "next/server";
+import { addReply } from "@/lib/store";
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params;
+  const body = await req.json();
+  const message = body.message as string;
+
+  if (!message?.trim()) {
+    return NextResponse.json({ error: "Message required" }, { status: 400 });
+  }
+
+  const updated = addReply(id, message.trim());
+  if (!updated) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(updated);
+}

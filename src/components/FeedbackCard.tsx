@@ -1,11 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronUp, Clock, MessageSquare, Send, X, Box, Paintbrush, Headphones } from "lucide-react";
-import { type FeedbackItem, type CategoryId, QUICK_ACTIONS } from "@/lib/mock-data";
 
-function timeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+type CategoryId = "Product" | "UX" | "Support";
+type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
+
+interface Reply {
+  id: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface FeedbackItemData {
+  id: string;
+  userName: string;
+  userAvatar: string;
+  category: CategoryId;
+  type: string;
+  message: string;
+  quickAction?: string | null;
+  status: FeedbackStatus;
+  upvotes: number;
+  upvotedBy?: string[];
+  replies?: Reply[];
+  createdAt: string;
+}
+
+const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
+  "love-it": { emoji: "🎉", label: "Love it!" },
+  "easy-to-use": { emoji: "✨", label: "Easy to use" },
+  "feature-request": { emoji: "💡", label: "Feature request" },
+  "bug-report": { emoji: "🐛", label: "Bug report" },
+  "great-support": { emoji: "👏", label: "Great support" },
+  "confusing": { emoji: "😕", label: "Confusing" },
+  "too-slow": { emoji: "🐌", label: "Too slow" },
+  "needs-improvement": { emoji: "🔧", label: "Needs improvement" },
+};
+
+function timeAgo(date: string | Date): string {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
   if (seconds < 60) return "just now";
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -27,33 +62,90 @@ const categoryIcons: Record<CategoryId, React.ComponentType<{ size?: number; cla
   Support: Headphones,
 };
 
-interface FeedbackCardProps {
-  item: FeedbackItem;
-  showStatus?: boolean;
-  onStatusChange?: (id: string, status: FeedbackItem["status"]) => void;
-  onReply?: (id: string, message: string) => void;
+function getSessionId(): string {
+  if (typeof window === "undefined") return "";
+  let id = sessionStorage.getItem("makina-session-id");
+  if (!id) {
+    id = "sess-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    sessionStorage.setItem("makina-session-id", id);
+  }
+  return id;
 }
 
-export default function FeedbackCard({ item, showStatus, onStatusChange, onReply }: FeedbackCardProps) {
+interface FeedbackCardProps {
+  item: FeedbackItemData;
+  showStatus?: boolean;
+  onStatusChange?: (id: string, status: FeedbackStatus) => void;
+  onItemUpdate?: (item: FeedbackItemData) => void;
+}
+
+export default function FeedbackCard({ item, showStatus, onStatusChange, onItemUpdate }: FeedbackCardProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySent, setReplySent] = useState(false);
+  const [localUpvotes, setLocalUpvotes] = useState(item.upvotes);
+  const [hasUpvoted, setHasUpvoted] = useState(false);
+  const [upvoting, setUpvoting] = useState(false);
 
-  const quickAction = item.quickAction
-    ? QUICK_ACTIONS.find((a) => a.id === item.quickAction)
-    : null;
+  useEffect(() => {
+    setLocalUpvotes(item.upvotes);
+    const sid = getSessionId();
+    setHasUpvoted(item.upvotedBy?.includes(sid) ?? false);
+  }, [item.upvotes, item.upvotedBy]);
 
-  const handleReply = () => {
+  const quickAction = item.quickAction ? QUICK_ACTION_LABELS[item.quickAction] : null;
+
+  const handleUpvote = async () => {
+    if (upvoting) return;
+    setUpvoting(true);
+    try {
+      const res = await fetch(`/api/feedback/${item.id}/upvote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId: getSessionId() }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setLocalUpvotes(data.upvotes);
+        setHasUpvoted(data.upvotedBy.includes(getSessionId()));
+      }
+    } catch { /* ignore */ }
+    setUpvoting(false);
+  };
+
+  const handleReply = async () => {
     if (!replyText.trim()) return;
-    onReply?.(item.id, replyText);
-    setReplyText("");
-    setReplySent(true);
-    setReplyOpen(false);
-    setTimeout(() => setReplySent(false), 2000);
+    try {
+      const res = await fetch(`/api/feedback/${item.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: replyText.trim() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        onItemUpdate?.(updated);
+        setReplyText("");
+        setReplySent(true);
+        setReplyOpen(false);
+        setTimeout(() => setReplySent(false), 2000);
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleStatusChange = async (newStatus: FeedbackStatus) => {
+    try {
+      const res = await fetch(`/api/feedback/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (res.ok) {
+        onStatusChange?.(item.id, newStatus);
+      }
+    } catch { /* ignore */ }
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't toggle reply if clicking an interactive element
     const target = e.target as HTMLElement;
     if (target.closest("button, select, input, a, textarea")) return;
     setReplyOpen(!replyOpen);
@@ -67,29 +159,26 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
       className="group rounded-md bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer"
     >
       <div className="flex items-start gap-3">
-        {/* Avatar */}
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-makina-surface text-sm font-bold text-makina-accent border border-makina-border">
-          {item.user.avatar}
+          {item.userAvatar}
         </div>
 
         <div className="min-w-0 flex-1">
-          {/* Header */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-semibold">{item.user.displayName}</span>
+            <span className="text-sm font-semibold">{item.userName}</span>
             <span className="flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
               <CategoryIcon size={9} />
               {item.category}
             </span>
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeColors[item.type]}`}>
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeColors[item.type] || ""}`}>
               {item.type}
             </span>
             <span className="flex items-center gap-1 text-[11px] text-makina-muted ml-auto">
               <Clock size={10} />
-              {timeAgo(item.timestamp)}
+              {timeAgo(item.createdAt)}
             </span>
           </div>
 
-          {/* Content */}
           <div className="mt-2">
             {quickAction && (
               <div className="inline-flex items-center gap-1.5 rounded-md bg-makina-surface px-3 py-1.5 text-sm">
@@ -104,11 +193,31 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
             )}
           </div>
 
-          {/* Footer */}
+          {item.replies && item.replies.length > 0 && (
+            <div className="mt-3 space-y-2 pl-3 border-l-2 border-makina-border">
+              {item.replies.map((reply) => (
+                <div key={reply.id} className="text-xs text-makina-muted">
+                  <span className="text-makina-accent font-medium">Team reply</span>
+                  <span className="mx-1.5">&middot;</span>
+                  <span>{timeAgo(reply.createdAt)}</span>
+                  <p className="mt-0.5 text-makina-text/80">{reply.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="mt-3 flex items-center gap-3">
-            <button className="flex items-center gap-1 rounded-md px-2 py-1 text-xs text-makina-muted hover:text-makina-accent hover:bg-makina-accent-dim transition-colors">
+            <button
+              onClick={handleUpvote}
+              disabled={upvoting}
+              className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+                hasUpvoted
+                  ? "text-makina-accent bg-makina-accent-dim"
+                  : "text-makina-muted hover:text-makina-accent hover:bg-makina-accent-dim"
+              }`}
+            >
               <ChevronUp size={14} />
-              <span className="font-medium">{item.upvotes}</span>
+              <span className="font-medium">{localUpvotes}</span>
             </button>
             <button
               onClick={() => setReplyOpen(!replyOpen)}
@@ -119,16 +228,16 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
               }`}
             >
               <MessageSquare size={12} />
-              <span>Reply</span>
+              <span>Reply{item.replies && item.replies.length > 0 ? ` (${item.replies.length})` : ""}</span>
             </button>
             {replySent && (
               <span className="text-xs text-makina-green font-medium animate-success">Sent!</span>
             )}
-            {showStatus && onStatusChange && (
+            {showStatus && (
               <div className="ml-auto">
                 <select
                   value={item.status}
-                  onChange={(e) => onStatusChange(item.id, e.target.value as FeedbackItem["status"])}
+                  onChange={(e) => handleStatusChange(e.target.value as FeedbackStatus)}
                   className="rounded-md bg-makina-surface border border-makina-border px-2 py-1 text-xs text-makina-muted focus:outline-none focus:border-makina-accent cursor-pointer"
                 >
                   <option value="new">New</option>
@@ -140,7 +249,6 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onReply
             )}
           </div>
 
-          {/* Inline reply */}
           {replyOpen && (
             <div className="mt-3 flex gap-2 animate-fade-in-up">
               <input

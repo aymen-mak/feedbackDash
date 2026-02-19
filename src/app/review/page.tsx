@@ -1,17 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
-import FeedbackCard from "@/components/FeedbackCard";
+import FeedbackCard, { type FeedbackItemData } from "@/components/FeedbackCard";
 import Tooltip from "@/components/Tooltip";
-import {
-  MOCK_FEEDBACK,
-  type FeedbackItem,
-  type CategoryId,
-  type FeedbackType,
-  type FeedbackStatus,
-} from "@/lib/mock-data";
 import {
   Filter,
   Search,
@@ -19,20 +12,18 @@ import {
   Star,
   AlertTriangle,
   Archive,
-  CheckCircle2,
   XCircle,
   ChevronDown,
   ArrowUpRight,
   Trash2,
   Tag,
-  MessageSquare,
-  Users,
-  TrendingUp,
 } from "lucide-react";
 
 type Priority = "none" | "low" | "medium" | "high";
+type FeedbackType = "praise" | "issue" | "suggestion" | "question";
+type CategoryId = "Product" | "UX" | "Support";
 
-interface ReviewItem extends FeedbackItem {
+interface ReviewItem extends FeedbackItemData {
   priority: Priority;
   starred: boolean;
   tags: string[];
@@ -56,20 +47,11 @@ const priorityLabels: Record<Priority, string> = {
 
 const PRESET_TAGS = ["actionable", "recurring", "quick-win", "needs-context", "team-blocker"];
 
-// Extend mock data with review-specific fields
-const initialReviewItems: ReviewItem[] = MOCK_FEEDBACK.map((item) => ({
-  ...item,
-  priority: "none" as Priority,
-  starred: false,
-  tags: [],
-  escalated: false,
-  dismissed: false,
-}));
-
 type ViewFilter = "inbox" | "starred" | "escalated" | "dismissed";
 
 export default function ReviewPage() {
-  const [items, setItems] = useState<ReviewItem[]>(initialReviewItems);
+  const [items, setItems] = useState<ReviewItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("inbox");
   const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
@@ -77,12 +59,42 @@ export default function ReviewPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [tagDropdownId, setTagDropdownId] = useState<string | null>(null);
 
-  const updateItem = (id: string, updates: Partial<ReviewItem>) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)));
+  useEffect(() => {
+    fetch("/api/feedback")
+      .then((r) => r.json())
+      .then((data: ReviewItem[]) => {
+        // Ensure review-specific fields have defaults
+        const enriched = data.map((item) => ({
+          ...item,
+          priority: item.priority || ("none" as Priority),
+          starred: item.starred ?? false,
+          tags: item.tags || [],
+          escalated: item.escalated ?? false,
+          dismissed: item.dismissed ?? false,
+        }));
+        setItems(enriched);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const patchItem = async (id: string, updates: Partial<ReviewItem>) => {
+    try {
+      const res = await fetch(`/api/feedback/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)));
+      }
+    } catch { /* ignore */ }
   };
 
   const toggleStar = (id: string) => {
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, starred: !i.starred } : i)));
+    const item = items.find((i) => i.id === id);
+    if (item) patchItem(id, { starred: !item.starred });
   };
 
   const toggleSelect = (id: string) => {
@@ -102,32 +114,30 @@ export default function ReviewPage() {
     }
   };
 
-  const bulkAction = (action: "escalate" | "dismiss" | "priority", value?: Priority) => {
-    setItems((prev) =>
-      prev.map((i) => {
-        if (!selectedItems.has(i.id)) return i;
-        if (action === "escalate") return { ...i, escalated: true };
-        if (action === "dismiss") return { ...i, dismissed: true };
-        if (action === "priority" && value) return { ...i, priority: value };
-        return i;
-      })
-    );
+  const bulkAction = async (action: "escalate" | "dismiss" | "priority", value?: Priority) => {
+    const ids = [...selectedItems];
+    const updates: Partial<ReviewItem> =
+      action === "escalate" ? { escalated: true } :
+      action === "dismiss" ? { dismissed: true } :
+      action === "priority" && value ? { priority: value } : {};
+
+    await Promise.all(ids.map((id) => patchItem(id, updates)));
     setSelectedItems(new Set());
   };
 
   const addTag = (id: string, tag: string) => {
-    setItems((prev) =>
-      prev.map((i) =>
-        i.id === id && !i.tags.includes(tag) ? { ...i, tags: [...i.tags, tag] } : i
-      )
-    );
+    const item = items.find((i) => i.id === id);
+    if (item && !item.tags.includes(tag)) {
+      patchItem(id, { tags: [...item.tags, tag] });
+    }
     setTagDropdownId(null);
   };
 
   const removeTag = (id: string, tag: string) => {
-    setItems((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, tags: i.tags.filter((t) => t !== tag) } : i))
-    );
+    const item = items.find((i) => i.id === id);
+    if (item) {
+      patchItem(id, { tags: item.tags.filter((t) => t !== tag) });
+    }
   };
 
   // Apply view filter
@@ -146,13 +156,12 @@ export default function ReviewPage() {
     if (
       search &&
       !i.message.toLowerCase().includes(search.toLowerCase()) &&
-      !i.user.displayName.toLowerCase().includes(search.toLowerCase())
+      !i.userName.toLowerCase().includes(search.toLowerCase())
     )
       return false;
     return true;
   });
 
-  // Stats
   const totalInbox = items.filter((i) => !i.dismissed).length;
   const totalStarred = items.filter((i) => i.starred && !i.dismissed).length;
   const totalEscalated = items.filter((i) => i.escalated && !i.dismissed).length;
@@ -165,6 +174,19 @@ export default function ReviewPage() {
     { key: "dismissed", label: "Dismissed", count: items.filter((i) => i.dismissed).length, icon: <Archive size={14} /> },
   ];
 
+  if (loading) {
+    return (
+      <PasswordGate>
+        <div className="min-h-screen">
+          <Navbar />
+          <main className="mx-auto max-w-6xl px-4 py-6 flex items-center justify-center h-[80vh]">
+            <div className="text-sm text-makina-muted animate-pulse">Loading review inbox...</div>
+          </main>
+        </div>
+      </PasswordGate>
+    );
+  }
+
   return (
     <PasswordGate>
       <div className="min-h-screen">
@@ -174,9 +196,7 @@ export default function ReviewPage() {
           <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up">
             <div className="flex items-center gap-6">
               <div>
-                <p className="text-xs text-makina-muted font-medium uppercase tracking-wider">
-                  Layer 1
-                </p>
+                <p className="text-xs text-makina-muted font-medium uppercase tracking-wider">Layer 1</p>
                 <h1 className="text-xl font-bold">Review & Triage</h1>
               </div>
               <div className="hidden md:flex items-center gap-4 pl-6 border-l border-makina-border">
@@ -233,25 +253,21 @@ export default function ReviewPage() {
             <div className="flex items-center gap-1.5 text-sm text-makina-muted">
               <Filter size={14} />
             </div>
-
             <div className="flex gap-1">
-              {(["all", "praise", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map(
-                (type) => (
-                  <button
-                    key={type}
-                    onClick={() => setTypeFilter(type)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      typeFilter === type
-                        ? "bg-makina-accent text-makina-bg"
-                        : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                    }`}
-                  >
-                    {type === "all" ? "All types" : type}
-                  </button>
-                )
-              )}
+              {(["all", "praise", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setTypeFilter(type)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    typeFilter === type
+                      ? "bg-makina-accent text-makina-bg"
+                      : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                  }`}
+                >
+                  {type === "all" ? "All types" : type}
+                </button>
+              ))}
             </div>
-
             <div className="flex gap-1">
               {(["all", "Product", "UX", "Support"] as (CategoryId | "all")[]).map((cat) => (
                 <button
@@ -267,7 +283,6 @@ export default function ReviewPage() {
                 </button>
               ))}
             </div>
-
             <div className="relative ml-auto">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
               <input
@@ -283,35 +298,21 @@ export default function ReviewPage() {
           {/* Bulk actions bar */}
           {selectedItems.size > 0 && (
             <div className="flex items-center gap-3 rounded-lg bg-makina-accent-dim border border-makina-accent/20 px-4 py-2.5 animate-fade-in-up">
-              <span className="text-xs font-semibold text-makina-accent">
-                {selectedItems.size} selected
-              </span>
+              <span className="text-xs font-semibold text-makina-accent">{selectedItems.size} selected</span>
               <div className="h-4 w-px bg-makina-accent/20" />
-              <button
-                onClick={() => bulkAction("escalate")}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-accent/40 transition-colors"
-              >
+              <button onClick={() => bulkAction("escalate")} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-accent/40 transition-colors">
                 <ArrowUpRight size={12} />
                 Escalate to team
               </button>
-              <button
-                onClick={() => bulkAction("priority", "high")}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-amber-400/40 transition-colors"
-              >
+              <button onClick={() => bulkAction("priority", "high")} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-amber-400/40 transition-colors">
                 <AlertTriangle size={12} />
                 Mark high priority
               </button>
-              <button
-                onClick={() => bulkAction("dismiss")}
-                className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-makina-card border border-makina-border hover:border-makina-red/40 transition-colors"
-              >
+              <button onClick={() => bulkAction("dismiss")} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-makina-card border border-makina-border hover:border-makina-red/40 transition-colors">
                 <XCircle size={12} />
                 Dismiss
               </button>
-              <button
-                onClick={() => setSelectedItems(new Set())}
-                className="ml-auto text-xs text-makina-muted hover:text-makina-text transition-colors"
-              >
+              <button onClick={() => setSelectedItems(new Set())} className="ml-auto text-xs text-makina-muted hover:text-makina-text transition-colors">
                 Clear selection
               </button>
             </div>
@@ -319,34 +320,21 @@ export default function ReviewPage() {
 
           {/* Results count + select all */}
           <div className="flex items-center justify-between">
-            <p className="text-xs text-makina-muted">
-              Showing {filtered.length} items
-            </p>
-            <button
-              onClick={selectAll}
-              className="text-xs text-makina-muted hover:text-makina-accent transition-colors"
-            >
-              {selectedItems.size === filtered.length && filtered.length > 0
-                ? "Deselect all"
-                : "Select all"}
+            <p className="text-xs text-makina-muted">Showing {filtered.length} items</p>
+            <button onClick={selectAll} className="text-xs text-makina-muted hover:text-makina-accent transition-colors">
+              {selectedItems.size === filtered.length && filtered.length > 0 ? "Deselect all" : "Select all"}
             </button>
           </div>
 
           {/* Feedback list */}
           <div className="space-y-2">
             {filtered.map((item, index) => (
-              <div
-                key={item.id}
-                className="animate-fade-in-up"
-                style={{ animationDelay: `${index * 40}ms` }}
-              >
-                <div
-                  className={`rounded-lg border transition-colors ${
-                    selectedItems.has(item.id)
-                      ? "border-makina-accent/40 bg-makina-accent-dim/30"
-                      : "border-makina-border bg-makina-card"
-                  }`}
-                >
+              <div key={item.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 40}ms` }}>
+                <div className={`rounded-lg border transition-colors ${
+                  selectedItems.has(item.id)
+                    ? "border-makina-accent/40 bg-makina-accent-dim/30"
+                    : "border-makina-border bg-makina-card"
+                }`}>
                   {/* Review controls bar */}
                   <div className="flex items-center gap-2 px-4 py-2 border-b border-makina-border/50">
                     <input
@@ -357,40 +345,24 @@ export default function ReviewPage() {
                     />
                     <button
                       onClick={() => toggleStar(item.id)}
-                      className={`p-1 rounded transition-colors ${
-                        item.starred
-                          ? "text-amber-400"
-                          : "text-makina-subtle hover:text-amber-400"
-                      }`}
+                      className={`p-1 rounded transition-colors ${item.starred ? "text-amber-400" : "text-makina-subtle hover:text-amber-400"}`}
                     >
                       <Star size={14} fill={item.starred ? "currentColor" : "none"} />
                     </button>
-
-                    {/* Priority selector */}
                     <select
                       value={item.priority}
-                      onChange={(e) => updateItem(item.id, { priority: e.target.value as Priority })}
+                      onChange={(e) => patchItem(item.id, { priority: e.target.value as Priority })}
                       className={`rounded-md bg-transparent border-none text-xs font-medium cursor-pointer focus:outline-none ${priorityColors[item.priority]}`}
                     >
                       {(Object.entries(priorityLabels) as [Priority, string][]).map(([k, v]) => (
                         <option key={k} value={k}>{v}</option>
                       ))}
                     </select>
-
-                    {/* Tags */}
                     <div className="flex items-center gap-1 ml-2">
                       {item.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted"
-                        >
+                        <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
                           {tag}
-                          <button
-                            onClick={() => removeTag(item.id, tag)}
-                            className="hover:text-makina-red transition-colors"
-                          >
-                            ×
-                          </button>
+                          <button onClick={() => removeTag(item.id, tag)} className="hover:text-makina-red transition-colors">×</button>
                         </span>
                       ))}
                       <div className="relative">
@@ -416,27 +388,19 @@ export default function ReviewPage() {
                         )}
                       </div>
                     </div>
-
-                    {/* Right side actions */}
                     <div className="ml-auto flex items-center gap-1">
                       {item.escalated && (
-                        <span className="text-[10px] font-medium text-makina-green bg-makina-green/10 rounded-full px-2 py-0.5">
-                          Escalated
-                        </span>
+                        <span className="text-[10px] font-medium text-makina-green bg-makina-green/10 rounded-full px-2 py-0.5">Escalated</span>
                       )}
                       <button
-                        onClick={() => updateItem(item.id, { escalated: !item.escalated })}
-                        className={`p-1.5 rounded-md text-xs transition-colors ${
-                          item.escalated
-                            ? "text-makina-green hover:text-makina-muted"
-                            : "text-makina-subtle hover:text-makina-green"
-                        }`}
+                        onClick={() => patchItem(item.id, { escalated: !item.escalated })}
+                        className={`p-1.5 rounded-md text-xs transition-colors ${item.escalated ? "text-makina-green hover:text-makina-muted" : "text-makina-subtle hover:text-makina-green"}`}
                         title={item.escalated ? "Remove from team view" : "Escalate to team"}
                       >
                         <ArrowUpRight size={13} />
                       </button>
                       <button
-                        onClick={() => updateItem(item.id, { dismissed: true })}
+                        onClick={() => patchItem(item.id, { dismissed: true })}
                         className="p-1.5 rounded-md text-makina-subtle hover:text-makina-red transition-colors"
                         title="Dismiss"
                       >
@@ -444,14 +408,12 @@ export default function ReviewPage() {
                       </button>
                     </div>
                   </div>
-
-                  {/* The feedback card itself */}
                   <div className="px-4 py-3">
                     <FeedbackCard
                       item={item}
                       showStatus
-                      onStatusChange={(id, status) => updateItem(id, { status })}
-                      onReply={(id, msg) => console.log("Reply to", id, ":", msg)}
+                      onStatusChange={(id, status) => patchItem(id, { status })}
+                      onItemUpdate={(updated) => setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } : i)))}
                     />
                   </div>
                 </div>

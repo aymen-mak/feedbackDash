@@ -1,77 +1,112 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
-import CategorySelector from "@/components/VaultSelector";
 import LiveFeed from "@/components/LiveFeed";
 import { AnalyticsChart } from "@/components/Charts";
 import Tooltip from "@/components/Tooltip";
-import { MOCK_FEEDBACK, FEEDBACK_BY_TYPE, type CategoryId, type FeedbackItem } from "@/lib/mock-data";
+import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { Filter, Download, Search, TrendingUp, Users, MessageSquare, ThumbsUp } from "lucide-react";
 
-type FilterType = "all" | FeedbackItem["type"];
-type FilterStatus = "all" | FeedbackItem["status"];
+type FilterType = "all" | "praise" | "issue" | "suggestion" | "question";
+type FilterStatus = "all" | "new" | "reviewed" | "addressed" | "dismissed";
+type CategoryFilter = "all" | "Product" | "UX" | "Support";
+
+interface Stats {
+  total: number;
+  contributors: number;
+  positive: number;
+  resolutionRate: number;
+  feedbackByType: { name: string; value: number; pct: number; color: string }[];
+  dailyMetrics: { date: string; submissions: number; sentiment: number; issues: number; resolved: number }[];
+  categoryStats: { id: string; submissions: number; openIssues: number; satisfaction: number }[];
+}
 
 export default function DashboardPage() {
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId | "all">("all");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [search, setSearch] = useState("");
-  const [feedback, setFeedback] = useState(MOCK_FEEDBACK);
+  const [feedback, setFeedback] = useState<FeedbackItemData[]>([]);
+  const [stats, setStats] = useState<Stats | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleStatusChange = (id: string, status: FeedbackItem["status"]) => {
+  const fetchData = () => {
+    Promise.all([
+      fetch("/api/feedback").then((r) => r.json()),
+      fetch("/api/stats").then((r) => r.json()),
+    ]).then(([fb, st]) => {
+      setFeedback(fb);
+      setStats(st);
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  };
+
+  useEffect(() => { fetchData(); }, []);
+
+  const handleStatusChange = (id: string, status: string) => {
     setFeedback((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status } : f))
+      prev.map((f) => (f.id === id ? { ...f, status: status as FeedbackItemData["status"] } : f))
     );
+  };
+
+  const handleItemUpdate = (updated: FeedbackItemData) => {
+    setFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
   };
 
   const filtered = feedback.filter((f) => {
     if (selectedCategory !== "all" && f.category !== selectedCategory) return false;
     if (filterType !== "all" && f.type !== filterType) return false;
     if (filterStatus !== "all" && f.status !== filterStatus) return false;
-    if (search && !f.message.toLowerCase().includes(search.toLowerCase()) && !f.user.displayName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !f.message.toLowerCase().includes(search.toLowerCase()) && !f.userName.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <main className="mx-auto max-w-6xl px-4 py-6 flex items-center justify-center h-[80vh]">
+          <div className="text-sm text-makina-muted animate-pulse">Loading dashboard...</div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen">
       <Navbar />
       <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">
-        {/* Header row — compact, integrated */}
+        {/* Header row */}
         <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up">
           <div className="flex items-center gap-6">
             <div>
               <p className="text-xs text-makina-muted font-medium uppercase tracking-wider">Overview</p>
               <h1 className="text-xl font-bold">Dashboard</h1>
             </div>
-            {/* Inline compact stats */}
             <div className="hidden md:flex items-center gap-4 pl-6 border-l border-makina-border">
               <Tooltip content="Total feedback submissions this period">
                 <div className="flex items-center gap-2 cursor-default">
                   <MessageSquare size={13} className="text-makina-muted" />
-                  <span className="text-sm font-semibold">771</span>
-                  <span className="text-xs text-makina-green font-medium">+12%</span>
+                  <span className="text-sm font-semibold">{stats?.total ?? 0}</span>
                 </div>
               </Tooltip>
               <Tooltip content="Unique contributors who submitted feedback">
                 <div className="flex items-center gap-2 cursor-default">
                   <Users size={13} className="text-makina-muted" />
-                  <span className="text-sm font-semibold">284</span>
-                  <span className="text-xs text-makina-green font-medium">+8%</span>
+                  <span className="text-sm font-semibold">{stats?.contributors ?? 0}</span>
                 </div>
               </Tooltip>
               <Tooltip content="Positive sentiment ratio across all feedback">
                 <div className="flex items-center gap-2 cursor-default">
                   <ThumbsUp size={13} className="text-makina-muted" />
-                  <span className="text-sm font-semibold">74%</span>
-                  <span className="text-xs text-makina-green font-medium">+5</span>
+                  <span className="text-sm font-semibold">{stats?.positive ?? 0}%</span>
                 </div>
               </Tooltip>
               <Tooltip content="Resolution rate — feedback addressed vs total">
                 <div className="flex items-center gap-2 cursor-default">
                   <TrendingUp size={13} className="text-makina-muted" />
-                  <span className="text-sm font-semibold">89%</span>
-                  <span className="text-xs text-makina-red font-medium">-2%</span>
+                  <span className="text-sm font-semibold">{stats?.resolutionRate ?? 0}%</span>
                 </div>
               </Tooltip>
             </div>
@@ -82,34 +117,54 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Main analytics chart */}
-        <AnalyticsChart />
+        {/* Analytics chart */}
+        <AnalyticsChart data={stats?.dailyMetrics} />
 
-        {/* Type breakdown — compact horizontal bar */}
-        <div className="flex items-center gap-3 rounded-lg bg-makina-card border border-makina-border p-4 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-          {FEEDBACK_BY_TYPE.map((type) => (
-            <div key={type.name} className="flex-1">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="flex items-center gap-1.5 text-xs text-makina-muted">
-                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: type.color }} />
-                  {type.name}
-                </span>
-                <span className="text-xs font-semibold">{type.value}</span>
+        {/* Type breakdown */}
+        {stats && (
+          <div className="flex items-center gap-3 rounded-lg bg-makina-card border border-makina-border p-4 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            {stats.feedbackByType.map((type) => (
+              <div key={type.name} className="flex-1">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="flex items-center gap-1.5 text-xs text-makina-muted">
+                    <span className="h-2 w-2 rounded-full" style={{ backgroundColor: type.color }} />
+                    {type.name}
+                  </span>
+                  <span className="text-xs font-semibold">{type.value}</span>
+                </div>
+                <div className="h-1.5 rounded-full bg-makina-surface overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${type.pct}%`, backgroundColor: type.color }}
+                  />
+                </div>
               </div>
-              <div className="h-1.5 rounded-full bg-makina-surface overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all"
-                  style={{ width: `${type.pct}%`, backgroundColor: type.color }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         {/* Feedback management section */}
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <CategorySelector selected={selectedCategory} onSelect={setSelectedCategory} />
+          {/* Category selector */}
+          <div className="flex gap-2 flex-wrap">
+            {(["all", "Product", "UX", "Support"] as CategoryFilter[]).map((cat) => (
+              <button
+                key={cat}
+                onClick={() => setSelectedCategory(cat)}
+                className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
+                  selectedCategory === cat
+                    ? "bg-makina-accent text-makina-bg"
+                    : "bg-makina-card text-makina-muted border border-makina-border hover:border-makina-subtle hover:text-makina-text"
+                }`}
+              >
+                {cat === "all" ? "All" : cat}
+                {cat !== "all" && stats && (
+                  <span className={`ml-2 text-xs ${selectedCategory === cat ? "text-makina-bg/70" : "text-makina-subtle"}`}>
+                    {stats.categoryStats.find((c) => c.id === cat)?.submissions ?? 0}
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
 
           {/* Filters row */}
@@ -118,7 +173,6 @@ export default function DashboardPage() {
               <Filter size={14} />
               <span>Filters:</span>
             </div>
-
             <div className="flex gap-1">
               {(["all", "praise", "issue", "suggestion", "question"] as FilterType[]).map((type) => (
                 <button
@@ -134,7 +188,6 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-
             <div className="flex gap-1">
               {(["all", "new", "reviewed", "addressed", "dismissed"] as FilterStatus[]).map((status) => (
                 <button
@@ -150,7 +203,6 @@ export default function DashboardPage() {
                 </button>
               ))}
             </div>
-
             <div className="relative ml-auto">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
               <input
@@ -172,7 +224,7 @@ export default function DashboardPage() {
             category="all"
             showStatus
             onStatusChange={handleStatusChange}
-            onReply={(id, msg) => console.log("Reply to", id, ":", msg)}
+            onItemUpdate={handleItemUpdate}
           />
         </div>
       </main>

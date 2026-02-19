@@ -11,7 +11,14 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { DAILY_METRICS } from "@/lib/mock-data";
+
+interface DailyMetric {
+  date: string;
+  submissions: number;
+  sentiment: number;
+  issues: number;
+  resolved: number;
+}
 
 type MetricKey = "submissions" | "sentiment" | "issues";
 type TimeRange = "7D" | "14D" | "All";
@@ -56,21 +63,23 @@ function useChartColors() {
   return colors;
 }
 
-function getTimeSlice(range: TimeRange) {
-  if (range === "7D") return DAILY_METRICS.slice(-7);
-  if (range === "14D") return DAILY_METRICS.slice(-14);
-  return DAILY_METRICS;
+function getTimeSlice(data: DailyMetric[], range: TimeRange) {
+  if (range === "7D") return data.slice(-7);
+  if (range === "14D") return data.slice(-14);
+  return data;
 }
 
-function getTotal(data: typeof DAILY_METRICS, key: MetricKey) {
+function getTotal(data: DailyMetric[], key: MetricKey) {
   if (key === "sentiment") {
-    const avg = data.reduce((sum, d) => sum + d[key], 0) / data.length;
+    const valid = data.filter((d) => d.submissions > 0);
+    if (valid.length === 0) return 0;
+    const avg = valid.reduce((sum, d) => sum + d[key], 0) / valid.length;
     return Math.round(avg);
   }
   return data.reduce((sum, d) => sum + d[key], 0);
 }
 
-function getChange(data: typeof DAILY_METRICS, key: MetricKey) {
+function getChange(data: DailyMetric[], key: MetricKey) {
   if (data.length < 2) return 0;
   const half = Math.floor(data.length / 2);
   const recent = data.slice(half);
@@ -81,22 +90,49 @@ function getChange(data: typeof DAILY_METRICS, key: MetricKey) {
   return Math.round(((recentAvg - earlierAvg) / earlierAvg) * 100);
 }
 
-export function AnalyticsChart() {
+interface AnalyticsChartProps {
+  data?: DailyMetric[];
+}
+
+export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
   const [activeMetric, setActiveMetric] = useState<MetricKey>("submissions");
   const [timeRange, setTimeRange] = useState<TimeRange>("14D");
+  const [chartData, setChartData] = useState<DailyMetric[]>([]);
+  const [loading, setLoading] = useState(!externalData);
   const c = useChartColors();
 
-  const data = getTimeSlice(timeRange);
+  useEffect(() => {
+    if (externalData) {
+      setChartData(externalData);
+      setLoading(false);
+      return;
+    }
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then((stats) => {
+        setChartData(stats.dailyMetrics || []);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, [externalData]);
+
+  const data = getTimeSlice(chartData, timeRange);
   const metric = METRICS.find((m) => m.key === activeMetric)!;
   const total = getTotal(data, activeMetric);
   const change = getChange(data, activeMetric);
 
+  if (loading) {
+    return (
+      <div className="rounded-lg bg-makina-card border border-makina-border p-5 h-96 flex items-center justify-center">
+        <div className="text-sm text-makina-muted animate-pulse">Loading chart data...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-lg bg-makina-card border border-makina-border overflow-hidden animate-fade-in-up">
-      {/* Chart header */}
       <div className="p-5 pb-0">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          {/* Featured metric */}
           <div>
             <p className="text-xs text-makina-muted font-medium uppercase tracking-wider mb-1">{metric.label}</p>
             <div className="flex items-baseline gap-3">
@@ -108,8 +144,6 @@ export function AnalyticsChart() {
               </span>
             </div>
           </div>
-
-          {/* Time range */}
           <div className="flex items-center rounded-lg bg-makina-surface border border-makina-border p-0.5">
             {(["7D", "14D", "All"] as TimeRange[]).map((range) => (
               <button
@@ -126,8 +160,6 @@ export function AnalyticsChart() {
             ))}
           </div>
         </div>
-
-        {/* Metric toggles */}
         <div className="flex items-center gap-2 mt-4">
           {METRICS.map((m) => (
             <button
@@ -148,8 +180,6 @@ export function AnalyticsChart() {
           ))}
         </div>
       </div>
-
-      {/* Chart */}
       <div className="h-72 px-2 pt-4">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
@@ -165,7 +195,6 @@ export function AnalyticsChart() {
               tick={{ fontSize: 11, fill: c.tick }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => v.replace("Feb ", "")}
             />
             <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
             <Tooltip
