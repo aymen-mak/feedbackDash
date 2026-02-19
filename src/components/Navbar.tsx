@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import {
   MessageSquare,
   LayoutDashboard,
-  Zap,
   Link2,
   Menu,
   X,
@@ -93,12 +92,6 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-1.5 rounded-full bg-makina-card px-3 py-1.5 text-xs font-medium">
-            <Zap size={12} className="text-makina-accent" />
-            <span className="text-makina-accent">771</span>
-            <span className="text-makina-muted">feedback today</span>
-          </div>
-
           <button
             onClick={toggle}
             className="rounded-md p-2 text-makina-muted hover:text-makina-text hover:bg-makina-card transition-colors"

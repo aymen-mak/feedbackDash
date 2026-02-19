@@ -6,13 +6,10 @@ import PasswordGate from "@/components/PasswordGate";
 import Tooltip from "@/components/Tooltip";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import {
-  Layers,
-  TrendingUp,
   AlertTriangle,
   Lightbulb,
   ThumbsUp,
   Hash,
-  Flame,
   BarChart3,
   CheckCircle2,
   ChevronRight,
@@ -20,9 +17,21 @@ import {
   Box,
   Paintbrush,
   Headphones,
+  Archive,
+  Trash2,
+  RotateCcw,
+  ArrowUpRight,
 } from "lucide-react";
 
 type CategoryId = "Product" | "UX" | "Support";
+type Priority = "none" | "low" | "medium" | "high";
+
+interface TeamItem extends FeedbackItemData {
+  priority: Priority;
+  escalated: boolean;
+  archived: boolean;
+  deletedAt: string | null;
+}
 
 const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
   "love-it": { emoji: "🎉", label: "Love it!" },
@@ -35,23 +44,18 @@ const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
   "needs-improvement": { emoji: "🔧", label: "Needs improvement" },
 };
 
-interface Theme {
-  id: string;
-  title: string;
-  description: string;
-  category: CategoryId;
-  sentiment: string;
-  itemCount: number;
-  topVotes: number;
-  actionable: boolean;
-  items: FeedbackItemData[];
-}
-
 const sentimentColors: Record<string, string> = {
   praise: "text-makina-green bg-makina-green/10",
   issue: "text-makina-red bg-red-500/10",
   suggestion: "text-makina-blue bg-blue-500/10",
   question: "text-makina-accent bg-makina-accent-dim",
+};
+
+const priorityColors: Record<string, string> = {
+  high: "bg-red-500/15 text-red-400",
+  medium: "bg-amber-400/15 text-amber-400",
+  low: "bg-blue-400/15 text-blue-400",
+  none: "",
 };
 
 const categoryIcons: Record<CategoryId, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -71,52 +75,6 @@ function timeAgo(date: string | Date): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-// Group escalated items into themes by category and common keywords
-function buildThemes(items: FeedbackItemData[]): Theme[] {
-  const byCategory: Record<CategoryId, FeedbackItemData[]> = { Product: [], UX: [], Support: [] };
-  for (const item of items) {
-    if (byCategory[item.category as CategoryId]) {
-      byCategory[item.category as CategoryId].push(item);
-    }
-  }
-
-  const themes: Theme[] = [];
-  const categoryDescriptions: Record<CategoryId, { title: string; description: string }[]> = {
-    Product: [
-      { title: "Product Experience", description: "Feedback about core product features and capabilities" },
-    ],
-    UX: [
-      { title: "Interface & Usability", description: "User experience issues, suggestions, and praise" },
-    ],
-    Support: [
-      { title: "Support Quality", description: "Support interaction feedback and improvement requests" },
-    ],
-  };
-
-  for (const cat of ["Product", "UX", "Support"] as CategoryId[]) {
-    const catItems = byCategory[cat];
-    if (catItems.length === 0) continue;
-
-    const desc = categoryDescriptions[cat][0];
-    const topVotes = Math.max(...catItems.map((i) => i.upvotes), 0);
-    const hasIssues = catItems.some((i) => i.type === "issue");
-
-    themes.push({
-      id: `theme-${cat}`,
-      title: desc.title,
-      description: desc.description,
-      category: cat,
-      sentiment: hasIssues ? "issue" : catItems[0]?.type || "suggestion",
-      itemCount: catItems.length,
-      topVotes,
-      actionable: hasIssues || catItems.some((i) => i.type === "suggestion"),
-      items: catItems.slice(0, 5),
-    });
-  }
-
-  return themes.sort((a, b) => b.itemCount - a.itemCount);
-}
-
 interface Stats {
   total: number;
   positive: number;
@@ -126,43 +84,111 @@ interface Stats {
   categoryStats: { id: string; submissions: number; openIssues: number; satisfaction: number }[];
 }
 
+type ViewFilter = "active" | "archived" | "trash";
+
 export default function TeamPage() {
-  const [expandedTheme, setExpandedTheme] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
-  const [feedback, setFeedback] = useState<FeedbackItemData[]>([]);
+  const [feedback, setFeedback] = useState<TeamItem[]>([]);
+  const [archivedItems, setArchivedItems] = useState<TeamItem[]>([]);
+  const [trashItems, setTrashItems] = useState<TeamItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  const enrichItems = (data: TeamItem[]): TeamItem[] =>
+    data.map((item) => ({
+      ...item,
+      priority: item.priority || ("none" as Priority),
+      escalated: item.escalated ?? false,
+      archived: item.archived ?? false,
+      deletedAt: item.deletedAt ?? null,
+    }));
 
   useEffect(() => {
     Promise.all([
       fetch("/api/feedback").then((r) => r.ok ? r.json() : []),
+      fetch("/api/feedback?view=archived").then((r) => r.ok ? r.json() : []),
+      fetch("/api/feedback?view=trash").then((r) => r.ok ? r.json() : []),
       fetch("/api/stats").then((r) => r.ok ? r.json() : null),
-    ]).then(([fb, st]) => {
-      const allFb = Array.isArray(fb) ? fb as FeedbackItemData[] : [];
-      // Only show escalated items (or high-value: issues/suggestions with upvotes > 10)
+    ]).then(([fb, archived, trash, st]) => {
+      const allFb = Array.isArray(fb) ? enrichItems(fb as TeamItem[]) : [];
+      // Only show escalated items or high-priority issues/suggestions
       const escalated = allFb.filter(
-        (f: FeedbackItemData & { escalated?: boolean; dismissed?: boolean }) =>
-          f.escalated || ((f.type === "issue" || f.type === "suggestion") && f.upvotes > 10)
-      ).filter((f: FeedbackItemData & { dismissed?: boolean }) => !f.dismissed);
+        (f) => f.escalated || ((f.type === "issue" || f.type === "suggestion") && f.upvotes > 10)
+      ).filter((f) => !(f as TeamItem & { dismissed?: boolean }).dismissed);
       setFeedback(escalated);
+
+      const archivedEscalated = enrichItems(archived as TeamItem[]).filter((f) => f.escalated);
+      setArchivedItems(archivedEscalated);
+
+      const trashEscalated = enrichItems(trash as TeamItem[]).filter((f) => f.escalated);
+      setTrashItems(trashEscalated);
+
       if (st && typeof st.total === "number") setStats(st);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
-  const themes = buildThemes(feedback);
-  const actionableCount = themes.filter((t) => t.actionable).length;
+  const patchItem = async (id: string, updates: Partial<TeamItem>) => {
+    try {
+      const res = await fetch(`/api/feedback/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        if (updates.archived === true) {
+          setFeedback((prev) => prev.filter((i) => i.id !== id));
+          const item = feedback.find((i) => i.id === id);
+          if (item) setArchivedItems((prev) => [{ ...item, ...updates }, ...prev]);
+        } else if (updates.deletedAt) {
+          setFeedback((prev) => prev.filter((i) => i.id !== id));
+          setArchivedItems((prev) => prev.filter((i) => i.id !== id));
+          const item = feedback.find((i) => i.id === id) || archivedItems.find((i) => i.id === id);
+          if (item) setTrashItems((prev) => [{ ...item, ...updates }, ...prev]);
+        } else if (updates.archived === false) {
+          setArchivedItems((prev) => prev.filter((i) => i.id !== id));
+          const item = archivedItems.find((i) => i.id === id);
+          if (item) setFeedback((prev) => [{ ...item, archived: false }, ...prev]);
+        } else if (updates.deletedAt === null) {
+          setTrashItems((prev) => prev.filter((i) => i.id !== id));
+          const item = trashItems.find((i) => i.id === id);
+          if (item) setFeedback((prev) => [{ ...item, deletedAt: null }, ...prev]);
+        }
+      }
+    } catch { /* ignore */ }
+  };
+
+  // Sort: high priority first, then issues first, then by upvotes
+  const sortItems = (list: TeamItem[]) =>
+    [...list].sort((a, b) => {
+      const pOrder: Record<string, number> = { high: 0, medium: 1, low: 2, none: 3 };
+      const pa = pOrder[a.priority] ?? 3;
+      const pb = pOrder[b.priority] ?? 3;
+      if (pa !== pb) return pa - pb;
+      const typeOrder: Record<string, number> = { issue: 0, suggestion: 1, question: 2, praise: 3 };
+      const ta = typeOrder[a.type] ?? 3;
+      const tb = typeOrder[b.type] ?? 3;
+      if (ta !== tb) return ta - tb;
+      return b.upvotes - a.upvotes;
+    });
+
+  const getCurrentList = (): TeamItem[] => {
+    if (viewFilter === "archived") return archivedItems;
+    if (viewFilter === "trash") return trashItems;
+    return feedback;
+  };
+
+  const currentList = getCurrentList();
+  const filteredItems = categoryFilter === "all"
+    ? currentList
+    : currentList.filter((i) => i.category === categoryFilter);
+  const sortedItems = sortItems(filteredItems);
+
+  const urgentCount = feedback.filter((f) => f.priority === "high" || f.type === "issue").length;
+  const actionableCount = feedback.filter((f) => f.type === "issue" || f.type === "suggestion").length;
   const topCategory = stats?.categoryStats.reduce((a, b) => (a.openIssues > b.openIssues ? a : b), stats.categoryStats[0]);
-
-  const filteredThemes =
-    categoryFilter === "all"
-      ? themes
-      : themes.filter((t) => t.category === categoryFilter);
-
-  const quickWins = feedback
-    .filter((i) => i.upvotes >= 10)
-    .sort((a, b) => b.upvotes - a.upvotes)
-    .slice(0, 3);
 
   if (loading) {
     return (
@@ -170,7 +196,7 @@ export default function TeamPage() {
         <div className="min-h-screen">
           <Navbar />
           <main className="mx-auto max-w-6xl px-4 py-6 flex items-center justify-center h-[80vh]">
-            <div className="text-sm text-makina-muted animate-pulse">Loading team insights...</div>
+            <div className="text-sm text-makina-muted animate-pulse">Loading team board...</div>
           </main>
         </div>
       </PasswordGate>
@@ -186,25 +212,25 @@ export default function TeamPage() {
           <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up">
             <div className="flex items-center gap-6">
               <div>
-                <p className="text-xs text-makina-muted font-medium uppercase tracking-wider">Layer 2</p>
-                <h1 className="text-xl font-bold">Team Insights</h1>
+                <p className="text-xs text-makina-muted font-medium uppercase tracking-wider">Action Required</p>
+                <h1 className="text-xl font-bold">Team Board</h1>
               </div>
               <div className="hidden md:flex items-center gap-4 pl-6 border-l border-makina-border">
                 <Tooltip content="Feedback items escalated from review">
                   <div className="flex items-center gap-2 cursor-default">
-                    <Layers size={13} className="text-makina-muted" />
+                    <ArrowUpRight size={13} className="text-makina-muted" />
                     <span className="text-sm font-semibold">{feedback.length}</span>
                     <span className="text-xs text-makina-muted">escalated</span>
                   </div>
                 </Tooltip>
-                <Tooltip content="Grouped themes ready for action">
+                <Tooltip content="Urgent items needing immediate attention">
                   <div className="flex items-center gap-2 cursor-default">
-                    <Hash size={13} className="text-makina-muted" />
-                    <span className="text-sm font-semibold">{themes.length}</span>
-                    <span className="text-xs text-makina-muted">themes</span>
+                    <AlertTriangle size={13} className="text-makina-red" />
+                    <span className="text-sm font-semibold text-makina-red">{urgentCount}</span>
+                    <span className="text-xs text-makina-red">urgent</span>
                   </div>
                 </Tooltip>
-                <Tooltip content="Themes marked as directly actionable">
+                <Tooltip content="Items that can be acted on">
                   <div className="flex items-center gap-2 cursor-default">
                     <CheckCircle2 size={13} className="text-makina-green" />
                     <span className="text-sm font-semibold">{actionableCount}</span>
@@ -215,211 +241,276 @@ export default function TeamPage() {
             </div>
           </div>
 
-          {/* Summary cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: "50ms" }}>
-            <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <AlertTriangle size={14} className="text-amber-400" />
-                <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Top pain point</span>
+          {/* Urgent banner — only if there are high priority items */}
+          {feedback.some((f) => f.priority === "high") && viewFilter === "active" && (
+            <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 flex items-center gap-3 animate-fade-in-up">
+              <AlertTriangle size={16} className="text-red-400 shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-400">
+                  {feedback.filter((f) => f.priority === "high").length} high-priority item(s) need attention
+                </p>
+                <p className="text-xs text-makina-muted mt-0.5">These have been flagged as urgent during review triage</p>
               </div>
-              <p className="text-sm font-semibold">{topCategory?.id ?? "N/A"}</p>
-              <p className="text-xs text-makina-muted">
-                {topCategory?.openIssues ?? 0} open issues &middot; {topCategory ? Math.round(topCategory.satisfaction * 100) : 0}% satisfaction
-              </p>
             </div>
+          )}
 
-            <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <BarChart3 size={14} className="text-makina-blue" />
-                <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">This week&apos;s sentiment</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <div className="flex h-2 rounded-full overflow-hidden">
-                    <div className="bg-makina-green" style={{ width: `${stats?.positive ?? 0}%` }} />
-                    <div className="bg-makina-blue" style={{ width: `${stats?.neutral ?? 0}%` }} />
-                    <div className="bg-amber-500" style={{ width: `${stats?.needsAttention ?? 0}%` }} />
-                  </div>
-                </div>
-                <span className="text-sm font-semibold text-makina-green">{stats?.positive ?? 0}%</span>
-              </div>
-              <p className="text-xs text-makina-muted">Positive sentiment from feedback</p>
+          {/* View tabs + category filter */}
+          <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up" style={{ animationDelay: "50ms" }}>
+            <div className="flex items-center gap-1 border-b border-makina-border">
+              {([
+                { key: "active" as ViewFilter, label: "Active", count: feedback.length },
+                { key: "archived" as ViewFilter, label: "Archived", count: archivedItems.length },
+                { key: "trash" as ViewFilter, label: "Trash", count: trashItems.length },
+              ]).map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setViewFilter(tab.key)}
+                  className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                    viewFilter === tab.key
+                      ? "border-makina-accent text-makina-accent"
+                      : "border-transparent text-makina-muted hover:text-makina-text"
+                  }`}
+                >
+                  {tab.key === "archived" && <Archive size={14} />}
+                  {tab.key === "trash" && <Trash2 size={14} />}
+                  {tab.label}
+                  <span className={`text-xs rounded-full px-1.5 py-0.5 ${
+                    viewFilter === tab.key ? "bg-makina-accent-dim text-makina-accent" : "bg-makina-card text-makina-subtle"
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
             </div>
-
-            <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
-              <div className="flex items-center gap-2">
-                <TrendingUp size={14} className="text-makina-accent" />
-                <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Feedback volume</span>
-              </div>
-              <div className="flex items-baseline gap-2">
-                <span className="text-2xl font-bold">{stats?.weeklyVolume ?? 0}</span>
-              </div>
-              <p className="text-xs text-makina-muted">submissions this week across all categories</p>
+            <div className="flex gap-1">
+              {(["all", "Product", "UX", "Support"] as (CategoryId | "all")[]).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCategoryFilter(cat)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    categoryFilter === cat
+                      ? "bg-makina-accent text-makina-bg"
+                      : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                  }`}
+                >
+                  {cat === "all" ? "All" : cat}
+                </button>
+              ))}
             </div>
           </div>
 
-          {/* Quick wins */}
-          {quickWins.length > 0 && (
-            <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-              <div className="flex items-center gap-2">
-                <Lightbulb size={16} className="text-amber-400" />
-                <h2 className="text-sm font-semibold">Quick Wins</h2>
-                <span className="text-xs text-makina-muted">High-impact, most upvoted feedback</span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {quickWins.map((item) => {
-                  const CatIcon = categoryIcons[item.category as CategoryId];
-                  const quickAction = item.quickAction ? QUICK_ACTION_LABELS[item.quickAction] : null;
-                  return (
-                    <div key={item.id} className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3 hover-lift">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
-                            <CatIcon size={9} />
-                            {item.category}
+          {/* Trash notice */}
+          {viewFilter === "trash" && trashItems.length > 0 && (
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-xs text-amber-400">
+              Items in trash are automatically deleted after 30 days.
+            </div>
+          )}
+
+          {/* Feedback items — flat list, sorted by urgency */}
+          <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            {sortedItems.map((item) => {
+              const CatIcon = categoryIcons[item.category as CategoryId];
+              const quickAction = item.quickAction ? QUICK_ACTION_LABELS[item.quickAction] : null;
+              const isExpanded = expandedId === item.id;
+              const isUrgent = item.priority === "high" || item.type === "issue";
+
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-lg border overflow-hidden transition-colors ${
+                    item.priority === "high"
+                      ? "border-red-500/30 bg-makina-card"
+                      : item.type === "issue"
+                      ? "border-amber-500/20 bg-makina-card"
+                      : "border-makina-border bg-makina-card"
+                  }`}
+                >
+                  <button
+                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                    className="w-full flex items-center gap-3 p-4 text-left hover:bg-makina-card-hover transition-colors"
+                  >
+                    {/* Priority indicator */}
+                    <div className={`w-1 self-stretch rounded-full shrink-0 ${
+                      item.priority === "high" ? "bg-red-500" :
+                      item.priority === "medium" ? "bg-amber-400" :
+                      item.priority === "low" ? "bg-blue-400" :
+                      item.type === "issue" ? "bg-amber-500/50" :
+                      "bg-makina-border"
+                    }`} />
+
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-makina-surface text-xs font-bold text-makina-accent border border-makina-border shrink-0">
+                      {item.userAvatar}
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold">{item.userName}</span>
+                        <span className="flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
+                          <CatIcon size={9} />
+                          {item.category}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${sentimentColors[item.type] || ""}`}>
+                          {item.type}
+                        </span>
+                        {item.priority !== "none" && (
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${priorityColors[item.priority]}`}>
+                            {item.priority}
                           </span>
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${sentimentColors[item.type] || ""}`}>
-                            {item.type}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs font-semibold text-makina-accent">
-                          <ThumbsUp size={11} />
-                          {item.upvotes}
-                        </div>
+                        )}
+                        {isUrgent && item.priority !== "high" && (
+                          <AlertTriangle size={12} className="text-amber-400" />
+                        )}
                       </div>
+                      <p className="text-xs text-makina-text/80 mt-1 truncate">
+                        {quickAction ? `${quickAction.emoji} ${quickAction.label}` : ""}
+                        {quickAction && item.message ? " — " : ""}
+                        {item.message}
+                      </p>
+                    </div>
+
+                    <div className="hidden sm:flex items-center gap-3 shrink-0">
+                      <div className="flex items-center gap-1 text-xs font-medium text-makina-accent">
+                        <ThumbsUp size={11} />
+                        {item.upvotes}
+                      </div>
+                      <span className="text-[11px] text-makina-muted">
+                        <Clock size={10} className="inline mr-1" />
+                        {timeAgo(item.createdAt)}
+                      </span>
+                    </div>
+
+                    <ChevronRight size={16} className={`text-makina-subtle transition-transform shrink-0 ${isExpanded ? "rotate-90" : ""}`} />
+                  </button>
+
+                  {isExpanded && (
+                    <div className="border-t border-makina-border/50 bg-makina-surface/50 p-4 space-y-3 animate-fade-in-up">
                       {quickAction && (
-                        <div className="inline-flex items-center gap-1.5 rounded-md bg-makina-surface px-2.5 py-1 text-xs">
+                        <div className="inline-flex items-center gap-1.5 rounded-md bg-makina-surface px-3 py-1.5 text-sm">
                           <span>{quickAction.emoji}</span>
                           <span className="font-medium">{quickAction.label}</span>
                         </div>
                       )}
                       {item.message && (
-                        <p className="text-xs text-makina-text/85 leading-relaxed line-clamp-2">{item.message}</p>
+                        <p className="text-sm text-makina-text/85 leading-relaxed">{item.message}</p>
                       )}
-                      <div className="flex items-center gap-2 text-[11px] text-makina-muted">
-                        <span>{item.userName}</span>
-                        <span>&middot;</span>
-                        <Clock size={10} />
-                        <span>{timeAgo(item.createdAt)}</span>
+                      <div className="flex items-center gap-3 pt-2">
+                        <span className="text-xs text-makina-muted">{item.userName} &middot; {timeAgo(item.createdAt)}</span>
+                        <span className="flex items-center gap-1 text-xs text-makina-accent">
+                          <ThumbsUp size={10} /> {item.upvotes}
+                        </span>
+                        <div className="ml-auto flex items-center gap-1">
+                          {viewFilter === "active" && (
+                            <>
+                              <Tooltip content="Archive">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); patchItem(item.id, { archived: true }); }}
+                                  className="p-2 rounded-md text-makina-subtle hover:text-makina-blue hover:bg-blue-500/10 transition-colors"
+                                >
+                                  <Archive size={15} />
+                                </button>
+                              </Tooltip>
+                              <Tooltip content="Move to trash">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); patchItem(item.id, { deletedAt: new Date().toISOString() }); }}
+                                  className="p-2 rounded-md text-makina-subtle hover:text-makina-red hover:bg-red-500/10 transition-colors"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </Tooltip>
+                            </>
+                          )}
+                          {(viewFilter === "archived" || viewFilter === "trash") && (
+                            <Tooltip content="Restore">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (viewFilter === "archived") patchItem(item.id, { archived: false });
+                                  else patchItem(item.id, { deletedAt: null });
+                                }}
+                                className="p-2 rounded-md text-makina-subtle hover:text-makina-green hover:bg-makina-green/10 transition-colors"
+                              >
+                                <RotateCcw size={15} />
+                              </button>
+                            </Tooltip>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {sortedItems.length === 0 && (
+            <div className="text-center py-16 space-y-3 animate-fade-in-up">
+              {viewFilter === "trash" ? (
+                <>
+                  <Trash2 size={32} className="text-makina-subtle mx-auto" />
+                  <p className="text-sm text-makina-muted">Trash is empty</p>
+                </>
+              ) : viewFilter === "archived" ? (
+                <>
+                  <Archive size={32} className="text-makina-subtle mx-auto" />
+                  <p className="text-sm text-makina-muted">No archived items</p>
+                </>
+              ) : (
+                <>
+                  <Hash size={32} className="text-makina-subtle mx-auto" />
+                  <p className="text-sm text-makina-muted">
+                    {feedback.length === 0
+                      ? "No feedback has been escalated yet. Use the Review page to escalate items."
+                      : "No items match this category filter"}
+                  </p>
+                </>
+              )}
             </div>
           )}
 
-          {/* Themed groups */}
-          <div className="space-y-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Flame size={16} className="text-makina-accent" />
-                <h2 className="text-sm font-semibold">Feedback Themes</h2>
-                <span className="text-xs text-makina-muted">Auto-grouped by topic</span>
-              </div>
-              <div className="flex gap-1">
-                {(["all", "Product", "UX", "Support"] as (CategoryId | "all")[]).map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategoryFilter(cat)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      categoryFilter === cat
-                        ? "bg-makina-accent text-makina-bg"
-                        : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                    }`}
-                  >
-                    {cat === "all" ? "All" : cat}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {filteredThemes.map((theme) => {
-                const CatIcon = categoryIcons[theme.category];
-                const isExpanded = expandedTheme === theme.id;
-                return (
-                  <div key={theme.id} className="rounded-lg bg-makina-card border border-makina-border overflow-hidden">
-                    <button
-                      onClick={() => setExpandedTheme(isExpanded ? null : theme.id)}
-                      className="w-full flex items-center gap-4 p-4 text-left hover:bg-makina-card-hover transition-colors"
-                    >
-                      <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-makina-surface shrink-0">
-                        <CatIcon size={18} className="text-makina-accent" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-sm font-semibold">{theme.title}</h3>
-                          {theme.actionable && (
-                            <span className="text-[10px] font-medium text-makina-green bg-makina-green/10 rounded-full px-2 py-0.5">Actionable</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-makina-muted mt-0.5">{theme.description}</p>
-                      </div>
-                      <div className="hidden sm:flex items-center gap-4 shrink-0">
-                        <div className="text-center">
-                          <p className="text-sm font-semibold">{theme.itemCount}</p>
-                          <p className="text-[10px] text-makina-muted">items</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm font-semibold text-makina-accent">{theme.topVotes}</p>
-                          <p className="text-[10px] text-makina-muted">top votes</p>
-                        </div>
-                      </div>
-                      <ChevronRight size={16} className={`text-makina-subtle transition-transform shrink-0 ${isExpanded ? "rotate-90" : ""}`} />
-                    </button>
-
-                    {isExpanded && (
-                      <div className="border-t border-makina-border/50 bg-makina-surface/50 p-4 space-y-3 animate-fade-in-up">
-                        <p className="text-xs text-makina-muted font-medium uppercase tracking-wider">
-                          Feedback in this theme
-                        </p>
-                        {theme.items.map((item) => {
-                          const quickAction = item.quickAction ? QUICK_ACTION_LABELS[item.quickAction] : null;
-                          return (
-                            <div key={item.id} className="rounded-md bg-makina-card border border-makina-border p-3 space-y-2">
-                              <div className="flex items-center gap-2">
-                                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-makina-surface text-[10px] font-bold text-makina-accent border border-makina-border">
-                                  {item.userAvatar}
-                                </div>
-                                <span className="text-xs font-medium">{item.userName}</span>
-                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${sentimentColors[item.type] || ""}`}>
-                                  {item.type}
-                                </span>
-                                <span className="text-[10px] text-makina-subtle ml-auto">{timeAgo(item.createdAt)}</span>
-                              </div>
-                              {quickAction && (
-                                <div className="inline-flex items-center gap-1 rounded-md bg-makina-surface px-2 py-1 text-xs">
-                                  <span>{quickAction.emoji}</span>
-                                  <span className="font-medium">{quickAction.label}</span>
-                                </div>
-                              )}
-                              {item.message && (
-                                <p className="text-xs text-makina-text/80 leading-relaxed">{item.message}</p>
-                              )}
-                              <div className="flex items-center gap-1 text-[10px] text-makina-muted">
-                                <ThumbsUp size={10} />
-                                {item.upvotes} upvotes
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
+          {/* Stats section — pushed to bottom */}
+          {stats && viewFilter === "active" && (
+            <div className="space-y-3 pt-4 border-t border-makina-border animate-fade-in-up" style={{ animationDelay: "150ms" }}>
+              <h2 className="text-xs font-medium text-makina-muted uppercase tracking-wider">Context</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={14} className="text-amber-400" />
+                    <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Top pain point</span>
                   </div>
-                );
-              })}
-            </div>
-          </div>
+                  <p className="text-sm font-semibold">{topCategory?.id ?? "N/A"}</p>
+                  <p className="text-xs text-makina-muted">
+                    {topCategory?.openIssues ?? 0} open issues &middot; {topCategory ? Math.round(topCategory.satisfaction * 100) : 0}% satisfaction
+                  </p>
+                </div>
 
-          {filteredThemes.length === 0 && (
-            <div className="text-center py-16 space-y-3 animate-fade-in-up">
-              <Layers size={32} className="text-makina-subtle mx-auto" />
-              <p className="text-sm text-makina-muted">
-                {feedback.length === 0
-                  ? "No feedback has been escalated yet. Use the Review page to escalate items."
-                  : "No themes match this category filter"}
-              </p>
+                <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 size={14} className="text-makina-blue" />
+                    <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Sentiment</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="flex h-2 rounded-full overflow-hidden">
+                        <div className="bg-makina-green" style={{ width: `${stats.positive}%` }} />
+                        <div className="bg-makina-blue" style={{ width: `${stats.neutral}%` }} />
+                        <div className="bg-amber-500" style={{ width: `${stats.needsAttention}%` }} />
+                      </div>
+                    </div>
+                    <span className="text-sm font-semibold text-makina-green">{stats.positive}%</span>
+                  </div>
+                </div>
+
+                <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Lightbulb size={14} className="text-makina-accent" />
+                    <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">This week</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold">{stats.weeklyVolume}</span>
+                  </div>
+                  <p className="text-xs text-makina-muted">total submissions</p>
+                </div>
+              </div>
             </div>
           )}
         </main>

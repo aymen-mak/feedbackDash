@@ -9,7 +9,6 @@ import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { Filter, Download, Search, TrendingUp, Users, MessageSquare, ThumbsUp } from "lucide-react";
 
 type FilterType = "all" | "praise" | "issue" | "suggestion" | "question";
-type FilterStatus = "all" | "new" | "reviewed" | "addressed" | "dismissed";
 type CategoryFilter = "all" | "Product" | "UX" | "Support";
 
 interface Stats {
@@ -25,7 +24,6 @@ interface Stats {
 export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [filterType, setFilterType] = useState<FilterType>("all");
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [search, setSearch] = useState("");
   const [feedback, setFeedback] = useState<FeedbackItemData[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -44,12 +42,6 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleStatusChange = (id: string, status: string) => {
-    setFeedback((prev) =>
-      prev.map((f) => (f.id === id ? { ...f, status: status as FeedbackItemData["status"] } : f))
-    );
-  };
-
   const handleItemUpdate = (updated: FeedbackItemData) => {
     setFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
   };
@@ -57,7 +49,6 @@ export default function DashboardPage() {
   const filtered = feedback.filter((f) => {
     if (selectedCategory !== "all" && f.category !== selectedCategory) return false;
     if (filterType !== "all" && f.type !== filterType) return false;
-    if (filterStatus !== "all" && f.status !== filterStatus) return false;
     if (search && !f.message.toLowerCase().includes(search.toLowerCase()) && !f.userName.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -143,7 +134,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Feedback management section */}
+        {/* Feedback browsing section */}
         <div className="space-y-4">
           {/* Category selector */}
           <div className="flex gap-2 flex-wrap">
@@ -167,11 +158,11 @@ export default function DashboardPage() {
             ))}
           </div>
 
-          {/* Filters row */}
+          {/* Filters row — type only, no status */}
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1.5 text-sm text-makina-muted">
               <Filter size={14} />
-              <span>Filters:</span>
+              <span>Type:</span>
             </div>
             <div className="flex gap-1">
               {(["all", "praise", "issue", "suggestion", "question"] as FilterType[]).map((type) => (
@@ -185,21 +176,6 @@ export default function DashboardPage() {
                   }`}
                 >
                   {type === "all" ? "All types" : type}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-1">
-              {(["all", "new", "reviewed", "addressed", "dismissed"] as FilterStatus[]).map((status) => (
-                <button
-                  key={status}
-                  onClick={() => setFilterStatus(status)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    filterStatus === status
-                      ? "bg-makina-blue text-white"
-                      : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                  }`}
-                >
-                  {status === "all" ? "All statuses" : status}
                 </button>
               ))}
             </div>
@@ -222,8 +198,6 @@ export default function DashboardPage() {
           <LiveFeed
             feedback={filtered}
             category="all"
-            showStatus
-            onStatusChange={handleStatusChange}
             onItemUpdate={handleItemUpdate}
           />
         </div>

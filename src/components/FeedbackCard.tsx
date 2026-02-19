@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronUp, Clock, MessageSquare, Send, X, Box, Paintbrush, Headphones } from "lucide-react";
+import { Heart, Clock, MessageSquare, Send, X, Box, Paintbrush, Headphones } from "lucide-react";
 
 type CategoryId = "Product" | "UX" | "Support";
 type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
@@ -21,6 +21,7 @@ export interface FeedbackItemData {
   message: string;
   quickAction?: string | null;
   status: FeedbackStatus;
+  priority?: string;
   upvotes: number;
   upvotedBy?: string[];
   replies?: Reply[];
@@ -38,15 +39,26 @@ const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
   "needs-improvement": { emoji: "🔧", label: "Needs improvement" },
 };
 
-function timeAgo(date: string | Date): string {
+function formatTimestamp(date: string | Date): { relative: string; absolute: string } {
   const d = typeof date === "string" ? new Date(date) : date;
   const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+
+  let relative: string;
+  if (seconds < 60) relative = "just now";
+  else if (seconds < 3600) relative = `${Math.floor(seconds / 60)}m ago`;
+  else if (seconds < 86400) relative = `${Math.floor(seconds / 3600)}h ago`;
+  else if (seconds < 604800) relative = `${Math.floor(seconds / 86400)}d ago`;
+  else relative = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+  const absolute = d.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  return { relative, absolute };
 }
 
 const typeColors: Record<string, string> = {
@@ -54,6 +66,13 @@ const typeColors: Record<string, string> = {
   issue: "bg-red-500/15 text-red-400",
   suggestion: "bg-blue-500/15 text-blue-400",
   question: "bg-makina-accent-dim text-makina-accent",
+};
+
+const priorityBorder: Record<string, string> = {
+  high: "border-l-red-500",
+  medium: "border-l-amber-400",
+  low: "border-l-blue-400",
+  none: "border-l-transparent",
 };
 
 const categoryIcons: Record<CategoryId, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -94,6 +113,8 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
   }, [item.upvotes, item.upvotedBy]);
 
   const quickAction = item.quickAction ? QUICK_ACTION_LABELS[item.quickAction] : null;
+  const ts = formatTimestamp(item.createdAt);
+  const priority = item.priority || "none";
 
   const handleUpvote = async () => {
     if (upvoting) return;
@@ -156,7 +177,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
   return (
     <div
       onClick={handleCardClick}
-      className="group rounded-md bg-makina-card border border-makina-border p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer"
+      className={`group rounded-md bg-makina-card border border-makina-border border-l-[3px] ${priorityBorder[priority]} p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer`}
     >
       <div className="flex items-start gap-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-makina-surface text-sm font-bold text-makina-accent border border-makina-border">
@@ -164,6 +185,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
         </div>
 
         <div className="min-w-0 flex-1">
+          {/* Header: poster, category, type, timestamp */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold">{item.userName}</span>
             <span className="flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
@@ -173,12 +195,22 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
             <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${typeColors[item.type] || ""}`}>
               {item.type}
             </span>
-            <span className="flex items-center gap-1 text-[11px] text-makina-muted ml-auto">
+            {priority !== "none" && (
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                priority === "high" ? "bg-red-500/15 text-red-400" :
+                priority === "medium" ? "bg-amber-400/15 text-amber-400" :
+                "bg-blue-400/15 text-blue-400"
+              }`}>
+                {priority}
+              </span>
+            )}
+            <span className="flex items-center gap-1 text-[11px] text-makina-muted ml-auto" title={ts.absolute}>
               <Clock size={10} />
-              {timeAgo(item.createdAt)}
+              {ts.relative}
             </span>
           </div>
 
+          {/* Content */}
           <div className="mt-2">
             {quickAction && (
               <div className="inline-flex items-center gap-1.5 rounded-md bg-makina-surface px-3 py-1.5 text-sm">
@@ -193,38 +225,43 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
             )}
           </div>
 
+          {/* Replies */}
           {item.replies && item.replies.length > 0 && (
             <div className="mt-3 space-y-2 pl-3 border-l-2 border-makina-border">
-              {item.replies.map((reply) => (
-                <div key={reply.id} className="text-xs text-makina-muted">
-                  <span className="text-makina-accent font-medium">Team reply</span>
-                  <span className="mx-1.5">&middot;</span>
-                  <span>{timeAgo(reply.createdAt)}</span>
-                  <p className="mt-0.5 text-makina-text/80">{reply.message}</p>
-                </div>
-              ))}
+              {item.replies.map((reply) => {
+                const rts = formatTimestamp(reply.createdAt);
+                return (
+                  <div key={reply.id} className="text-xs text-makina-muted">
+                    <span className="text-makina-accent font-medium">Team reply</span>
+                    <span className="mx-1.5">&middot;</span>
+                    <span title={rts.absolute}>{rts.relative}</span>
+                    <p className="mt-0.5 text-makina-text/80">{reply.message}</p>
+                  </div>
+                );
+              })}
             </div>
           )}
 
+          {/* Actions row */}
           <div className="mt-3 flex items-center gap-3">
             <button
               onClick={handleUpvote}
               disabled={upvoting}
-              className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
                 hasUpvoted
-                  ? "text-makina-accent bg-makina-accent-dim"
-                  : "text-makina-muted hover:text-makina-accent hover:bg-makina-accent-dim"
+                  ? "text-pink-400 bg-pink-500/10 border border-pink-500/20"
+                  : "text-makina-muted bg-makina-surface border border-makina-border hover:text-pink-400 hover:bg-pink-500/10 hover:border-pink-500/20"
               }`}
             >
-              <ChevronUp size={14} />
-              <span className="font-medium">{localUpvotes}</span>
+              <Heart size={13} fill={hasUpvoted ? "currentColor" : "none"} />
+              <span>{localUpvotes}</span>
             </button>
             <button
               onClick={() => setReplyOpen(!replyOpen)}
-              className={`flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors ${
+              className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
                 replyOpen
-                  ? "text-makina-accent bg-makina-accent-dim"
-                  : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
+                  ? "text-makina-accent bg-makina-accent-dim border border-makina-accent/20"
+                  : "text-makina-muted bg-makina-surface border border-makina-border hover:text-makina-text hover:border-makina-subtle"
               }`}
             >
               <MessageSquare size={12} />
@@ -249,6 +286,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
             )}
           </div>
 
+          {/* Reply input */}
           {replyOpen && (
             <div className="mt-3 flex gap-2 animate-fade-in-up">
               <input

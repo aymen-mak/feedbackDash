@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addReply } from "@/lib/store";
+import { hasPostgres, pgAddReply } from "@/lib/db";
 
 export async function POST(
   req: NextRequest,
@@ -14,7 +15,10 @@ export async function POST(
       return NextResponse.json({ error: "Message required" }, { status: 400 });
     }
 
-    const updated = addReply(id, message.trim());
+    const updated = hasPostgres()
+      ? await pgAddReply(id, message.trim())
+      : addReply(id, message.trim());
+
     if (!updated) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }

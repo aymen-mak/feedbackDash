@@ -27,6 +27,8 @@ export interface StoredFeedback {
   starred: boolean;
   escalated: boolean;
   dismissed: boolean;
+  archived: boolean;
+  deletedAt: string | null;
   upvotes: number;
   upvotedBy: string[];
   tags: string[];
@@ -105,7 +107,7 @@ function uid(): string {
 }
 
 // ── Seed data (30 items over 15 days) ──
-function seed(): StoredFeedback[] {
+export function seed(): StoredFeedback[] {
   const now = Date.now();
   const H = 3600000;
   const D = 86400000;
@@ -154,10 +156,12 @@ function seed(): StoredFeedback[] {
     quickAction,
     anonymous: false,
     status: (i < 5 ? "new" : i < 15 ? "reviewed" : "addressed") as FeedbackStatus,
-    priority: "none" as Priority,
+    priority: (i === 2 || i === 6 ? "high" : i === 5 || i === 15 ? "medium" : i === 11 ? "low" : "none") as Priority,
     starred: false,
-    escalated: false,
+    escalated: i === 2 || i === 6 || i === 15 || i === 19,
     dismissed: false,
+    archived: false,
+    deletedAt: null,
     upvotes,
     upvotedBy: [],
     tags: [],
@@ -168,10 +172,38 @@ function seed(): StoredFeedback[] {
 
 // ── CRUD Operations ──
 
+/** Active items: not archived, not soft-deleted */
 export function getAllFeedback(): StoredFeedback[] {
-  return read().feedback.sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  return read().feedback
+    .filter((f) => !f.archived && !f.deletedAt)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/** Archived items (not deleted) */
+export function getArchivedFeedback(): StoredFeedback[] {
+  return read().feedback
+    .filter((f) => f.archived && !f.deletedAt)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+/** Soft-deleted items within the last 30 days */
+export function getTrashFeedback(): StoredFeedback[] {
+  const cutoff = Date.now() - 30 * 86400000;
+  return read().feedback
+    .filter((f) => f.deletedAt && new Date(f.deletedAt).getTime() > cutoff)
+    .sort((a, b) => new Date(b.deletedAt!).getTime() - new Date(a.deletedAt!).getTime());
+}
+
+/** Permanently remove items deleted more than 30 days ago */
+export function cleanupTrash(): number {
+  const store = read();
+  const cutoff = Date.now() - 30 * 86400000;
+  const before = store.feedback.length;
+  store.feedback = store.feedback.filter(
+    (f) => !f.deletedAt || new Date(f.deletedAt).getTime() > cutoff
   );
+  write(store);
+  return before - store.feedback.length;
 }
 
 export function getFeedbackById(id: string): StoredFeedback | null {
@@ -196,6 +228,8 @@ export function createFeedback(data: {
     starred: false,
     escalated: false,
     dismissed: false,
+    archived: false,
+    deletedAt: null,
     upvotes: 0,
     upvotedBy: [],
     tags: [],
@@ -209,7 +243,7 @@ export function createFeedback(data: {
 
 export function updateFeedback(
   id: string,
-  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "tags">>
+  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags">>
 ): StoredFeedback | null {
   const store = read();
   const idx = store.feedback.findIndex((f) => f.id === id);
@@ -259,9 +293,9 @@ export interface DailyMetric {
 }
 
 export function getStats() {
-  const all = read().feedback;
-  const total = all.length;
-  const notDismissed = all.filter((f) => !f.dismissed);
+  const active = read().feedback.filter((f) => !f.archived && !f.deletedAt);
+  const total = active.length;
+  const notDismissed = active.filter((f) => !f.dismissed);
 
   // Type counts
   const byType = {

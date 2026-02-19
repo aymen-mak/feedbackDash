@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllFeedback, createFeedback, type CategoryId, type FeedbackType } from "@/lib/store";
+import { getAllFeedback, getArchivedFeedback, getTrashFeedback, cleanupTrash, createFeedback, type CategoryId, type FeedbackType } from "@/lib/store";
+import { hasPostgres, pgGetAllFeedback, pgGetArchivedFeedback, pgGetTrashFeedback, pgCleanupTrash, pgCreateFeedback, pgSeedIfEmpty } from "@/lib/db";
+import { seed } from "@/lib/store";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const feedback = getAllFeedback();
-    return NextResponse.json(feedback);
+    const view = req.nextUrl.searchParams.get("view");
+
+    if (hasPostgres()) {
+      await pgSeedIfEmpty(seed());
+      await pgCleanupTrash();
+      if (view === "archived") return NextResponse.json(await pgGetArchivedFeedback());
+      if (view === "trash") return NextResponse.json(await pgGetTrashFeedback());
+      return NextResponse.json(await pgGetAllFeedback());
+    }
+
+    cleanupTrash();
+    if (view === "archived") return NextResponse.json(getArchivedFeedback());
+    if (view === "trash") return NextResponse.json(getTrashFeedback());
+    return NextResponse.json(getAllFeedback());
   } catch (err) {
     console.error("GET /api/feedback error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
@@ -35,16 +49,22 @@ export async function POST(req: NextRequest) {
     const displayName = anonymous ? "Anonymous" : (userName?.trim() || "Anonymous");
     const avatar = anonymous ? "?" : (displayName.charAt(0).toUpperCase());
 
-    const item = createFeedback({
+    const data = {
       userName: displayName,
       userAvatar: avatar,
       category,
-      type: quickAction && !message?.trim() ? "praise" : type,
+      type: quickAction && !message?.trim() ? "praise" as FeedbackType : type,
       message: message || "",
       quickAction,
       anonymous,
-    });
+    };
 
+    if (hasPostgres()) {
+      const item = await pgCreateFeedback(data);
+      return NextResponse.json(item, { status: 201 });
+    }
+
+    const item = createFeedback(data);
     return NextResponse.json(item, { status: 201 });
   } catch (err) {
     console.error("POST /api/feedback error:", err);

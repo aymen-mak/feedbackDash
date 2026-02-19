@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { toggleUpvote } from "@/lib/store";
+import { hasPostgres, pgToggleUpvote } from "@/lib/db";
 
 export async function POST(
   req: NextRequest,
@@ -14,7 +15,10 @@ export async function POST(
       return NextResponse.json({ error: "sessionId required" }, { status: 400 });
     }
 
-    const updated = toggleUpvote(id, sessionId);
+    const updated = hasPostgres()
+      ? await pgToggleUpvote(id, sessionId)
+      : toggleUpvote(id, sessionId);
+
     if (!updated) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
