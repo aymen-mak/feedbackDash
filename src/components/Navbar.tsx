@@ -14,6 +14,8 @@ import {
   Moon,
   Droplets,
   Check,
+  ClipboardList,
+  Users,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 
@@ -42,6 +44,8 @@ export default function Navbar() {
   const links = [
     { href: "/", label: "Feedback", icon: MessageSquare },
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { href: "/review", label: "Review", icon: ClipboardList },
+    { href: "/team", label: "Team", icon: Users },
   ];
 
   const themeIcon = {
