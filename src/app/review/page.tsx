@@ -17,10 +17,12 @@ import {
   ChevronDown,
   ArrowUpRight,
   RotateCcw,
+  CheckCircle2,
+  Image as ImageIcon,
 } from "lucide-react";
 
 type Priority = "none" | "low" | "medium" | "high";
-type FeedbackType = "praise" | "issue" | "suggestion" | "question";
+type FeedbackType = "issue" | "suggestion" | "question";
 type CategoryId = "Product" | "UX" | "Support";
 
 interface ReviewItem extends FeedbackItemData {
@@ -31,6 +33,9 @@ interface ReviewItem extends FeedbackItemData {
   dismissed: boolean;
   archived: boolean;
   deletedAt: string | null;
+  screenshotUrl: string | null;
+  rating: number | null;
+  acknowledged: boolean;
 }
 
 const priorityColors: Record<Priority, string> = {
@@ -51,6 +56,21 @@ const PRESET_TAGS = ["actionable", "recurring", "quick-win", "needs-context", "t
 
 type ViewFilter = "inbox" | "starred" | "escalated" | "archived" | "trash";
 
+function RatingStars({ rating }: { rating: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <Star
+          key={s}
+          size={11}
+          className={s <= rating ? "text-amber-400" : "text-makina-subtle/40"}
+          fill={s <= rating ? "currentColor" : "none"}
+        />
+      ))}
+    </span>
+  );
+}
+
 export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
   const [archivedItems, setArchivedItems] = useState<ReviewItem[]>([]);
@@ -62,6 +82,7 @@ export default function ReviewPage() {
   const [search, setSearch] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [tagDropdownId, setTagDropdownId] = useState<string | null>(null);
+  const [deleteActiveId, setDeleteActiveId] = useState<string | null>(null);
 
   const enrichItems = (data: ReviewItem[]): ReviewItem[] =>
     data.map((item) => ({
@@ -73,6 +94,9 @@ export default function ReviewPage() {
       dismissed: item.dismissed ?? false,
       archived: item.archived ?? false,
       deletedAt: item.deletedAt ?? null,
+      screenshotUrl: item.screenshotUrl ?? null,
+      rating: item.rating ?? null,
+      acknowledged: item.acknowledged ?? false,
     }));
 
   useEffect(() => {
@@ -210,6 +234,16 @@ export default function ReviewPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
+  // Group items for inbox view: "New feedback", "High priority", then the rest
+  const newItems = viewFilter === "inbox" ? sorted.filter((i) => i.status === "new" && i.priority !== "high") : [];
+  const highPriorityItems = viewFilter === "inbox" ? sorted.filter((i) => i.priority === "high" && i.status !== "new") : [];
+  const remainingItems = viewFilter === "inbox"
+    ? sorted.filter((i) => !(i.status === "new" && i.priority !== "high") && !(i.priority === "high" && i.status !== "new"))
+    : sorted;
+  // Items that are both new AND high priority go into high priority section
+  const newAndHighItems = viewFilter === "inbox" ? sorted.filter((i) => i.status === "new" && i.priority === "high") : [];
+  const highPriorityCombined = [...newAndHighItems, ...highPriorityItems];
+
   const totalInbox = items.filter((i) => !i.dismissed).length;
   const totalStarred = items.filter((i) => i.starred && !i.dismissed).length;
   const totalEscalated = items.filter((i) => i.escalated && !i.dismissed).length;
@@ -220,8 +254,196 @@ export default function ReviewPage() {
     { key: "starred", label: "Starred", count: totalStarred, icon: <Star size={14} /> },
     { key: "escalated", label: "Escalated", count: totalEscalated, icon: <ArrowUpRight size={14} /> },
     { key: "archived", label: "Archived", count: archivedItems.length, icon: <Archive size={14} /> },
-    { key: "trash", label: "Trash", count: trashItems.length, icon: <Trash2 size={14} /> },
+    { key: "trash", label: "Deleted", count: trashItems.length, icon: <Trash2 size={14} /> },
   ];
+
+  const allSelected = selectedItems.size === sorted.length && sorted.length > 0;
+
+  const handleDeleteClick = (itemId: string) => {
+    setDeleteActiveId(itemId);
+    patchItem(itemId, { deletedAt: new Date().toISOString() });
+    setTimeout(() => setDeleteActiveId(null), 300);
+  };
+
+  const renderFeedbackItem = (item: ReviewItem, index: number) => (
+    <div key={item.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 40}ms` }}>
+      <div className={`rounded-lg border transition-colors ${
+        selectedItems.has(item.id)
+          ? "border-makina-accent/40 bg-makina-accent-dim/30"
+          : item.priority === "high"
+          ? "border-red-500/30 bg-makina-card"
+          : "border-makina-border bg-makina-card"
+      }`}>
+        {/* Review controls bar */}
+        <div className="flex items-center gap-2 px-4 py-2 border-b border-makina-border/50">
+          <input
+            type="checkbox"
+            checked={selectedItems.has(item.id)}
+            onChange={() => toggleSelect(item.id)}
+            className="rounded border-makina-border accent-makina-accent cursor-pointer"
+          />
+
+          {viewFilter !== "trash" && viewFilter !== "archived" && (
+            <>
+              <button
+                onClick={() => toggleStar(item.id)}
+                className={`p-1.5 rounded-md transition-colors ${item.starred ? "text-amber-400 bg-amber-400/10" : "text-makina-subtle hover:text-amber-400 hover:bg-amber-400/10"}`}
+                title={item.starred ? "Unstar" : "Star for follow-up"}
+              >
+                <Star size={14} fill={item.starred ? "currentColor" : "none"} />
+              </button>
+              <select
+                value={item.priority}
+                onChange={(e) => patchItem(item.id, { priority: e.target.value as Priority })}
+                className={`rounded-md bg-transparent border-none text-xs font-medium cursor-pointer focus:outline-none ${priorityColors[item.priority]}`}
+              >
+                {(Object.entries(priorityLabels) as [Priority, string][]).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1 ml-2">
+                {item.tags.map((tag) => (
+                  <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
+                    {tag}
+                    <button onClick={() => removeTag(item.id, tag)} className="hover:text-makina-red transition-colors">x</button>
+                  </span>
+                ))}
+                <div className="relative">
+                  <button
+                    onClick={() => setTagDropdownId(tagDropdownId === item.id ? null : item.id)}
+                    className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] text-makina-subtle hover:text-makina-muted hover:bg-makina-surface transition-colors"
+                  >
+                    <Tag size={10} />
+                    <ChevronDown size={8} />
+                  </button>
+                  {tagDropdownId === item.id && (
+                    <div className="absolute top-full left-0 mt-1 rounded-md bg-makina-card border border-makina-border shadow-lg z-20 py-1 min-w-[140px]">
+                      {PRESET_TAGS.filter((t) => !item.tags.includes(t)).map((tag) => (
+                        <button
+                          key={tag}
+                          onClick={() => addTag(item.id, tag)}
+                          className="block w-full text-left px-3 py-1.5 text-xs text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-colors"
+                        >
+                          {tag}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Action buttons -- right side */}
+          <div className="ml-auto flex items-center gap-1.5">
+            {item.acknowledged && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-makina-blue bg-makina-blue/10 rounded-full px-2 py-0.5">
+                <CheckCircle2 size={10} />
+                Acknowledged
+              </span>
+            )}
+
+            {item.escalated && viewFilter !== "trash" && viewFilter !== "archived" && (
+              <span className="text-[10px] font-medium text-makina-green bg-makina-green/10 rounded-full px-2 py-0.5">Escalated</span>
+            )}
+
+            {viewFilter !== "trash" && viewFilter !== "archived" && (
+              <>
+                <Tooltip content={item.escalated ? "Remove from team" : "Escalate to team"}>
+                  <button
+                    onClick={() => patchItem(item.id, { escalated: !item.escalated })}
+                    className={`p-2 rounded-md text-xs transition-colors ${item.escalated ? "text-makina-green bg-makina-green/10 hover:bg-makina-green/20" : "text-makina-subtle bg-makina-surface hover:text-makina-green hover:bg-makina-green/10"}`}
+                  >
+                    <ArrowUpRight size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Archive">
+                  <button
+                    onClick={() => patchItem(item.id, { archived: true })}
+                    className="p-2 rounded-md text-makina-subtle bg-makina-surface hover:text-makina-blue hover:bg-blue-500/10 transition-colors"
+                  >
+                    <Archive size={15} />
+                  </button>
+                </Tooltip>
+                <Tooltip content="Move to deleted">
+                  <button
+                    onClick={() => handleDeleteClick(item.id)}
+                    className={`p-2 rounded-md transition-all ${
+                      deleteActiveId === item.id
+                        ? "text-white bg-makina-red scale-95"
+                        : "text-makina-subtle bg-makina-surface hover:text-makina-red hover:bg-red-500/10"
+                    }`}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </Tooltip>
+              </>
+            )}
+
+            {/* Restore buttons for archived/deleted views */}
+            {(viewFilter === "archived" || viewFilter === "trash") && (
+              <button
+                onClick={() => {
+                  if (viewFilter === "archived") patchItem(item.id, { archived: false });
+                  else patchItem(item.id, { deletedAt: null });
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
+              >
+                <RotateCcw size={13} />
+                Restore
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Card body */}
+        <div className="px-4 py-3">
+          {/* Type/category badges on separate line */}
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+              item.type === "issue" ? "bg-red-500/15 text-red-400" :
+              item.type === "suggestion" ? "bg-blue-500/15 text-blue-400" :
+              item.type === "question" ? "bg-makina-accent-dim text-makina-accent" :
+              "bg-makina-surface text-makina-muted"
+            }`}>
+              {item.type}
+            </span>
+            <span className="rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
+              {item.category}
+            </span>
+            {item.rating !== null && item.rating !== undefined && (
+              <RatingStars rating={item.rating} />
+            )}
+          </div>
+
+          {/* Screenshot thumbnail */}
+          {item.screenshotUrl && (
+            <div className="mb-2">
+              <a href={item.screenshotUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 group/img">
+                <div className="relative w-16 h-16 rounded-md overflow-hidden border border-makina-border hover:border-makina-accent/50 transition-colors">
+                  <img
+                    src={item.screenshotUrl}
+                    alt="Screenshot"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
+                    <ImageIcon size={14} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity" />
+                  </div>
+                </div>
+              </a>
+            </div>
+          )}
+
+          <FeedbackCard
+            item={item}
+            showStatus
+            onStatusChange={(id, status) => patchItem(id, { status })}
+            onItemUpdate={(updated) => setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } as ReviewItem : i)))}
+          />
+        </div>
+      </div>
+    </div>
+  );
 
   if (loading) {
     return (
@@ -297,61 +519,63 @@ export default function ReviewPage() {
             ))}
           </div>
 
-          {/* Trash notice */}
+          {/* Deleted notice */}
           {viewFilter === "trash" && trashItems.length > 0 && (
             <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-xs text-amber-400">
-              Items in trash are automatically deleted after 30 days.
+              Items in Deleted are automatically removed after 30 days.
             </div>
           )}
 
-          {/* Filters row */}
-          {viewFilter !== "trash" && (
-            <div className="flex flex-wrap items-center gap-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-              <div className="flex items-center gap-1.5 text-sm text-makina-muted">
-                <Filter size={14} />
-              </div>
-              <div className="flex gap-1">
-                {(["all", "praise", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => setTypeFilter(type)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      typeFilter === type
-                        ? "bg-makina-accent text-makina-bg"
-                        : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                    }`}
-                  >
-                    {type === "all" ? "All types" : type}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1">
-                {(["all", "Product", "UX", "Support"] as (CategoryId | "all")[]).map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategoryFilter(cat)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      categoryFilter === cat
-                        ? "bg-makina-blue text-white"
-                        : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                    }`}
-                  >
-                    {cat === "all" ? "All categories" : cat}
-                  </button>
-                ))}
-              </div>
-              <div className="relative ml-auto">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search feedback..."
-                  className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
-                />
-              </div>
+          {/* Filters row -- shown for all views */}
+          <div className="flex flex-wrap items-center gap-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            {viewFilter !== "trash" && viewFilter !== "archived" && (
+              <>
+                <div className="flex items-center gap-1.5 text-sm text-makina-muted">
+                  <Filter size={14} />
+                </div>
+                <div className="flex gap-1">
+                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setTypeFilter(type)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        typeFilter === type
+                          ? "bg-makina-accent text-makina-bg"
+                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                      }`}
+                    >
+                      {type === "all" ? "All types" : type}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex gap-1">
+                  {(["all", "Product", "UX", "Support"] as (CategoryId | "all")[]).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        categoryFilter === cat
+                          ? "bg-makina-blue text-white"
+                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                      }`}
+                    >
+                      {cat === "all" ? "All categories" : cat}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+            <div className={`relative ${viewFilter === "trash" || viewFilter === "archived" ? "" : "ml-auto"}`}>
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search feedback..."
+                className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
+              />
             </div>
-          )}
+          </div>
 
           {/* Bulk actions bar */}
           {selectedItems.size > 0 && (
@@ -387,144 +611,72 @@ export default function ReviewPage() {
           {/* Results count + select all */}
           <div className="flex items-center justify-between">
             <p className="text-xs text-makina-muted">Showing {sorted.length} items</p>
-            <button onClick={selectAll} className="text-xs text-makina-muted hover:text-makina-accent transition-colors">
-              {selectedItems.size === sorted.length && sorted.length > 0 ? "Deselect all" : "Select all"}
+            <button
+              onClick={selectAll}
+              className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors border ${
+                allSelected
+                  ? "bg-makina-accent text-makina-bg border-makina-accent"
+                  : "bg-makina-card text-makina-muted border-makina-border hover:border-makina-accent/40 hover:text-makina-text"
+              }`}
+            >
+              <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border text-[9px] font-bold leading-none ${
+                allSelected
+                  ? "bg-white text-makina-accent border-white"
+                  : "border-makina-subtle"
+              }`}>
+                {allSelected ? "\u2713" : ""}
+              </span>
+              {allSelected ? "Deselect all" : "Select all"}
             </button>
           </div>
 
           {/* Feedback list */}
           <div className="space-y-2">
-            {sorted.map((item, index) => (
-              <div key={item.id} className="animate-fade-in-up" style={{ animationDelay: `${index * 40}ms` }}>
-                <div className={`rounded-lg border transition-colors ${
-                  selectedItems.has(item.id)
-                    ? "border-makina-accent/40 bg-makina-accent-dim/30"
-                    : item.priority === "high"
-                    ? "border-red-500/30 bg-makina-card"
-                    : "border-makina-border bg-makina-card"
-                }`}>
-                  {/* Review controls bar */}
-                  <div className="flex items-center gap-2 px-4 py-2 border-b border-makina-border/50">
-                    <input
-                      type="checkbox"
-                      checked={selectedItems.has(item.id)}
-                      onChange={() => toggleSelect(item.id)}
-                      className="rounded border-makina-border accent-makina-accent cursor-pointer"
-                    />
-
-                    {viewFilter !== "trash" && viewFilter !== "archived" && (
-                      <>
-                        <button
-                          onClick={() => toggleStar(item.id)}
-                          className={`p-1.5 rounded-md transition-colors ${item.starred ? "text-amber-400" : "text-makina-subtle hover:text-amber-400"}`}
-                          title={item.starred ? "Unstar" : "Star for follow-up"}
-                        >
-                          <Star size={14} fill={item.starred ? "currentColor" : "none"} />
-                        </button>
-                        <select
-                          value={item.priority}
-                          onChange={(e) => patchItem(item.id, { priority: e.target.value as Priority })}
-                          className={`rounded-md bg-transparent border-none text-xs font-medium cursor-pointer focus:outline-none ${priorityColors[item.priority]}`}
-                        >
-                          {(Object.entries(priorityLabels) as [Priority, string][]).map(([k, v]) => (
-                            <option key={k} value={k}>{v}</option>
-                          ))}
-                        </select>
-                        <div className="flex items-center gap-1 ml-2">
-                          {item.tags.map((tag) => (
-                            <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
-                              {tag}
-                              <button onClick={() => removeTag(item.id, tag)} className="hover:text-makina-red transition-colors">x</button>
-                            </span>
-                          ))}
-                          <div className="relative">
-                            <button
-                              onClick={() => setTagDropdownId(tagDropdownId === item.id ? null : item.id)}
-                              className="flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] text-makina-subtle hover:text-makina-muted transition-colors"
-                            >
-                              <Tag size={10} />
-                              <ChevronDown size={8} />
-                            </button>
-                            {tagDropdownId === item.id && (
-                              <div className="absolute top-full left-0 mt-1 rounded-md bg-makina-card border border-makina-border shadow-lg z-20 py-1 min-w-[140px]">
-                                {PRESET_TAGS.filter((t) => !item.tags.includes(t)).map((tag) => (
-                                  <button
-                                    key={tag}
-                                    onClick={() => addTag(item.id, tag)}
-                                    className="block w-full text-left px-3 py-1.5 text-xs text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-colors"
-                                  >
-                                    {tag}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </>
-                    )}
-
-                    {/* Action buttons — right side */}
-                    <div className="ml-auto flex items-center gap-1">
-                      {item.escalated && viewFilter !== "trash" && viewFilter !== "archived" && (
-                        <span className="text-[10px] font-medium text-makina-green bg-makina-green/10 rounded-full px-2 py-0.5">Escalated</span>
-                      )}
-
-                      {viewFilter !== "trash" && viewFilter !== "archived" && (
-                        <>
-                          <Tooltip content={item.escalated ? "Remove from team" : "Escalate to team"}>
-                            <button
-                              onClick={() => patchItem(item.id, { escalated: !item.escalated })}
-                              className={`p-2 rounded-md text-xs transition-colors ${item.escalated ? "text-makina-green hover:text-makina-muted" : "text-makina-subtle hover:text-makina-green hover:bg-makina-green/10"}`}
-                            >
-                              <ArrowUpRight size={15} />
-                            </button>
-                          </Tooltip>
-                          <Tooltip content="Archive">
-                            <button
-                              onClick={() => patchItem(item.id, { archived: true })}
-                              className="p-2 rounded-md text-makina-subtle hover:text-makina-blue hover:bg-blue-500/10 transition-colors"
-                            >
-                              <Archive size={15} />
-                            </button>
-                          </Tooltip>
-                          <Tooltip content="Move to trash">
-                            <button
-                              onClick={() => patchItem(item.id, { deletedAt: new Date().toISOString() })}
-                              className="p-2 rounded-md text-makina-subtle hover:text-makina-red hover:bg-red-500/10 transition-colors"
-                            >
-                              <Trash2 size={15} />
-                            </button>
-                          </Tooltip>
-                        </>
-                      )}
-
-                      {/* Restore buttons for archived/trash views */}
-                      {(viewFilter === "archived" || viewFilter === "trash") && (
-                        <Tooltip content="Restore to inbox">
-                          <button
-                            onClick={() => {
-                              if (viewFilter === "archived") patchItem(item.id, { archived: false });
-                              else patchItem(item.id, { deletedAt: null });
-                            }}
-                            className="p-2 rounded-md text-makina-subtle hover:text-makina-green hover:bg-makina-green/10 transition-colors"
-                          >
-                            <RotateCcw size={15} />
-                          </button>
-                        </Tooltip>
-                      )}
+            {viewFilter === "inbox" ? (
+              <>
+                {/* New feedback section */}
+                {newItems.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 pt-2 pb-1">
+                      <Inbox size={13} className="text-makina-accent" />
+                      <h3 className="text-xs font-semibold text-makina-accent uppercase tracking-wider">New feedback</h3>
+                      <span className="text-[10px] text-makina-muted bg-makina-accent-dim rounded-full px-1.5 py-0.5">{newItems.length}</span>
+                      <div className="flex-1 h-px bg-makina-border ml-2" />
                     </div>
+                    {newItems.map((item, index) => renderFeedbackItem(item, index))}
                   </div>
-                  <div className="px-4 py-3">
-                    <FeedbackCard
-                      item={item}
-                      showStatus
-                      onStatusChange={(id, status) => patchItem(id, { status })}
-                      onItemUpdate={(updated) => setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } as ReviewItem : i)))}
-                    />
+                )}
+
+                {/* High priority section */}
+                {highPriorityCombined.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 pt-4 pb-1">
+                      <AlertTriangle size={13} className="text-makina-red" />
+                      <h3 className="text-xs font-semibold text-makina-red uppercase tracking-wider">High priority</h3>
+                      <span className="text-[10px] text-makina-muted bg-red-500/10 rounded-full px-1.5 py-0.5">{highPriorityCombined.length}</span>
+                      <div className="flex-1 h-px bg-makina-border ml-2" />
+                    </div>
+                    {highPriorityCombined.map((item, index) => renderFeedbackItem(item, newItems.length + index))}
                   </div>
-                </div>
-              </div>
-            ))}
+                )}
+
+                {/* Remaining items */}
+                {remainingItems.length > 0 && (
+                  <div className="space-y-2">
+                    {(newItems.length > 0 || highPriorityCombined.length > 0) && (
+                      <div className="flex items-center gap-2 pt-4 pb-1">
+                        <h3 className="text-xs font-semibold text-makina-muted uppercase tracking-wider">All other</h3>
+                        <span className="text-[10px] text-makina-muted bg-makina-surface rounded-full px-1.5 py-0.5">{remainingItems.length}</span>
+                        <div className="flex-1 h-px bg-makina-border ml-2" />
+                      </div>
+                    )}
+                    {remainingItems.map((item, index) => renderFeedbackItem(item, newItems.length + highPriorityCombined.length + index))}
+                  </div>
+                )}
+              </>
+            ) : (
+              sorted.map((item, index) => renderFeedbackItem(item, index))
+            )}
           </div>
 
           {sorted.length === 0 && (
@@ -532,7 +684,7 @@ export default function ReviewPage() {
               {viewFilter === "trash" ? (
                 <>
                   <Trash2 size={32} className="text-makina-subtle mx-auto" />
-                  <p className="text-sm text-makina-muted">Trash is empty</p>
+                  <p className="text-sm text-makina-muted">Deleted is empty</p>
                 </>
               ) : viewFilter === "archived" ? (
                 <>

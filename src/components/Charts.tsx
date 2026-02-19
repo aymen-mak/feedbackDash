@@ -15,17 +15,17 @@ import {
 interface DailyMetric {
   date: string;
   submissions: number;
-  sentiment: number;
+  satisfaction: number;
   issues: number;
   resolved: number;
 }
 
-type MetricKey = "submissions" | "sentiment" | "issues";
+type MetricKey = "submissions" | "satisfaction" | "issues";
 type TimeRange = "7D" | "14D" | "All";
 
 const METRICS: { key: MetricKey; label: string; color: string; format: (v: number) => string }[] = [
   { key: "submissions", label: "Submissions", color: "#C4B5FD", format: (v) => String(v) },
-  { key: "sentiment", label: "Sentiment", color: "#22c55e", format: (v) => `${v}%` },
+  { key: "satisfaction", label: "Satisfaction %", color: "#22c55e", format: (v) => `${v}%` },
   { key: "issues", label: "Open Issues", color: "#ef4444", format: (v) => String(v) },
 ];
 
@@ -70,7 +70,7 @@ function getTimeSlice(data: DailyMetric[], range: TimeRange) {
 }
 
 function getTotal(data: DailyMetric[], key: MetricKey) {
-  if (key === "sentiment") {
+  if (key === "satisfaction") {
     const valid = data.filter((d) => d.submissions > 0);
     if (valid.length === 0) return 0;
     const avg = valid.reduce((sum, d) => sum + d[key], 0) / valid.length;

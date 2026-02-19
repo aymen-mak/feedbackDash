@@ -2,7 +2,7 @@ import fs from "fs";
 import path from "path";
 
 // ── Types ──
-export type FeedbackType = "praise" | "issue" | "suggestion" | "question";
+export type FeedbackType = "issue" | "suggestion" | "question";
 export type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
 export type CategoryId = "Product" | "UX" | "Support";
 export type Priority = "none" | "low" | "medium" | "high";
@@ -33,6 +33,9 @@ export interface StoredFeedback {
   upvotedBy: string[];
   tags: string[];
   replies: Reply[];
+  screenshotUrl: string | null;
+  rating: number | null;
+  acknowledged: boolean;
   createdAt: string;
 }
 
@@ -106,46 +109,56 @@ function uid(): string {
   return "fb-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+// ── Quick action labels (feelings/reactions only) ──
+export const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
+  "love-it": { emoji: "🎉", label: "Love it!" },
+  "easy-to-use": { emoji: "✨", label: "Easy to use" },
+  "great-support": { emoji: "👏", label: "Great support" },
+  "impressive": { emoji: "🤩", label: "Impressive" },
+  "helpful": { emoji: "🙌", label: "Helpful" },
+  "confusing": { emoji: "😕", label: "Confusing" },
+};
+
 // ── Seed data (30 items over 15 days) ──
 export function seed(): StoredFeedback[] {
   const now = Date.now();
   const H = 3600000;
 
-  type Row = [string, string, CategoryId, FeedbackType, string, string | null, number, number];
+  type Row = [string, string, CategoryId, FeedbackType, string, string | null, number, number, number | null];
   const raw: Row[] = [
-    ["Lina C.", "L", "Product", "issue", "The checkout flow keeps freezing on the payment step. Tried three different browsers.", null, 34, 1],
-    ["Marcus J.", "M", "UX", "suggestion", "The search bar should support filters like date range and category. Right now I have to scroll through everything.", "feature-request", 27, 3],
-    ["Priya N.", "P", "Support", "praise", "Had an issue with my billing and the team sorted it out same day. Really appreciated the quick follow-up.", "great-support", 41, 6],
-    ["Ethan G.", "E", "Product", "praise", "", "love-it", 19, 10],
-    ["Sophie W.", "S", "UX", "issue", "The mobile layout is broken on the account settings page. Buttons overlap and the save button is hidden.", "bug-report", 13, 14],
-    ["Omar B.", "O", "Product", "suggestion", "Would be great to have bulk import from CSV. Adding items one by one takes forever.", "feature-request", 22, 24],
-    ["Aisha T.", "A", "UX", "issue", "", "too-slow", 16, 30],
-    ["Daniel F.", "D", "Support", "question", "Is there a way to transfer ownership of a workspace to another team member?", null, 5, 42],
-    ["Rachel K.", "R", "Product", "praise", "The new notification system is exactly what we needed. No more missed updates.", null, 29, 48],
-    ["Kai L.", "K", "UX", "suggestion", "Add keyboard shortcuts for the most common actions. Would speed up our workflow significantly.", null, 21, 60],
-    ["Nadia H.", "N", "Product", "issue", "PDF export cuts off content on the right side. Have to manually adjust margins every time.", null, 11, 72],
-    ["James R.", "J", "Support", "praise", "Your knowledge base articles are thorough and well-written. Saved me from contacting support multiple times.", null, 17, 96],
-    ["Zoe M.", "Z", "UX", "praise", "", "easy-to-use", 36, 108],
-    ["Lucas P.", "L", "Product", "suggestion", "Two-factor authentication should support hardware keys, not just SMS and authenticator apps.", null, 14, 120],
-    ["Mia S.", "M", "Support", "issue", "Submitted a ticket 5 days ago about data sync issues and haven't heard back yet.", null, 8, 144],
-    ["Thomas A.", "T", "UX", "suggestion", "The color contrast on disabled buttons is too low. Hard to tell what's clickable vs what isn't.", "needs-improvement", 12, 156],
-    ["Yuki O.", "Y", "Product", "praise", "The API documentation is excellent. Had our integration running in under an hour.", null, 25, 192],
-    ["Isabella D.", "I", "UX", "issue", "Dropdown menus close when I try to scroll inside them on Firefox. Pretty frustrating.", "bug-report", 9, 204],
-    ["Ben W.", "B", "Product", "question", "Are there plans to support SSO with SAML? Our IT team requires it for all vendor tools.", null, 7, 216],
-    ["Camille R.", "C", "Support", "suggestion", "A live chat widget would be much faster than email for simple questions.", null, 18, 240],
-    ["Arjun V.", "A", "Product", "praise", "The permissions system is flexible without being complicated. Nice balance.", null, 23, 264],
-    ["Freya B.", "F", "UX", "issue", "Clicking the back button after saving sometimes loses my changes. Happened twice today.", "confusing", 10, 288],
-    ["Noah E.", "N", "Support", "praise", "Called about an urgent issue and the support agent stayed on the line until it was fully resolved.", "great-support", 38, 300],
-    ["Elena G.", "E", "Product", "suggestion", "Let us schedule reports to be sent automatically. Having to generate them manually weekly is tedious.", "feature-request", 30, 312],
-    ["Ryan T.", "R", "UX", "praise", "The recent redesign of the settings page is a huge improvement. Everything is where I'd expect it.", null, 20, 324],
-    ["Hana K.", "H", "Support", "question", "What's the difference between the Team and Business plans? The comparison page isn't clear on a few features.", null, 6, 336],
-    ["Diego M.", "D", "Product", "issue", "Webhooks occasionally fire twice for the same event. Causing duplicate entries on our side.", "bug-report", 15, 348],
-    ["Clara J.", "C", "UX", "suggestion", "Please add a way to undo actions. Accidentally archived an important item and had to dig to restore it.", null, 24, 360],
-    ["Leo S.", "L", "Product", "praise", "The real-time sync across devices works flawlessly. Changed something on my phone and it was instant on desktop.", null, 33, 372],
-    ["Amara P.", "A", "Support", "issue", "The help center search returns irrelevant results. Searched for 'billing' and got articles about integrations.", null, 4, 380],
+    ["Lina C.", "L", "Product", "issue", "The checkout flow keeps freezing on the payment step. Tried three different browsers.", null, 34, 1, 2],
+    ["Marcus J.", "M", "UX", "suggestion", "The search bar should support filters like date range and category.\nRight now I have to scroll through everything.", null, 27, 3, 4],
+    ["Priya N.", "P", "Support", "suggestion", "Had an issue with my billing and the team sorted it out same day. Really appreciated the quick follow-up.", "great-support", 41, 6, 5],
+    ["Ethan G.", "E", "Product", "suggestion", "Overall the product is great, keep it up!", "love-it", 19, 10, 5],
+    ["Sophie W.", "S", "UX", "issue", "The mobile layout is broken on the account settings page.\nButtons overlap and the save button is hidden.", null, 13, 14, 2],
+    ["Omar B.", "O", "Product", "suggestion", "Would be great to have bulk import from CSV.\nAdding items one by one takes forever.", null, 22, 24, 3],
+    ["Aisha T.", "A", "UX", "issue", "Pages take too long to load, especially the dashboard.", null, 16, 30, 1],
+    ["Daniel F.", "D", "Support", "question", "Is there a way to transfer ownership of a workspace to another team member?", null, 5, 42, null],
+    ["Rachel K.", "R", "Product", "suggestion", "The new notification system is exactly what we needed. No more missed updates.", null, 29, 48, 5],
+    ["Kai L.", "K", "UX", "suggestion", "Add keyboard shortcuts for the most common actions.\nWould speed up our workflow significantly.", null, 21, 60, 4],
+    ["Nadia H.", "N", "Product", "issue", "PDF export cuts off content on the right side.\nHave to manually adjust margins every time.", null, 11, 72, 2],
+    ["James R.", "J", "Support", "suggestion", "Your knowledge base articles are thorough and well-written. Saved me from contacting support multiple times.", null, 17, 96, 5],
+    ["Zoe M.", "Z", "UX", "suggestion", "The interface is intuitive and easy to navigate.", "easy-to-use", 36, 108, 5],
+    ["Lucas P.", "L", "Product", "suggestion", "Two-factor authentication should support hardware keys, not just SMS and authenticator apps.", null, 14, 120, 3],
+    ["Mia S.", "M", "Support", "issue", "Submitted a ticket 5 days ago about data sync issues and haven't heard back yet.", null, 8, 144, 1],
+    ["Thomas A.", "T", "UX", "suggestion", "The color contrast on disabled buttons is too low.\nHard to tell what's clickable vs what isn't.", null, 12, 156, 3],
+    ["Yuki O.", "Y", "Product", "suggestion", "The API documentation is excellent. Had our integration running in under an hour.", "impressive", 25, 192, 5],
+    ["Isabella D.", "I", "UX", "issue", "Dropdown menus close when I try to scroll inside them on Firefox. Pretty frustrating.", null, 9, 204, 2],
+    ["Ben W.", "B", "Product", "question", "Are there plans to support SSO with SAML? Our IT team requires it for all vendor tools.", null, 7, 216, null],
+    ["Camille R.", "C", "Support", "suggestion", "A live chat widget would be much faster than email for simple questions.", null, 18, 240, 4],
+    ["Arjun V.", "A", "Product", "suggestion", "The permissions system is flexible without being complicated. Nice balance.", "helpful", 23, 264, 5],
+    ["Freya B.", "F", "UX", "issue", "Clicking the back button after saving sometimes loses my changes.\nHappened twice today.", "confusing", 10, 288, 2],
+    ["Noah E.", "N", "Support", "suggestion", "Called about an urgent issue and the support agent stayed on the line until it was fully resolved.", "great-support", 38, 300, 5],
+    ["Elena G.", "E", "Product", "suggestion", "Let us schedule reports to be sent automatically.\nHaving to generate them manually weekly is tedious.", null, 30, 312, 3],
+    ["Ryan T.", "R", "UX", "suggestion", "The recent redesign of the settings page is a huge improvement. Everything is where I'd expect it.", null, 20, 324, 5],
+    ["Hana K.", "H", "Support", "question", "What's the difference between the Team and Business plans?\nThe comparison page isn't clear on a few features.", null, 6, 336, null],
+    ["Diego M.", "D", "Product", "issue", "Webhooks occasionally fire twice for the same event.\nCausing duplicate entries on our side.", null, 15, 348, 2],
+    ["Clara J.", "C", "UX", "suggestion", "Please add a way to undo actions.\nAccidentally archived an important item and had to dig to restore it.", null, 24, 360, 4],
+    ["Leo S.", "L", "Product", "suggestion", "The real-time sync across devices works flawlessly. Changed something on my phone and it was instant on desktop.", "impressive", 33, 372, 5],
+    ["Amara P.", "A", "Support", "issue", "The help center search returns irrelevant results.\nSearched for 'billing' and got articles about integrations.", null, 4, 380, 2],
   ];
 
-  return raw.map(([userName, userAvatar, category, type, message, quickAction, upvotes, hoursAgo], i) => ({
+  return raw.map(([userName, userAvatar, category, type, message, quickAction, upvotes, hoursAgo, rating], i) => ({
     id: `fb-seed-${String(i).padStart(3, "0")}`,
     userName,
     userAvatar,
@@ -165,6 +178,9 @@ export function seed(): StoredFeedback[] {
     upvotedBy: [],
     tags: [],
     replies: [],
+    screenshotUrl: null,
+    rating: rating ?? null,
+    acknowledged: i === 2 || i === 8 || i === 11 || i === 22,
     createdAt: new Date(now - hoursAgo * H).toISOString(),
   }));
 }
@@ -217,11 +233,19 @@ export function createFeedback(data: {
   message: string;
   quickAction: string | null;
   anonymous: boolean;
+  screenshotUrl?: string | null;
+  rating?: number | null;
 }): StoredFeedback {
   const store = read();
   const item: StoredFeedback = {
     id: uid(),
-    ...data,
+    userName: data.userName,
+    userAvatar: data.userAvatar,
+    category: data.category,
+    type: data.type,
+    message: data.message,
+    quickAction: data.quickAction,
+    anonymous: data.anonymous,
     status: "new",
     priority: "none",
     starred: false,
@@ -233,6 +257,9 @@ export function createFeedback(data: {
     upvotedBy: [],
     tags: [],
     replies: [],
+    screenshotUrl: data.screenshotUrl ?? null,
+    rating: data.rating ?? null,
+    acknowledged: false,
     createdAt: new Date().toISOString(),
   };
   store.feedback.push(item);
@@ -242,7 +269,7 @@ export function createFeedback(data: {
 
 export function updateFeedback(
   id: string,
-  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags">>
+  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags" | "acknowledged">>
 ): StoredFeedback | null {
   const store = read();
   const idx = store.feedback.findIndex((f) => f.id === id);
@@ -286,7 +313,7 @@ export function addReply(id: string, message: string): StoredFeedback | null {
 export interface DailyMetric {
   date: string;
   submissions: number;
-  sentiment: number;
+  satisfaction: number;
   issues: number;
   resolved: number;
 }
@@ -298,29 +325,35 @@ export function getStats() {
 
   // Type counts
   const byType = {
-    praise: notDismissed.filter((f) => f.type === "praise").length,
     suggestion: notDismissed.filter((f) => f.type === "suggestion").length,
     issue: notDismissed.filter((f) => f.type === "issue").length,
     question: notDismissed.filter((f) => f.type === "question").length,
   };
-  const typeTotal = byType.praise + byType.suggestion + byType.issue + byType.question;
+  const typeTotal = byType.suggestion + byType.issue + byType.question;
 
-  // Sentiment (praise = positive, suggestion/question = neutral, issue = needs attention)
-  const positive = typeTotal > 0 ? Math.round((byType.praise / typeTotal) * 100) : 0;
-  const neutral = typeTotal > 0 ? Math.round(((byType.suggestion + byType.question) / typeTotal) * 100) : 0;
-  const needsAttention = typeTotal > 0 ? 100 - positive - neutral : 0;
+  // Experience rating stats (from user ratings 1-5)
+  const rated = notDismissed.filter((f) => f.rating !== null && f.rating !== undefined);
+  const avgRating = rated.length > 0 ? rated.reduce((sum, f) => sum + (f.rating ?? 0), 0) / rated.length : 0;
+  const satisfied = rated.filter((f) => (f.rating ?? 0) >= 4).length;
+  const neutral = rated.filter((f) => (f.rating ?? 0) === 3).length;
+  const unsatisfied = rated.filter((f) => (f.rating ?? 0) <= 2).length;
+  const ratedTotal = satisfied + neutral + unsatisfied;
+  const satisfiedPct = ratedTotal > 0 ? Math.round((satisfied / ratedTotal) * 100) : 0;
+  const neutralPct = ratedTotal > 0 ? Math.round((neutral / ratedTotal) * 100) : 0;
+  const unsatisfiedPct = ratedTotal > 0 ? 100 - satisfiedPct - neutralPct : 0;
 
   // Category stats
   const categories: CategoryId[] = ["Product", "UX", "Support"];
   const categoryStats = categories.map((cat) => {
     const items = notDismissed.filter((f) => f.category === cat);
     const openIssues = items.filter((f) => f.type === "issue" && f.status !== "addressed").length;
-    const praised = items.filter((f) => f.type === "praise").length;
+    const catRated = items.filter((f) => f.rating !== null && f.rating !== undefined);
+    const catAvg = catRated.length > 0 ? catRated.reduce((s, f) => s + (f.rating ?? 0), 0) / catRated.length : 0;
     return {
       id: cat,
       submissions: items.length,
       openIssues,
-      satisfaction: items.length > 0 ? Math.round((praised / items.length) * 100) / 100 : 0,
+      satisfaction: Math.round(catAvg * 100) / 100,
     };
   });
 
@@ -335,22 +368,11 @@ export function getStats() {
     }
   }
 
-  const quickActionLabels: Record<string, { emoji: string; label: string }> = {
-    "love-it": { emoji: "🎉", label: "Love it!" },
-    "easy-to-use": { emoji: "✨", label: "Easy to use" },
-    "feature-request": { emoji: "💡", label: "Feature request" },
-    "bug-report": { emoji: "🐛", label: "Bug report" },
-    "great-support": { emoji: "👏", label: "Great support" },
-    "confusing": { emoji: "😕", label: "Confusing" },
-    "too-slow": { emoji: "🐌", label: "Too slow" },
-    "needs-improvement": { emoji: "🔧", label: "Needs improvement" },
-  };
-
   const reactionTotals = Object.entries(actionCounts)
     .map(([id, count]) => ({
       id,
-      emoji: quickActionLabels[id]?.emoji ?? "❓",
-      label: quickActionLabels[id]?.label ?? id,
+      emoji: QUICK_ACTION_LABELS[id]?.emoji ?? "❓",
+      label: QUICK_ACTION_LABELS[id]?.label ?? id,
       count,
     }))
     .sort((a, b) => b.count - a.count);
@@ -367,7 +389,6 @@ export function getStats() {
   for (const f of notDismissed) {
     if (!f.message) continue;
     const words = f.message.toLowerCase().replace(/[^a-z\s-]/g, "").split(/\s+/);
-    // Extract 2-word phrases and meaningful single words
     for (let i = 0; i < words.length; i++) {
       const w = words[i];
       if (w.length < 4 || stopWords.has(w)) continue;
@@ -389,9 +410,8 @@ export function getStats() {
 
   // Feedback by type (for dashboard breakdown)
   const feedbackByType = [
-    { name: "Praise", value: byType.praise, pct: typeTotal > 0 ? Math.round((byType.praise / typeTotal) * 100) : 0, color: "#22c55e" },
-    { name: "Suggestion", value: byType.suggestion, pct: typeTotal > 0 ? Math.round((byType.suggestion / typeTotal) * 100) : 0, color: "#3b82f6" },
     { name: "Issue", value: byType.issue, pct: typeTotal > 0 ? Math.round((byType.issue / typeTotal) * 100) : 0, color: "#ef4444" },
+    { name: "Suggestion", value: byType.suggestion, pct: typeTotal > 0 ? Math.round((byType.suggestion / typeTotal) * 100) : 0, color: "#3b82f6" },
     { name: "Question", value: byType.question, pct: typeTotal > 0 ? Math.round((byType.question / typeTotal) * 100) : 0, color: "#C4B5FD" },
   ];
 
@@ -410,7 +430,8 @@ export function getStats() {
     });
 
     const dayTotal = dayItems.length;
-    const dayPraise = dayItems.filter((f) => f.type === "praise").length;
+    const dayRated = dayItems.filter((f) => f.rating !== null && f.rating !== undefined);
+    const dayAvg = dayRated.length > 0 ? dayRated.reduce((s, f) => s + (f.rating ?? 0), 0) / dayRated.length : 3;
     const dayIssues = dayItems.filter((f) => f.type === "issue").length;
     const dayResolved = dayItems.filter((f) => f.status === "addressed").length;
 
@@ -420,7 +441,7 @@ export function getStats() {
     dailyMetrics.push({
       date: `${month} ${day}`,
       submissions: dayTotal,
-      sentiment: dayTotal > 0 ? Math.round((dayPraise / dayTotal) * 100) : 50,
+      satisfaction: Math.round((dayAvg / 5) * 100),
       issues: dayIssues,
       resolved: dayResolved,
     });
@@ -437,9 +458,10 @@ export function getStats() {
   return {
     total,
     contributors,
-    positive,
-    neutral,
-    needsAttention,
+    avgRating: Math.round(avgRating * 10) / 10,
+    satisfiedPct,
+    neutralPct,
+    unsatisfiedPct,
     weeklyVolume,
     resolutionRate,
     categoryStats,

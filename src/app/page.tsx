@@ -1,12 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Send, Check, EyeOff, MessageSquare, Zap, TrendingUp, Users, Hash, Flame, Sparkles, BarChart3, User } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Send, Check, EyeOff, MessageSquare, Zap, TrendingUp, Users, Hash, Flame, Sparkles, BarChart3, User, Star as StarIcon, Image as ImageIcon, X, Upload } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Tooltip from "@/components/Tooltip";
 
 type CategoryId = "Product" | "UX" | "Support";
 const CATEGORIES: CategoryId[] = ["Product", "UX", "Support"];
+
+type FeedbackType = "suggestion" | "issue" | "question";
+
+const SEVERITY_OPTIONS: { id: FeedbackType; label: string; description: string; color: string; selectedBg: string }[] = [
+  { id: "suggestion", label: "Suggestion", description: "An idea or improvement", color: "text-blue-400 border-blue-500/20", selectedBg: "bg-blue-500 text-white border-blue-500" },
+  { id: "issue", label: "Issue", description: "Something broken or wrong", color: "text-amber-400 border-amber-500/20", selectedBg: "bg-amber-500 text-white border-amber-500" },
+  { id: "question", label: "Question", description: "Need help or clarification", color: "text-makina-accent border-makina-accent/20", selectedBg: "bg-makina-accent text-white border-makina-accent" },
+];
 
 const categoryPrompts: Record<CategoryId, string> = {
   Product: "What would you improve about the product?",
@@ -15,33 +23,33 @@ const categoryPrompts: Record<CategoryId, string> = {
 };
 
 const QUICK_ACTIONS = [
-  { id: "love-it", emoji: "🎉", label: "Love it!" },
-  { id: "easy-to-use", emoji: "✨", label: "Easy to use" },
-  { id: "feature-request", emoji: "💡", label: "Feature request" },
-  { id: "bug-report", emoji: "🐛", label: "Bug report" },
-  { id: "great-support", emoji: "👏", label: "Great support" },
-  { id: "confusing", emoji: "😕", label: "Confusing" },
-  { id: "too-slow", emoji: "🐌", label: "Too slow" },
-  { id: "needs-improvement", emoji: "🔧", label: "Needs improvement" },
+  { id: "love-it", emoji: "\u{1F389}", label: "Love it!" },
+  { id: "easy-to-use", emoji: "\u2728", label: "Easy to use" },
+  { id: "great-support", emoji: "\u{1F44F}", label: "Great support" },
+  { id: "impressive", emoji: "\u{1F929}", label: "Impressive" },
+  { id: "helpful", emoji: "\u{1F64C}", label: "Helpful" },
+  { id: "confusing", emoji: "\u{1F615}", label: "Confusing" },
 ];
 
 interface Stats {
   total: number;
   contributors: number;
-  positive: number;
-  neutral: number;
-  needsAttention: number;
+  avgRating: number;
+  satisfiedPct: number;
+  neutralPct: number;
+  unsatisfiedPct: number;
   weeklyVolume: number;
   categoryStats: { id: string; submissions: number; openIssues: number; satisfaction: number }[];
   reactionTotals: { id: string; emoji: string; label: string; count: number; pct: number }[];
   trendingTopics: { topic: string; mentions: number; trend: "up" | "steady" | "new"; category: string }[];
 }
 
-const trendIcon = { up: "↑", steady: "→", new: "★" };
+const trendIcon = { up: "\u2191", steady: "\u2192", new: "\u2605" };
 const trendColor = { up: "text-makina-green", steady: "text-makina-blue", new: "text-makina-accent" };
 
 export default function FeedbackPage() {
   const [category, setCategory] = useState<CategoryId>("Product");
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>("suggestion");
   const [quickAction, setQuickAction] = useState<string | null>(null);
   const [message, setMessage] = useState("");
   const [userName, setUserName] = useState("");
@@ -50,6 +58,11 @@ export default function FeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [stats, setStats] = useState<Stats | null>(null);
+  const [rating, setRating] = useState(0);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [screenshotUrl, setScreenshotUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/stats")
@@ -58,11 +71,40 @@ export default function FeedbackPage() {
         return r.json();
       })
       .then((data) => {
-        // Only set stats if it has the expected shape (not an error response)
         if (data && typeof data.total === "number") setStats(data);
       })
       .catch((err) => console.error("Failed to load stats:", err));
   }, []);
+
+  const handleScreenshotUpload = async (file: File) => {
+    if (!file.type.includes("jpeg") && !file.type.includes("jpg")) {
+      setError("Only JPG images are accepted.");
+      return;
+    }
+    if (file.size > 1.5 * 1024 * 1024) {
+      setError("Screenshot must be under 1.5MB.");
+      return;
+    }
+    setUploading(true);
+    setError("");
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setScreenshotUrl(data.url);
+      } else {
+        setError("Failed to upload screenshot.");
+      }
+    } catch {
+      setError("Could not upload screenshot.");
+    }
+    setUploading(false);
+  };
 
   const handleSubmit = async () => {
     if (!message.trim() && !quickAction) return;
@@ -74,20 +116,24 @@ export default function FeedbackPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           category,
-          type: quickAction && !message.trim() ? "praise" : "suggestion",
+          type: feedbackType,
           message: message.trim(),
           quickAction,
           anonymous,
           userName: anonymous ? "Anonymous" : userName.trim() || "Anonymous",
+          screenshotUrl: screenshotUrl || undefined,
+          rating: rating || undefined,
         }),
       });
       if (res.ok) {
         setMessage("");
         setQuickAction(null);
         setUserName("");
+        setFeedbackType("suggestion");
+        setRating(0);
+        setScreenshotUrl("");
         setSubmitted(true);
         setTimeout(() => setSubmitted(false), 2500);
-        // Refresh stats
         fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {});
       } else {
         const data = await res.json().catch(() => ({}));
@@ -130,11 +176,11 @@ export default function FeedbackPage() {
               </div>
             </Tooltip>
             <div className="h-4 w-px bg-makina-border hidden sm:block" />
-            <Tooltip content="Positive sentiment auto-detected from feedback text">
+            <Tooltip content="Average experience rating from user feedback">
               <div className="flex items-center gap-2 cursor-default">
-                <TrendingUp size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">{stats?.positive ?? 0}%</span>
-                <span className="text-xs text-makina-muted">positive</span>
+                <StarIcon size={13} className="text-makina-muted" />
+                <span className="text-sm font-semibold">{stats?.avgRating?.toFixed(1) ?? "0.0"}</span>
+                <span className="text-xs text-makina-muted">avg rating</span>
               </div>
             </Tooltip>
             <div className="h-4 w-px bg-makina-border hidden sm:block" />
@@ -161,6 +207,7 @@ export default function FeedbackPage() {
 
           {/* Form card */}
           <div className="rounded-lg bg-makina-card border border-makina-border p-6 space-y-5 hover-lift">
+            {/* Category */}
             <div className="space-y-2">
               <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Category</label>
               <div className="flex gap-2">
@@ -180,29 +227,52 @@ export default function FeedbackPage() {
               </div>
             </div>
 
+            {/* Feedback type / severity */}
             <div className="space-y-2">
-              <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Quick reaction <span className="normal-case text-makina-subtle">(optional)</span></label>
-              <div className="flex flex-wrap gap-2">
+              <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">What kind of feedback?</label>
+              <div className="grid grid-cols-3 gap-2">
+                {SEVERITY_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setFeedbackType(opt.id)}
+                    className={`rounded-lg px-3 py-2.5 text-left transition-all border ${
+                      feedbackType === opt.id
+                        ? opt.selectedBg
+                        : "bg-makina-surface text-makina-muted border-makina-border hover:border-makina-subtle hover:text-makina-text"
+                    }`}
+                  >
+                    <span className="text-xs font-semibold block">{opt.label}</span>
+                    <span className={`text-[10px] block mt-0.5 ${feedbackType === opt.id ? "text-white/70" : "text-makina-subtle"}`}>{opt.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Quick reactions -- compact row */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-medium text-makina-subtle uppercase tracking-wider">Quick reaction <span className="normal-case">(optional)</span></label>
+              <div className="flex flex-wrap gap-1.5">
                 {QUICK_ACTIONS.map((action) => (
                   <button
                     key={action.id}
                     onClick={() => setQuickAction(quickAction === action.id ? null : action.id)}
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-all ${
                       quickAction === action.id
-                        ? "gradient-accent text-makina-bg"
-                        : "bg-makina-surface text-makina-muted border border-makina-border hover:border-makina-accent/40 hover:text-makina-text"
+                        ? "bg-makina-accent-dim text-makina-accent border border-makina-accent/30"
+                        : "bg-makina-surface/30 text-makina-subtle border border-transparent hover:text-makina-muted hover:bg-makina-surface/60"
                     }`}
                   >
-                    <span>{action.emoji}</span>
+                    <span className="text-[11px]">{action.emoji}</span>
                     <span>{action.label}</span>
                   </button>
                 ))}
               </div>
             </div>
 
+            {/* Message */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Message <span className="normal-case text-makina-subtle">(optional if reaction selected)</span></label>
+                <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Message</label>
                 <button
                   type="button"
                   onClick={() => setAnonymous(!anonymous)}
@@ -239,6 +309,84 @@ export default function FeedbackPage() {
               />
             </div>
 
+            {/* Screenshot upload */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Screenshot <span className="normal-case text-makina-subtle">(optional, JPG only, max 1.5MB)</span></label>
+              {screenshotUrl ? (
+                <div className="flex items-center gap-3">
+                  <div className="relative h-16 w-16 rounded-md overflow-hidden border border-makina-border">
+                    <img src={screenshotUrl} alt="Screenshot preview" className="h-full w-full object-cover" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setScreenshotUrl(""); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                    className="flex items-center gap-1 rounded-md bg-makina-surface border border-makina-border px-2 py-1 text-xs text-makina-muted hover:text-red-400 hover:border-red-500/30 transition-colors"
+                  >
+                    <X size={12} />
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="flex items-center gap-2 rounded-md bg-makina-surface border border-makina-border px-3 py-2 text-xs text-makina-muted hover:border-makina-subtle hover:text-makina-text transition-colors disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <>
+                      <Upload size={13} className="animate-pulse" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon size={13} />
+                      Attach screenshot
+                    </>
+                  )}
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".jpg,.jpeg,image/jpeg"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleScreenshotUpload(file);
+                }}
+              />
+            </div>
+
+            {/* Experience rating */}
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">How was your experience?</label>
+              <div className="flex items-center gap-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRating(star)}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    className="p-0.5 transition-transform hover:scale-110"
+                  >
+                    <StarIcon
+                      size={22}
+                      className={`transition-colors ${
+                        star <= (hoverRating || rating)
+                          ? "text-amber-400 fill-amber-400"
+                          : "text-makina-border"
+                      }`}
+                    />
+                  </button>
+                ))}
+                {rating > 0 && (
+                  <span className="text-xs text-makina-muted ml-2">{rating}/5</span>
+                )}
+              </div>
+            </div>
+
             {error && (
               <div className="flex items-center gap-2 rounded-md bg-red-500/10 border border-red-500/20 px-4 py-3">
                 <span className="text-sm text-red-400">{error}</span>
@@ -264,25 +412,6 @@ export default function FeedbackPage() {
 
           {/* Context panel */}
           <div className="space-y-4">
-            {/* Trending reactions */}
-            <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
-              <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Trending reactions</span>
-              <div className="space-y-2">
-                {(stats?.reactionTotals ?? []).slice(0, 4).map((r) => (
-                  <div key={r.label} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">{r.emoji}</span>
-                      <span className="text-xs text-makina-text">{r.label}</span>
-                    </div>
-                    <span className="text-xs font-semibold text-makina-muted">{r.count}</span>
-                  </div>
-                ))}
-                {(!stats || stats.reactionTotals.length === 0) && (
-                  <p className="text-xs text-makina-subtle">No reactions yet. Be the first!</p>
-                )}
-              </div>
-            </div>
-
             {/* Category breakdown */}
             <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
               <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">By category</span>
@@ -301,6 +430,23 @@ export default function FeedbackPage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+
+            {/* Trending reactions -- compact */}
+            <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
+              <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Common tags</span>
+              <div className="flex flex-wrap gap-1.5">
+                {(stats?.reactionTotals ?? []).slice(0, 6).map((r) => (
+                  <span key={r.label} className="inline-flex items-center gap-1 rounded-md bg-makina-surface px-2 py-1 text-[11px] text-makina-muted">
+                    <span>{r.emoji}</span>
+                    <span>{r.label}</span>
+                    <span className="text-makina-subtle font-medium">{r.count}</span>
+                  </span>
+                ))}
+                {(!stats || stats.reactionTotals.length === 0) && (
+                  <p className="text-xs text-makina-subtle">No tags yet</p>
+                )}
               </div>
             </div>
 
@@ -343,61 +489,26 @@ export default function FeedbackPage() {
           </div>
         )}
 
-        {/* Zone 4: Community Pulse */}
+        {/* Zone 4: Experience Ratings */}
         {stats && (
           <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-            <h2 className="text-lg font-semibold">Community Pulse</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {/* Sentiment breakdown */}
-              <div className="rounded-lg bg-makina-card border border-makina-border p-5 space-y-4">
-                <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Sentiment breakdown</span>
-                <div className="space-y-3">
-                  <div className="flex h-3 rounded-full overflow-hidden">
-                    <div className="bg-makina-green transition-all" style={{ width: `${stats.positive}%` }} />
-                    <div className="bg-makina-blue transition-all" style={{ width: `${stats.neutral}%` }} />
-                    <div className="bg-amber-500 transition-all" style={{ width: `${stats.needsAttention}%` }} />
+            <h2 className="text-lg font-semibold">Experience Ratings</h2>
+            <div className="rounded-lg bg-makina-card border border-makina-border p-5">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="flex flex-col items-center gap-1 py-3">
+                  <div className="flex items-center gap-1">
+                    <StarIcon size={18} className="text-amber-400 fill-amber-400" />
+                    <span className="text-2xl font-bold text-makina-text">{stats.avgRating?.toFixed(1) ?? "0.0"}</span>
                   </div>
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-makina-green" />
-                      <span className="text-makina-text">Positive</span>
-                      <span className="text-makina-muted font-semibold">{stats.positive}%</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-makina-blue" />
-                      <span className="text-makina-text">Neutral</span>
-                      <span className="text-makina-muted font-semibold">{stats.neutral}%</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-amber-500" />
-                      <span className="text-makina-text">Needs attention</span>
-                      <span className="text-makina-muted font-semibold">{stats.needsAttention}%</span>
-                    </div>
-                  </div>
+                  <span className="text-xs text-makina-muted">Average rating</span>
                 </div>
-              </div>
-
-              {/* Reaction totals */}
-              <div className="rounded-lg bg-makina-card border border-makina-border p-5 space-y-4">
-                <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Top reactions this month</span>
-                <div className="space-y-2">
-                  {stats.reactionTotals.slice(0, 5).map((r) => (
-                    <div key={r.label} className="flex items-center gap-3">
-                      <span className="text-sm w-5 text-center">{r.emoji}</span>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-makina-text">{r.label}</span>
-                          <span className="text-[11px] text-makina-muted font-medium">{r.count}</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-makina-surface overflow-hidden">
-                          <div
-                            className="h-full rounded-full gradient-accent transition-all"
-                            style={{ width: `${r.pct * 2}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="flex flex-col items-center gap-1 py-3">
+                  <span className="text-2xl font-bold text-makina-green">{stats.satisfiedPct ?? 0}%</span>
+                  <span className="text-xs text-makina-muted">Satisfied</span>
+                </div>
+                <div className="flex flex-col items-center gap-1 py-3">
+                  <span className="text-2xl font-bold text-amber-400">{stats.unsatisfiedPct ?? 0}%</span>
+                  <span className="text-xs text-makina-muted">Unsatisfied</span>
                 </div>
               </div>
             </div>

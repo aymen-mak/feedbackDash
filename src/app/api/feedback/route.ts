@@ -29,13 +29,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const { category, type, message, quickAction, anonymous, userName } = body as {
+    const { category, type, message, quickAction, anonymous, userName, screenshotUrl, rating } = body as {
       category: CategoryId;
       type: FeedbackType;
       message: string;
       quickAction: string | null;
       anonymous: boolean;
       userName?: string;
+      screenshotUrl?: string | null;
+      rating?: number | null;
     };
 
     if (!category || !type) {
@@ -53,10 +55,12 @@ export async function POST(req: NextRequest) {
       userName: displayName,
       userAvatar: avatar,
       category,
-      type: quickAction && !message?.trim() ? "praise" as FeedbackType : type,
+      type,
       message: message || "",
       quickAction,
       anonymous,
+      screenshotUrl: screenshotUrl ?? null,
+      rating: rating ?? null,
     };
 
     if (hasPostgres()) {

@@ -28,6 +28,9 @@ export async function ensureSchema() {
       upvotes INTEGER NOT NULL DEFAULT 0,
       upvoted_by TEXT[] NOT NULL DEFAULT '{}',
       tags TEXT[] NOT NULL DEFAULT '{}',
+      screenshot_url TEXT,
+      rating INTEGER,
+      acknowledged BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
@@ -62,6 +65,9 @@ function rowToFeedback(row: Record<string, unknown>): StoredFeedback {
     upvotedBy: (row.upvoted_by as string[]) || [],
     tags: (row.tags as string[]) || [],
     replies: [], // loaded separately
+    screenshotUrl: (row.screenshot_url as string) || null,
+    rating: row.rating !== null && row.rating !== undefined ? (row.rating as number) : null,
+    acknowledged: (row.acknowledged as boolean) ?? false,
     createdAt: (row.created_at as Date).toISOString(),
   };
 }
@@ -151,12 +157,16 @@ export async function pgCreateFeedback(data: {
   message: string;
   quickAction: string | null;
   anonymous: boolean;
+  screenshotUrl?: string | null;
+  rating?: number | null;
 }): Promise<StoredFeedback> {
   await ensureSchema();
   const id = "fb-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  const screenshotUrl = data.screenshotUrl ?? null;
+  const rating = data.rating ?? null;
   const { rows } = await sql`
-    INSERT INTO feedback (id, user_name, user_avatar, category, type, message, quick_action, anonymous)
-    VALUES (${id}, ${data.userName}, ${data.userAvatar}, ${data.category}, ${data.type}, ${data.message}, ${data.quickAction}, ${data.anonymous})
+    INSERT INTO feedback (id, user_name, user_avatar, category, type, message, quick_action, anonymous, screenshot_url, rating)
+    VALUES (${id}, ${data.userName}, ${data.userAvatar}, ${data.category}, ${data.type}, ${data.message}, ${data.quickAction}, ${data.anonymous}, ${screenshotUrl}, ${rating})
     RETURNING *
   `;
   return { ...rowToFeedback(rows[0]), replies: [] };
@@ -164,10 +174,9 @@ export async function pgCreateFeedback(data: {
 
 export async function pgUpdateFeedback(
   id: string,
-  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags">>
+  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags" | "acknowledged">>
 ): Promise<StoredFeedback | null> {
   await ensureSchema();
-  // Build dynamic SET clauses
   const setClauses: string[] = [];
   const vals: unknown[] = [];
 
@@ -179,10 +188,10 @@ export async function pgUpdateFeedback(
   if (updates.archived !== undefined) { setClauses.push("archived"); vals.push(updates.archived); }
   if ("deletedAt" in updates) { setClauses.push("deleted_at"); vals.push(updates.deletedAt ? new Date(updates.deletedAt) : null); }
   if (updates.tags !== undefined) { setClauses.push("tags"); vals.push(updates.tags); }
+  if (updates.acknowledged !== undefined) { setClauses.push("acknowledged"); vals.push(updates.acknowledged); }
 
   if (setClauses.length === 0) return pgGetFeedbackById(id);
 
-  // Use individual updates since @vercel/postgres doesn't support dynamic column names easily
   for (let i = 0; i < setClauses.length; i++) {
     const col = setClauses[i];
     const val = vals[i];
@@ -200,6 +209,7 @@ export async function pgUpdateFeedback(
       const tagsVal = val as unknown as string;
       await sql`UPDATE feedback SET tags = ${tagsVal}::text[] WHERE id = ${id}`;
     }
+    else if (col === "acknowledged") await sql`UPDATE feedback SET acknowledged = ${val as boolean} WHERE id = ${id}`;
   }
 
   return pgGetFeedbackById(id);
@@ -245,9 +255,8 @@ export async function pgAddReply(id: string, message: string): Promise<StoredFee
 
 export async function pgGetStats() {
   await ensureSchema();
-  // Reuse the logic from store.ts but with Postgres data
   const items = await pgGetAllFeedback();
-  return items; // Return raw items — caller will compute stats
+  return items;
 }
 
 /** Seed the database if empty */
@@ -259,8 +268,8 @@ export async function pgSeedIfEmpty(seedData: StoredFeedback[]) {
 
   for (const item of seedData) {
     await sql`
-      INSERT INTO feedback (id, user_name, user_avatar, category, type, message, quick_action, anonymous, status, priority, starred, escalated, dismissed, archived, deleted_at, upvotes, upvoted_by, tags, created_at)
-      VALUES (${item.id}, ${item.userName}, ${item.userAvatar}, ${item.category}, ${item.type}, ${item.message}, ${item.quickAction}, ${item.anonymous}, ${item.status}, ${item.priority}, ${item.starred}, ${item.escalated}, ${item.dismissed}, ${item.archived}, ${item.deletedAt || null}, ${item.upvotes}, ${item.upvotedBy as unknown as string}::text[], ${item.tags as unknown as string}::text[], ${item.createdAt})
+      INSERT INTO feedback (id, user_name, user_avatar, category, type, message, quick_action, anonymous, status, priority, starred, escalated, dismissed, archived, deleted_at, upvotes, upvoted_by, tags, screenshot_url, rating, acknowledged, created_at)
+      VALUES (${item.id}, ${item.userName}, ${item.userAvatar}, ${item.category}, ${item.type}, ${item.message}, ${item.quickAction}, ${item.anonymous}, ${item.status}, ${item.priority}, ${item.starred}, ${item.escalated}, ${item.dismissed}, ${item.archived}, ${item.deletedAt || null}, ${item.upvotes}, ${item.upvotedBy as unknown as string}::text[], ${item.tags as unknown as string}::text[], ${item.screenshotUrl || null}, ${item.rating}, ${item.acknowledged}, ${item.createdAt})
     `;
   }
 }

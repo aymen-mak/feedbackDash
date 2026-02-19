@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStats } from "@/lib/store";
 import { hasPostgres, pgGetAllFeedback, pgSeedIfEmpty } from "@/lib/db";
-import { seed, type StoredFeedback, type CategoryId, type DailyMetric } from "@/lib/store";
+import { seed, QUICK_ACTION_LABELS, type StoredFeedback, type CategoryId, type DailyMetric } from "@/lib/store";
 
 /** Compute stats from a list of feedback items (shared logic for both backends) */
 function computeStats(all: StoredFeedback[]) {
@@ -9,27 +9,34 @@ function computeStats(all: StoredFeedback[]) {
   const notDismissed = all.filter((f) => !f.dismissed);
 
   const byType = {
-    praise: notDismissed.filter((f) => f.type === "praise").length,
     suggestion: notDismissed.filter((f) => f.type === "suggestion").length,
     issue: notDismissed.filter((f) => f.type === "issue").length,
     question: notDismissed.filter((f) => f.type === "question").length,
   };
-  const typeTotal = byType.praise + byType.suggestion + byType.issue + byType.question;
+  const typeTotal = byType.suggestion + byType.issue + byType.question;
 
-  const positive = typeTotal > 0 ? Math.round((byType.praise / typeTotal) * 100) : 0;
-  const neutral = typeTotal > 0 ? Math.round(((byType.suggestion + byType.question) / typeTotal) * 100) : 0;
-  const needsAttention = typeTotal > 0 ? 100 - positive - neutral : 0;
+  // Experience rating stats (from user ratings 1-5)
+  const rated = notDismissed.filter((f) => f.rating !== null && f.rating !== undefined);
+  const avgRating = rated.length > 0 ? rated.reduce((sum, f) => sum + (f.rating ?? 0), 0) / rated.length : 0;
+  const satisfied = rated.filter((f) => (f.rating ?? 0) >= 4).length;
+  const neutral = rated.filter((f) => (f.rating ?? 0) === 3).length;
+  const unsatisfied = rated.filter((f) => (f.rating ?? 0) <= 2).length;
+  const ratedTotal = satisfied + neutral + unsatisfied;
+  const satisfiedPct = ratedTotal > 0 ? Math.round((satisfied / ratedTotal) * 100) : 0;
+  const neutralPct = ratedTotal > 0 ? Math.round((neutral / ratedTotal) * 100) : 0;
+  const unsatisfiedPct = ratedTotal > 0 ? 100 - satisfiedPct - neutralPct : 0;
 
   const categories: CategoryId[] = ["Product", "UX", "Support"];
   const categoryStats = categories.map((cat) => {
     const items = notDismissed.filter((f) => f.category === cat);
     const openIssues = items.filter((f) => f.type === "issue" && f.status !== "addressed").length;
-    const praised = items.filter((f) => f.type === "praise").length;
+    const catRated = items.filter((f) => f.rating !== null && f.rating !== undefined);
+    const catAvg = catRated.length > 0 ? catRated.reduce((s, f) => s + (f.rating ?? 0), 0) / catRated.length : 0;
     return {
       id: cat,
       submissions: items.length,
       openIssues,
-      satisfaction: items.length > 0 ? Math.round((praised / items.length) * 100) / 100 : 0,
+      satisfaction: Math.round(catAvg * 100) / 100,
     };
   });
 
@@ -42,22 +49,11 @@ function computeStats(all: StoredFeedback[]) {
     }
   }
 
-  const quickActionLabels: Record<string, { emoji: string; label: string }> = {
-    "love-it": { emoji: "🎉", label: "Love it!" },
-    "easy-to-use": { emoji: "✨", label: "Easy to use" },
-    "feature-request": { emoji: "💡", label: "Feature request" },
-    "bug-report": { emoji: "🐛", label: "Bug report" },
-    "great-support": { emoji: "👏", label: "Great support" },
-    "confusing": { emoji: "😕", label: "Confusing" },
-    "too-slow": { emoji: "🐌", label: "Too slow" },
-    "needs-improvement": { emoji: "🔧", label: "Needs improvement" },
-  };
-
   const reactionTotals = Object.entries(actionCounts)
     .map(([id, count]) => ({
       id,
-      emoji: quickActionLabels[id]?.emoji ?? "?",
-      label: quickActionLabels[id]?.label ?? id,
+      emoji: QUICK_ACTION_LABELS[id]?.emoji ?? "?",
+      label: QUICK_ACTION_LABELS[id]?.label ?? id,
       count,
     }))
     .sort((a, b) => b.count - a.count);
@@ -93,9 +89,8 @@ function computeStats(all: StoredFeedback[]) {
     }));
 
   const feedbackByType = [
-    { name: "Praise", value: byType.praise, pct: typeTotal > 0 ? Math.round((byType.praise / typeTotal) * 100) : 0, color: "#22c55e" },
-    { name: "Suggestion", value: byType.suggestion, pct: typeTotal > 0 ? Math.round((byType.suggestion / typeTotal) * 100) : 0, color: "#3b82f6" },
     { name: "Issue", value: byType.issue, pct: typeTotal > 0 ? Math.round((byType.issue / typeTotal) * 100) : 0, color: "#ef4444" },
+    { name: "Suggestion", value: byType.suggestion, pct: typeTotal > 0 ? Math.round((byType.suggestion / typeTotal) * 100) : 0, color: "#3b82f6" },
     { name: "Question", value: byType.question, pct: typeTotal > 0 ? Math.round((byType.question / typeTotal) * 100) : 0, color: "#C4B5FD" },
   ];
 
@@ -113,7 +108,8 @@ function computeStats(all: StoredFeedback[]) {
     });
 
     const dayTotal = dayItems.length;
-    const dayPraise = dayItems.filter((f) => f.type === "praise").length;
+    const dayRated = dayItems.filter((f) => f.rating !== null && f.rating !== undefined);
+    const dayAvg = dayRated.length > 0 ? dayRated.reduce((s, f) => s + (f.rating ?? 0), 0) / dayRated.length : 3;
     const dayIssues = dayItems.filter((f) => f.type === "issue").length;
     const dayResolved = dayItems.filter((f) => f.status === "addressed").length;
 
@@ -123,7 +119,7 @@ function computeStats(all: StoredFeedback[]) {
     dailyMetrics.push({
       date: `${month} ${day}`,
       submissions: dayTotal,
-      sentiment: dayTotal > 0 ? Math.round((dayPraise / dayTotal) * 100) : 50,
+      satisfaction: Math.round((dayAvg / 5) * 100),
       issues: dayIssues,
       resolved: dayResolved,
     });
@@ -137,9 +133,10 @@ function computeStats(all: StoredFeedback[]) {
   return {
     total,
     contributors,
-    positive,
-    neutral,
-    needsAttention,
+    avgRating: Math.round(avgRating * 10) / 10,
+    satisfiedPct,
+    neutralPct,
+    unsatisfiedPct,
     weeklyVolume,
     resolutionRate,
     categoryStats,

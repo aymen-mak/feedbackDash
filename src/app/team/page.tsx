@@ -8,7 +8,6 @@ import { type FeedbackItemData } from "@/components/FeedbackCard";
 import {
   AlertTriangle,
   Lightbulb,
-  ThumbsUp,
   Hash,
   BarChart3,
   CheckCircle2,
@@ -21,31 +20,34 @@ import {
   Trash2,
   RotateCcw,
   ArrowUpRight,
+  Star as StarIcon,
+  Image as ImageIcon,
 } from "lucide-react";
 
 type CategoryId = "Product" | "UX" | "Support";
 type Priority = "none" | "low" | "medium" | "high";
+type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
 
 interface TeamItem extends FeedbackItemData {
   priority: Priority;
   escalated: boolean;
   archived: boolean;
   deletedAt: string | null;
+  screenshotUrl: string | null;
+  rating: number | null;
+  acknowledged: boolean;
 }
 
 const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
   "love-it": { emoji: "🎉", label: "Love it!" },
   "easy-to-use": { emoji: "✨", label: "Easy to use" },
-  "feature-request": { emoji: "💡", label: "Feature request" },
-  "bug-report": { emoji: "🐛", label: "Bug report" },
   "great-support": { emoji: "👏", label: "Great support" },
+  "impressive": { emoji: "🤩", label: "Impressive" },
+  "helpful": { emoji: "🙌", label: "Helpful" },
   "confusing": { emoji: "😕", label: "Confusing" },
-  "too-slow": { emoji: "🐌", label: "Too slow" },
-  "needs-improvement": { emoji: "🔧", label: "Needs improvement" },
 };
 
 const sentimentColors: Record<string, string> = {
-  praise: "text-makina-green bg-makina-green/10",
   issue: "text-makina-red bg-red-500/10",
   suggestion: "text-makina-blue bg-blue-500/10",
   question: "text-makina-accent bg-makina-accent-dim",
@@ -56,6 +58,13 @@ const priorityColors: Record<string, string> = {
   medium: "bg-amber-400/15 text-amber-400",
   low: "bg-blue-400/15 text-blue-400",
   none: "",
+};
+
+const statusColors: Record<FeedbackStatus, string> = {
+  new: "bg-blue-500/15 text-blue-400 border-blue-500/20",
+  reviewed: "bg-amber-400/15 text-amber-400 border-amber-400/20",
+  addressed: "bg-green-500/15 text-green-400 border-green-500/20",
+  dismissed: "bg-makina-surface text-makina-muted border-makina-border",
 };
 
 const categoryIcons: Record<CategoryId, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -77,20 +86,21 @@ function timeAgo(date: string | Date): string {
 
 interface Stats {
   total: number;
-  positive: number;
-  neutral: number;
-  needsAttention: number;
+  avgRating: number;
+  satisfiedPct: number;
+  neutralPct: number;
+  unsatisfiedPct: number;
   weeklyVolume: number;
   categoryStats: { id: string; submissions: number; openIssues: number; satisfaction: number }[];
 }
 
-type ViewFilter = "active" | "archived" | "trash";
+type ViewFilter = "active" | "archived" | "deleted";
 
 export default function TeamPage() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
   const [feedback, setFeedback] = useState<TeamItem[]>([]);
   const [archivedItems, setArchivedItems] = useState<TeamItem[]>([]);
-  const [trashItems, setTrashItems] = useState<TeamItem[]>([]);
+  const [deletedItems, setDeletedItems] = useState<TeamItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
@@ -103,6 +113,9 @@ export default function TeamPage() {
       escalated: item.escalated ?? false,
       archived: item.archived ?? false,
       deletedAt: item.deletedAt ?? null,
+      screenshotUrl: item.screenshotUrl ?? null,
+      rating: item.rating ?? null,
+      acknowledged: item.acknowledged ?? false,
     }));
 
   useEffect(() => {
@@ -122,8 +135,8 @@ export default function TeamPage() {
       const archivedEscalated = enrichItems(archived as TeamItem[]).filter((f) => f.escalated);
       setArchivedItems(archivedEscalated);
 
-      const trashEscalated = enrichItems(trash as TeamItem[]).filter((f) => f.escalated);
-      setTrashItems(trashEscalated);
+      const deletedEscalated = enrichItems(trash as TeamItem[]).filter((f) => f.escalated);
+      setDeletedItems(deletedEscalated);
 
       if (st && typeof st.total === "number") setStats(st);
       setLoading(false);
@@ -138,6 +151,24 @@ export default function TeamPage() {
         body: JSON.stringify(updates),
       });
       if (res.ok) {
+        // Handle acknowledged toggle — update in-place
+        if ("acknowledged" in updates && updates.archived === undefined && !updates.deletedAt) {
+          const updateList = (prev: TeamItem[]) =>
+            prev.map((i) => (i.id === id ? { ...i, ...updates } : i));
+          setFeedback(updateList);
+          setArchivedItems(updateList);
+          setDeletedItems(updateList);
+          return;
+        }
+        // Handle status change — update in-place
+        if ("status" in updates && updates.archived === undefined && !updates.deletedAt && updates.archived !== false && updates.deletedAt !== null) {
+          const updateList = (prev: TeamItem[]) =>
+            prev.map((i) => (i.id === id ? { ...i, ...updates } : i));
+          setFeedback(updateList);
+          setArchivedItems(updateList);
+          setDeletedItems(updateList);
+          return;
+        }
         if (updates.archived === true) {
           setFeedback((prev) => prev.filter((i) => i.id !== id));
           const item = feedback.find((i) => i.id === id);
@@ -146,14 +177,14 @@ export default function TeamPage() {
           setFeedback((prev) => prev.filter((i) => i.id !== id));
           setArchivedItems((prev) => prev.filter((i) => i.id !== id));
           const item = feedback.find((i) => i.id === id) || archivedItems.find((i) => i.id === id);
-          if (item) setTrashItems((prev) => [{ ...item, ...updates }, ...prev]);
+          if (item) setDeletedItems((prev) => [{ ...item, ...updates }, ...prev]);
         } else if (updates.archived === false) {
           setArchivedItems((prev) => prev.filter((i) => i.id !== id));
           const item = archivedItems.find((i) => i.id === id);
           if (item) setFeedback((prev) => [{ ...item, archived: false }, ...prev]);
         } else if (updates.deletedAt === null) {
-          setTrashItems((prev) => prev.filter((i) => i.id !== id));
-          const item = trashItems.find((i) => i.id === id);
+          setDeletedItems((prev) => prev.filter((i) => i.id !== id));
+          const item = deletedItems.find((i) => i.id === id);
           if (item) setFeedback((prev) => [{ ...item, deletedAt: null }, ...prev]);
         }
       }
@@ -167,7 +198,7 @@ export default function TeamPage() {
       const pa = pOrder[a.priority] ?? 3;
       const pb = pOrder[b.priority] ?? 3;
       if (pa !== pb) return pa - pb;
-      const typeOrder: Record<string, number> = { issue: 0, suggestion: 1, question: 2, praise: 3 };
+      const typeOrder: Record<string, number> = { issue: 0, suggestion: 1, question: 2 };
       const ta = typeOrder[a.type] ?? 3;
       const tb = typeOrder[b.type] ?? 3;
       if (ta !== tb) return ta - tb;
@@ -176,7 +207,7 @@ export default function TeamPage() {
 
   const getCurrentList = (): TeamItem[] => {
     if (viewFilter === "archived") return archivedItems;
-    if (viewFilter === "trash") return trashItems;
+    if (viewFilter === "deleted") return deletedItems;
     return feedback;
   };
 
@@ -241,7 +272,7 @@ export default function TeamPage() {
             </div>
           </div>
 
-          {/* Urgent banner — only if there are high priority items */}
+          {/* Urgent banner -- only if there are high priority items */}
           {feedback.some((f) => f.priority === "high") && viewFilter === "active" && (
             <div className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 flex items-center gap-3 animate-fade-in-up">
               <AlertTriangle size={16} className="text-red-400 shrink-0" />
@@ -260,7 +291,7 @@ export default function TeamPage() {
               {([
                 { key: "active" as ViewFilter, label: "Active", count: feedback.length },
                 { key: "archived" as ViewFilter, label: "Archived", count: archivedItems.length },
-                { key: "trash" as ViewFilter, label: "Trash", count: trashItems.length },
+                { key: "deleted" as ViewFilter, label: "Deleted", count: deletedItems.length },
               ]).map((tab) => (
                 <button
                   key={tab.key}
@@ -272,7 +303,7 @@ export default function TeamPage() {
                   }`}
                 >
                   {tab.key === "archived" && <Archive size={14} />}
-                  {tab.key === "trash" && <Trash2 size={14} />}
+                  {tab.key === "deleted" && <Trash2 size={14} />}
                   {tab.label}
                   <span className={`text-xs rounded-full px-1.5 py-0.5 ${
                     viewFilter === tab.key ? "bg-makina-accent-dim text-makina-accent" : "bg-makina-card text-makina-subtle"
@@ -299,14 +330,14 @@ export default function TeamPage() {
             </div>
           </div>
 
-          {/* Trash notice */}
-          {viewFilter === "trash" && trashItems.length > 0 && (
+          {/* Deleted notice */}
+          {viewFilter === "deleted" && deletedItems.length > 0 && (
             <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-xs text-amber-400">
-              Items in trash are automatically deleted after 30 days.
+              Items in Deleted are automatically removed after 30 days.
             </div>
           )}
 
-          {/* Feedback items — flat list, sorted by urgency */}
+          {/* Feedback items -- flat list, sorted by urgency */}
           <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
             {sortedItems.map((item) => {
               const CatIcon = categoryIcons[item.category as CategoryId];
@@ -360,6 +391,12 @@ export default function TeamPage() {
                         {isUrgent && item.priority !== "high" && (
                           <AlertTriangle size={12} className="text-amber-400" />
                         )}
+                        {item.acknowledged && (
+                          <span className="flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-[10px] font-medium text-green-400">
+                            <CheckCircle2 size={9} />
+                            Acknowledged
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-makina-text/80 mt-1 truncate">
                         {quickAction ? `${quickAction.emoji} ${quickAction.label}` : ""}
@@ -369,10 +406,6 @@ export default function TeamPage() {
                     </div>
 
                     <div className="hidden sm:flex items-center gap-3 shrink-0">
-                      <div className="flex items-center gap-1 text-xs font-medium text-makina-accent">
-                        <ThumbsUp size={11} />
-                        {item.upvotes}
-                      </div>
                       <span className="text-[11px] text-makina-muted">
                         <Clock size={10} className="inline mr-1" />
                         {timeAgo(item.createdAt)}
@@ -391,35 +424,99 @@ export default function TeamPage() {
                         </div>
                       )}
                       {item.message && (
-                        <p className="text-sm text-makina-text/85 leading-relaxed">{item.message}</p>
+                        <p className="text-sm text-makina-text/85 leading-relaxed" style={{ whiteSpace: "pre-wrap" }}>{item.message}</p>
                       )}
-                      <div className="flex items-center gap-3 pt-2">
+
+                      {/* Rating as stars */}
+                      {item.rating != null && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-makina-muted mr-1">Rating</span>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <StarIcon
+                              key={star}
+                              size={14}
+                              className={star <= item.rating! ? "text-amber-400 fill-amber-400" : "text-makina-subtle"}
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Screenshot thumbnail */}
+                      {item.screenshotUrl && (
+                        <div className="pt-1">
+                          <div className="flex items-center gap-1.5 text-xs text-makina-muted mb-1.5">
+                            <ImageIcon size={12} />
+                            Screenshot
+                          </div>
+                          <a href={item.screenshotUrl} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={item.screenshotUrl}
+                              alt="Screenshot"
+                              className="rounded-md border border-makina-border max-w-xs max-h-40 object-cover hover:opacity-80 transition-opacity"
+                            />
+                          </a>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-3 pt-2 flex-wrap">
                         <span className="text-xs text-makina-muted">{item.userName} &middot; {timeAgo(item.createdAt)}</span>
-                        <span className="flex items-center gap-1 text-xs text-makina-accent">
-                          <ThumbsUp size={10} /> {item.upvotes}
-                        </span>
+
+                        {/* Acknowledged toggle */}
+                        {item.acknowledged ? (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); patchItem(item.id, { acknowledged: false }); }}
+                            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium bg-green-500/15 text-green-400 border border-green-500/20 transition-colors hover:bg-green-500/25"
+                          >
+                            <CheckCircle2 size={12} />
+                            Acknowledged
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); patchItem(item.id, { acknowledged: true }); }}
+                            className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-makina-muted bg-makina-surface border border-makina-border hover:text-green-400 hover:bg-green-500/10 hover:border-green-500/20 transition-colors"
+                          >
+                            <CheckCircle2 size={12} />
+                            Acknowledge
+                          </button>
+                        )}
+
+                        {/* Status dropdown */}
+                        <select
+                          value={item.status}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => { e.stopPropagation(); patchItem(item.id, { status: e.target.value as FeedbackStatus }); }}
+                          className="rounded-md bg-makina-surface border border-makina-border px-2 py-1 text-xs text-makina-muted focus:outline-none focus:border-makina-accent cursor-pointer"
+                        >
+                          <option value="new">New</option>
+                          <option value="reviewed">Reviewed</option>
+                          <option value="addressed">Addressed</option>
+                          <option value="dismissed">Dismissed</option>
+                        </select>
+
                         <div className="ml-auto flex items-center gap-1">
                           {viewFilter === "active" && (
                             <>
                               <Tooltip content="Archive">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); patchItem(item.id, { archived: true }); }}
-                                  className="p-2 rounded-md text-makina-subtle hover:text-makina-blue hover:bg-blue-500/10 transition-colors"
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-makina-muted bg-blue-500/10 border border-blue-500/20 hover:text-makina-blue hover:bg-blue-500/20 transition-colors"
                                 >
-                                  <Archive size={15} />
+                                  <Archive size={14} />
+                                  Archive
                                 </button>
                               </Tooltip>
-                              <Tooltip content="Move to trash">
+                              <Tooltip content="Move to deleted">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); patchItem(item.id, { deletedAt: new Date().toISOString() }); }}
-                                  className="p-2 rounded-md text-makina-subtle hover:text-makina-red hover:bg-red-500/10 transition-colors"
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-makina-muted bg-red-500/10 border border-red-500/20 hover:text-makina-red hover:bg-red-500/20 transition-colors"
                                 >
-                                  <Trash2 size={15} />
+                                  <Trash2 size={14} />
+                                  Delete
                                 </button>
                               </Tooltip>
                             </>
                           )}
-                          {(viewFilter === "archived" || viewFilter === "trash") && (
+                          {(viewFilter === "archived" || viewFilter === "deleted") && (
                             <Tooltip content="Restore">
                               <button
                                 onClick={(e) => {
@@ -427,9 +524,10 @@ export default function TeamPage() {
                                   if (viewFilter === "archived") patchItem(item.id, { archived: false });
                                   else patchItem(item.id, { deletedAt: null });
                                 }}
-                                className="p-2 rounded-md text-makina-subtle hover:text-makina-green hover:bg-makina-green/10 transition-colors"
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-makina-muted bg-green-500/10 border border-green-500/20 hover:text-makina-green hover:bg-green-500/20 transition-colors"
                               >
-                                <RotateCcw size={15} />
+                                <RotateCcw size={14} />
+                                Restore
                               </button>
                             </Tooltip>
                           )}
@@ -444,10 +542,10 @@ export default function TeamPage() {
 
           {sortedItems.length === 0 && (
             <div className="text-center py-16 space-y-3 animate-fade-in-up">
-              {viewFilter === "trash" ? (
+              {viewFilter === "deleted" ? (
                 <>
                   <Trash2 size={32} className="text-makina-subtle mx-auto" />
-                  <p className="text-sm text-makina-muted">Trash is empty</p>
+                  <p className="text-sm text-makina-muted">Deleted is empty</p>
                 </>
               ) : viewFilter === "archived" ? (
                 <>
@@ -467,7 +565,7 @@ export default function TeamPage() {
             </div>
           )}
 
-          {/* Stats section — pushed to bottom */}
+          {/* Stats section -- pushed to bottom */}
           {stats && viewFilter === "active" && (
             <div className="space-y-3 pt-4 border-t border-makina-border animate-fade-in-up" style={{ animationDelay: "150ms" }}>
               <h2 className="text-xs font-medium text-makina-muted uppercase tracking-wider">Context</h2>
@@ -486,17 +584,20 @@ export default function TeamPage() {
                 <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
                   <div className="flex items-center gap-2">
                     <BarChart3 size={14} className="text-makina-blue" />
-                    <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Sentiment</span>
+                    <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Satisfaction</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <div className="flex-1">
                       <div className="flex h-2 rounded-full overflow-hidden">
-                        <div className="bg-makina-green" style={{ width: `${stats.positive}%` }} />
-                        <div className="bg-makina-blue" style={{ width: `${stats.neutral}%` }} />
-                        <div className="bg-amber-500" style={{ width: `${stats.needsAttention}%` }} />
+                        <div className="bg-makina-green" style={{ width: `${stats.satisfiedPct}%` }} />
+                        <div className="bg-makina-blue" style={{ width: `${stats.neutralPct}%` }} />
+                        <div className="bg-amber-500" style={{ width: `${stats.unsatisfiedPct}%` }} />
                       </div>
                     </div>
-                    <span className="text-sm font-semibold text-makina-green">{stats.positive}%</span>
+                    <div className="flex items-center gap-1">
+                      <StarIcon size={12} className="text-amber-400 fill-amber-400" />
+                      <span className="text-sm font-semibold">{stats.avgRating?.toFixed(1) ?? "—"}</span>
+                    </div>
                   </div>
                 </div>
 
