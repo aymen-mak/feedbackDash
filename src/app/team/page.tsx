@@ -135,16 +135,17 @@ export default function TeamPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/feedback").then((r) => r.json()),
-      fetch("/api/stats").then((r) => r.json()),
+      fetch("/api/feedback").then((r) => r.ok ? r.json() : []),
+      fetch("/api/stats").then((r) => r.ok ? r.json() : null),
     ]).then(([fb, st]) => {
+      const allFb = Array.isArray(fb) ? fb as FeedbackItemData[] : [];
       // Only show escalated items (or high-value: issues/suggestions with upvotes > 10)
-      const escalated = (fb as FeedbackItemData[]).filter(
+      const escalated = allFb.filter(
         (f: FeedbackItemData & { escalated?: boolean; dismissed?: boolean }) =>
           f.escalated || ((f.type === "issue" || f.type === "suggestion") && f.upvotes > 10)
       ).filter((f: FeedbackItemData & { dismissed?: boolean }) => !f.dismissed);
       setFeedback(escalated);
-      setStats(st);
+      if (st && typeof st.total === "number") setStats(st);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);

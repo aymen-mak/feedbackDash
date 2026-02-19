@@ -38,27 +38,66 @@ interface Store {
   feedback: StoredFeedback[];
 }
 
-// ── File I/O ──
-const DATA_DIR = path.join(process.cwd(), "data");
-const DATA_FILE = path.join(DATA_DIR, "feedback.json");
+// ── File I/O (works locally + on Vercel) ──
 
-function ensureDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+// In-memory fallback for serverless environments where /tmp isn't shared
+let memoryStore: Store | null = null;
+
+function resolveDataFile(): string {
+  // 1. Try project-local data/ directory (works in local dev)
+  const local = path.join(process.cwd(), "data", "feedback.json");
+  const localDir = path.dirname(local);
+  try {
+    if (!fs.existsSync(localDir)) fs.mkdirSync(localDir, { recursive: true });
+    // Test writability by touching a temp file
+    const testFile = path.join(localDir, ".write-test");
+    fs.writeFileSync(testFile, "");
+    fs.unlinkSync(testFile);
+    return local;
+  } catch {
+    // Not writable (e.g. Vercel read-only filesystem)
+  }
+
+  // 2. Fall back to /tmp (writable on Vercel serverless)
+  return path.join("/tmp", "feedback.json");
 }
 
+const DATA_FILE = resolveDataFile();
+
 function read(): Store {
-  ensureDir();
-  if (!fs.existsSync(DATA_FILE)) {
-    const store: Store = { feedback: seed() };
-    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
-    return store;
+  // Try file system
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+      memoryStore = data;
+      return data;
+    }
+  } catch {
+    // File read failed, fall through
   }
-  return JSON.parse(fs.readFileSync(DATA_FILE, "utf-8"));
+
+  // Try in-memory cache
+  if (memoryStore) return memoryStore;
+
+  // Seed fresh data
+  const store: Store = { feedback: seed() };
+  // Try to persist to file
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+  } catch {
+    // File write failed, keep in memory only
+  }
+  memoryStore = store;
+  return store;
 }
 
 function write(store: Store) {
-  ensureDir();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+  memoryStore = store;
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
+  } catch {
+    // File write failed (read-only fs), data lives in memory only
+  }
 }
 
 function uid(): string {

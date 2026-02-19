@@ -53,8 +53,14 @@ export default function FeedbackPage() {
 
   useEffect(() => {
     fetch("/api/stats")
-      .then((r) => r.json())
-      .then(setStats)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Stats API returned ${r.status}`);
+        return r.json();
+      })
+      .then((data) => {
+        // Only set stats if it has the expected shape (not an error response)
+        if (data && typeof data.total === "number") setStats(data);
+      })
       .catch((err) => console.error("Failed to load stats:", err));
   }, []);
 

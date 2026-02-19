@@ -108,9 +108,9 @@ export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
       return;
     }
     fetch("/api/stats")
-      .then((r) => r.json())
+      .then((r) => r.ok ? r.json() : null)
       .then((stats) => {
-        setChartData(stats.dailyMetrics || []);
+        setChartData(stats?.dailyMetrics || []);
         setLoading(false);
       })
       .catch(() => setLoading(false));

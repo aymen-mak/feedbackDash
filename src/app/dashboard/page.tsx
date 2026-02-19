@@ -33,11 +33,11 @@ export default function DashboardPage() {
 
   const fetchData = () => {
     Promise.all([
-      fetch("/api/feedback").then((r) => r.json()),
-      fetch("/api/stats").then((r) => r.json()),
+      fetch("/api/feedback").then((r) => r.ok ? r.json() : []),
+      fetch("/api/stats").then((r) => r.ok ? r.json() : null),
     ]).then(([fb, st]) => {
-      setFeedback(fb);
-      setStats(st);
+      if (Array.isArray(fb)) setFeedback(fb);
+      if (st && typeof st.total === "number") setStats(st);
       setLoading(false);
     }).catch(() => setLoading(false));
   };
