@@ -6,12 +6,13 @@ interface LiveFeedProps {
   feedback: FeedbackItemData[];
   category: string;
   showStatus?: boolean;
+  hideReplyInput?: boolean;
   onStatusChange?: (id: string, status: string) => void;
   onItemUpdate?: (item: FeedbackItemData) => void;
   columns?: 1 | 2;
 }
 
-export default function LiveFeed({ feedback, category, showStatus, onStatusChange, onItemUpdate, columns = 1 }: LiveFeedProps) {
+export default function LiveFeed({ feedback, category, showStatus, hideReplyInput, onStatusChange, onItemUpdate, columns = 1 }: LiveFeedProps) {
   const filtered = category === "all" ? feedback : feedback.filter((f) => f.category === category);
 
   return (
@@ -25,6 +26,7 @@ export default function LiveFeed({ feedback, category, showStatus, onStatusChang
           <FeedbackCard
             item={item}
             showStatus={showStatus}
+            hideReplyInput={hideReplyInput}
             onStatusChange={onStatusChange as (id: string, status: "new" | "reviewed" | "addressed" | "dismissed") => void}
             onItemUpdate={onItemUpdate}
           />

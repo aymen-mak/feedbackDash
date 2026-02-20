@@ -6,7 +6,7 @@ import LiveFeed from "@/components/LiveFeed";
 import { AnalyticsChart } from "@/components/Charts";
 import Tooltip from "@/components/Tooltip";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
-import { Filter, Download, Search, TrendingUp, Users, MessageSquare } from "lucide-react";
+import { Filter, Download, Search, TrendingUp, Users, MessageSquare, Inbox } from "lucide-react";
 
 type FilterType = "all" | "issue" | "suggestion" | "question";
 type CategoryFilter = "all" | "Product" | "UX" | "Support";
@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const [feedback, setFeedback] = useState<FeedbackItemData[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [myIds, setMyIds] = useState<Set<string>>(new Set());
 
   const fetchData = () => {
     Promise.all([
@@ -39,13 +40,21 @@ export default function DashboardPage() {
     }).catch(() => setLoading(false));
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+    try {
+      const stored = localStorage.getItem("makina-my-feedback-ids");
+      if (stored) setMyIds(new Set(JSON.parse(stored)));
+    } catch { /* ignore */ }
+  }, []);
 
   const handleItemUpdate = (updated: FeedbackItemData) => {
     setFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
   };
 
-  const filtered = feedback.filter((f) => {
+  const myFeedback = feedback.filter((f) => myIds.has(f.id));
+
+  const filtered = myFeedback.filter((f) => {
     if (selectedCategory !== "all" && f.category !== selectedCategory) return false;
     if (filterType !== "all" && f.type !== filterType) return false;
     if (search && !f.message.toLowerCase().includes(search.toLowerCase()) && !f.userName.toLowerCase().includes(search.toLowerCase())) return false;
@@ -185,14 +194,25 @@ export default function DashboardPage() {
           </div>
 
           <p className="text-xs text-makina-muted">
-            Showing {filtered.length} of {feedback.length} feedback items
+            Showing {filtered.length} of {myFeedback.length} submissions
           </p>
 
-          <LiveFeed
-            feedback={filtered}
-            category="all"
-            onItemUpdate={handleItemUpdate}
-          />
+          {myFeedback.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <Inbox size={32} className="text-makina-subtle mb-3" />
+              <p className="text-sm font-medium text-makina-text">No submissions yet</p>
+              <p className="text-xs text-makina-muted mt-1">
+                Feedback you submit will appear here so you can track its status.
+              </p>
+            </div>
+          ) : (
+            <LiveFeed
+              feedback={filtered}
+              category="all"
+              hideReplyInput
+              onItemUpdate={handleItemUpdate}
+            />
+          )}
         </div>
       </main>
     </div>

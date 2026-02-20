@@ -119,6 +119,15 @@ export default function FeedbackPage() {
         }),
       });
       if (res.ok) {
+        const created = await res.json().catch(() => null);
+        if (created?.id) {
+          try {
+            const stored = localStorage.getItem("makina-my-feedback-ids");
+            const ids: string[] = stored ? JSON.parse(stored) : [];
+            if (!ids.includes(created.id)) ids.push(created.id);
+            localStorage.setItem("makina-my-feedback-ids", JSON.stringify(ids));
+          } catch { /* ignore */ }
+        }
         setMessage("");
         setQuickAction(null);
         setUserName("");
@@ -414,6 +423,34 @@ export default function FeedbackPage() {
               <p className="text-[11px] text-makina-muted leading-relaxed">
                 Help shape the future of Makina. Every submission is reviewed by our team.
               </p>
+            </div>
+
+            {/* How it works */}
+            <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
+              <span className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">How it works</span>
+              <div className="space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-makina-accent/15 text-[10px] font-bold text-makina-accent">1</div>
+                  <div>
+                    <p className="text-xs font-medium text-makina-text">Submit feedback</p>
+                    <p className="text-[10px] text-makina-muted mt-0.5">Pick a category, type, and share your thoughts.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-makina-accent/15 text-[10px] font-bold text-makina-accent">2</div>
+                  <div>
+                    <p className="text-xs font-medium text-makina-text">Team reviews</p>
+                    <p className="text-[10px] text-makina-muted mt-0.5">Our team reads and triages every submission.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2.5">
+                  <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-makina-accent/15 text-[10px] font-bold text-makina-accent">3</div>
+                  <div>
+                    <p className="text-xs font-medium text-makina-text">Track progress</p>
+                    <p className="text-[10px] text-makina-muted mt-0.5">Check the dashboard to see the status of your feedback.</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

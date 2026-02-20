@@ -113,11 +113,12 @@ function StarRating({ rating }: { rating: number }) {
 interface FeedbackCardProps {
   item: FeedbackItemData;
   showStatus?: boolean;
+  hideReplyInput?: boolean;
   onStatusChange?: (id: string, status: FeedbackStatus) => void;
   onItemUpdate?: (item: FeedbackItemData) => void;
 }
 
-export default function FeedbackCard({ item, showStatus, onStatusChange, onItemUpdate }: FeedbackCardProps) {
+export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatusChange, onItemUpdate }: FeedbackCardProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySent, setReplySent] = useState(false);
@@ -160,6 +161,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
+    if (hideReplyInput) return;
     const target = e.target as HTMLElement;
     if (target.closest("button, select, input, a, textarea, img")) return;
     setReplyOpen(!replyOpen);
@@ -171,7 +173,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
     <>
       <div
         onClick={handleCardClick}
-        className={`group rounded-md bg-makina-card border border-makina-border border-l-[3px] ${priorityBorder[priority]} p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover cursor-pointer`}
+        className={`group rounded-md bg-makina-card border border-makina-border border-l-[3px] ${priorityBorder[priority]} p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover ${hideReplyInput ? "" : "cursor-pointer"}`}
       >
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-makina-surface text-sm font-bold text-makina-accent border border-makina-border">
@@ -281,17 +283,19 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
                   Logged
                 </span>
               )}
-              <button
-                onClick={() => setReplyOpen(!replyOpen)}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                  replyOpen
-                    ? "text-makina-accent bg-makina-accent-dim border border-makina-accent/20"
-                    : "text-makina-muted bg-makina-surface border border-makina-border hover:text-makina-text hover:border-makina-subtle"
-                }`}
-              >
-                <MessageSquare size={12} />
-                <span>Reply{item.replies && item.replies.length > 0 ? ` (${item.replies.length})` : ""}</span>
-              </button>
+              {!hideReplyInput && (
+                <button
+                  onClick={() => setReplyOpen(!replyOpen)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
+                    replyOpen
+                      ? "text-makina-accent bg-makina-accent-dim border border-makina-accent/20"
+                      : "text-makina-muted bg-makina-surface border border-makina-border hover:text-makina-text hover:border-makina-subtle"
+                  }`}
+                >
+                  <MessageSquare size={12} />
+                  <span>Reply{item.replies && item.replies.length > 0 ? ` (${item.replies.length})` : ""}</span>
+                </button>
+              )}
               {replySent && (
                 <span className="text-xs text-makina-green font-medium animate-success">Sent!</span>
               )}
@@ -312,7 +316,7 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
             </div>
 
             {/* Reply input */}
-            {replyOpen && (
+            {replyOpen && !hideReplyInput && (
               <div className="mt-3 flex gap-2 animate-fade-in-up">
                 <input
                   type="text"
