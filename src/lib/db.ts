@@ -42,6 +42,11 @@ export async function ensureSchema() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `;
+
+  // Migrate existing tables: add new columns if they don't exist yet
+  try { await sql`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS screenshot_url TEXT`; } catch { /* already exists */ }
+  try { await sql`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS rating INTEGER`; } catch { /* already exists */ }
+  try { await sql`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN NOT NULL DEFAULT FALSE`; } catch { /* already exists */ }
 }
 
 function rowToFeedback(row: Record<string, unknown>): StoredFeedback {

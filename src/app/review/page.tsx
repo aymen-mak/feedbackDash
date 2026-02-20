@@ -18,7 +18,6 @@ import {
   ArrowUpRight,
   RotateCcw,
   CheckCircle2,
-  Image as ImageIcon,
 } from "lucide-react";
 
 type Priority = "none" | "low" | "medium" | "high";
@@ -55,21 +54,6 @@ const priorityLabels: Record<Priority, string> = {
 const PRESET_TAGS = ["actionable", "recurring", "quick-win", "needs-context", "team-blocker"];
 
 type ViewFilter = "inbox" | "starred" | "escalated" | "archived" | "trash";
-
-function RatingStars({ rating }: { rating: number }) {
-  return (
-    <span className="inline-flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((s) => (
-        <Star
-          key={s}
-          size={11}
-          className={s <= rating ? "text-amber-400" : "text-makina-subtle/40"}
-          fill={s <= rating ? "currentColor" : "none"}
-        />
-      ))}
-    </span>
-  );
-}
 
 export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
@@ -398,42 +382,6 @@ export default function ReviewPage() {
 
         {/* Card body */}
         <div className="px-4 py-3">
-          {/* Type/category badges on separate line */}
-          <div className="flex flex-wrap items-center gap-1.5 mb-2">
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-              item.type === "issue" ? "bg-red-500/15 text-red-400" :
-              item.type === "suggestion" ? "bg-blue-500/15 text-blue-400" :
-              item.type === "question" ? "bg-makina-accent-dim text-makina-accent" :
-              "bg-makina-surface text-makina-muted"
-            }`}>
-              {item.type}
-            </span>
-            <span className="rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
-              {item.category}
-            </span>
-            {item.rating !== null && item.rating !== undefined && (
-              <RatingStars rating={item.rating} />
-            )}
-          </div>
-
-          {/* Screenshot thumbnail */}
-          {item.screenshotUrl && (
-            <div className="mb-2">
-              <a href={item.screenshotUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 group/img">
-                <div className="relative w-16 h-16 rounded-md overflow-hidden border border-makina-border hover:border-makina-accent/50 transition-colors">
-                  <img
-                    src={item.screenshotUrl}
-                    alt="Screenshot"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover/img:bg-black/20 transition-colors flex items-center justify-center">
-                    <ImageIcon size={14} className="text-white opacity-0 group-hover/img:opacity-100 transition-opacity" />
-                  </div>
-                </div>
-              </a>
-            </div>
-          )}
-
           <FeedbackCard
             item={item}
             showStatus

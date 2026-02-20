@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
-  Heart,
+  ArrowUpRight,
   Clock,
   MessageSquare,
   Send,
@@ -13,6 +13,7 @@ import {
   Star as StarIcon,
   Image as ImageIcon,
   CheckCircle2,
+  FileCheck,
 } from "lucide-react";
 
 type CategoryId = "Product" | "UX" | "Support";
@@ -34,6 +35,7 @@ export interface FeedbackItemData {
   quickAction?: string | null;
   status: FeedbackStatus;
   priority?: string;
+  escalated?: boolean;
   upvotes: number;
   upvotedBy?: string[];
   replies?: Reply[];
@@ -108,16 +110,6 @@ function StarRating({ rating }: { rating: number }) {
   );
 }
 
-function getSessionId(): string {
-  if (typeof window === "undefined") return "";
-  let id = sessionStorage.getItem("makina-session-id");
-  if (!id) {
-    id = "sess-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-    sessionStorage.setItem("makina-session-id", id);
-  }
-  return id;
-}
-
 interface FeedbackCardProps {
   item: FeedbackItemData;
   showStatus?: boolean;
@@ -129,38 +121,11 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySent, setReplySent] = useState(false);
-  const [localUpvotes, setLocalUpvotes] = useState(item.upvotes);
-  const [hasUpvoted, setHasUpvoted] = useState(false);
-  const [upvoting, setUpvoting] = useState(false);
   const [screenshotOpen, setScreenshotOpen] = useState(false);
-
-  useEffect(() => {
-    setLocalUpvotes(item.upvotes);
-    const sid = getSessionId();
-    setHasUpvoted(item.upvotedBy?.includes(sid) ?? false);
-  }, [item.upvotes, item.upvotedBy]);
 
   const quickAction = item.quickAction ? QUICK_ACTION_LABELS[item.quickAction] : null;
   const ts = formatTimestamp(item.createdAt);
   const priority = item.priority || "none";
-
-  const handleUpvote = async () => {
-    if (upvoting) return;
-    setUpvoting(true);
-    try {
-      const res = await fetch(`/api/feedback/${item.id}/upvote`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: getSessionId() }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLocalUpvotes(data.upvotes);
-        setHasUpvoted(data.upvotedBy.includes(getSessionId()));
-      }
-    } catch { /* ignore */ }
-    setUpvoting(false);
-  };
 
   const handleReply = async () => {
     if (!replyText.trim()) return;
@@ -305,18 +270,17 @@ export default function FeedbackCard({ item, showStatus, onStatusChange, onItemU
 
             {/* Actions row */}
             <div className="mt-3 flex items-center gap-3">
-              <button
-                onClick={handleUpvote}
-                disabled={upvoting}
-                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                  hasUpvoted
-                    ? "text-pink-400 bg-pink-500/10 border border-pink-500/20"
-                    : "text-makina-muted bg-makina-surface border border-makina-border hover:text-pink-400 hover:bg-pink-500/10 hover:border-pink-500/20"
-                }`}
-              >
-                <Heart size={13} fill={hasUpvoted ? "currentColor" : "none"} />
-                <span>{localUpvotes}</span>
-              </button>
+              {item.escalated ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                  <ArrowUpRight size={13} />
+                  Escalated
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-makina-surface text-makina-muted border border-makina-border">
+                  <FileCheck size={13} />
+                  Logged
+                </span>
+              )}
               <button
                 onClick={() => setReplyOpen(!replyOpen)}
                 className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${

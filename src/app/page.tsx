@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Check, EyeOff, MessageSquare, Zap, TrendingUp, Users, Hash, Flame, Sparkles, BarChart3, User, Star as StarIcon, Image as ImageIcon, X, Upload } from "lucide-react";
+import { Send, Check, EyeOff, MessageSquare, Zap, Users, Hash, Flame, Sparkles, BarChart3, User, Image as ImageIcon, X, Upload } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Tooltip from "@/components/Tooltip";
 
@@ -34,10 +34,6 @@ const QUICK_ACTIONS = [
 interface Stats {
   total: number;
   contributors: number;
-  avgRating: number;
-  satisfiedPct: number;
-  neutralPct: number;
-  unsatisfiedPct: number;
   weeklyVolume: number;
   categoryStats: { id: string; submissions: number; openIssues: number; satisfaction: number }[];
   reactionTotals: { id: string; emoji: string; label: string; count: number; pct: number }[];
@@ -58,8 +54,6 @@ export default function FeedbackPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [stats, setStats] = useState<Stats | null>(null);
-  const [rating, setRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
   const [screenshotUrl, setScreenshotUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -122,7 +116,6 @@ export default function FeedbackPage() {
           anonymous,
           userName: anonymous ? "Anonymous" : userName.trim() || "Anonymous",
           screenshotUrl: screenshotUrl || undefined,
-          rating: rating || undefined,
         }),
       });
       if (res.ok) {
@@ -130,7 +123,6 @@ export default function FeedbackPage() {
         setQuickAction(null);
         setUserName("");
         setFeedbackType("suggestion");
-        setRating(0);
         setScreenshotUrl("");
         setSubmitted(true);
         setTimeout(() => setSubmitted(false), 2500);
@@ -173,14 +165,6 @@ export default function FeedbackPage() {
                 <MessageSquare size={13} className="text-makina-muted" />
                 <span className="text-sm font-semibold">{totalSubmissions}</span>
                 <span className="text-xs text-makina-green font-medium">+12%</span>
-              </div>
-            </Tooltip>
-            <div className="h-4 w-px bg-makina-border hidden sm:block" />
-            <Tooltip content="Average experience rating from user feedback">
-              <div className="flex items-center gap-2 cursor-default">
-                <StarIcon size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">{stats?.avgRating?.toFixed(1) ?? "0.0"}</span>
-                <span className="text-xs text-makina-muted">avg rating</span>
               </div>
             </Tooltip>
             <div className="h-4 w-px bg-makina-border hidden sm:block" />
@@ -358,35 +342,6 @@ export default function FeedbackPage() {
               />
             </div>
 
-            {/* Experience rating */}
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">How was your experience?</label>
-              <div className="flex items-center gap-1">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setRating(star)}
-                    onMouseEnter={() => setHoverRating(star)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    className="p-0.5 transition-transform hover:scale-110"
-                  >
-                    <StarIcon
-                      size={22}
-                      className={`transition-colors ${
-                        star <= (hoverRating || rating)
-                          ? "text-amber-400 fill-amber-400"
-                          : "text-makina-border"
-                      }`}
-                    />
-                  </button>
-                ))}
-                {rating > 0 && (
-                  <span className="text-xs text-makina-muted ml-2">{rating}/5</span>
-                )}
-              </div>
-            </div>
-
             {error && (
               <div className="flex items-center gap-2 rounded-md bg-red-500/10 border border-red-500/20 px-4 py-3">
                 <span className="text-sm text-red-400">{error}</span>
@@ -489,31 +444,6 @@ export default function FeedbackPage() {
           </div>
         )}
 
-        {/* Zone 4: Experience Ratings */}
-        {stats && (
-          <div className="space-y-4 animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-            <h2 className="text-lg font-semibold">Experience Ratings</h2>
-            <div className="rounded-lg bg-makina-card border border-makina-border p-5">
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="flex flex-col items-center gap-1 py-3">
-                  <div className="flex items-center gap-1">
-                    <StarIcon size={18} className="text-amber-400 fill-amber-400" />
-                    <span className="text-2xl font-bold text-makina-text">{stats.avgRating?.toFixed(1) ?? "0.0"}</span>
-                  </div>
-                  <span className="text-xs text-makina-muted">Average rating</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 py-3">
-                  <span className="text-2xl font-bold text-makina-green">{stats.satisfiedPct ?? 0}%</span>
-                  <span className="text-xs text-makina-muted">Satisfied</span>
-                </div>
-                <div className="flex flex-col items-center gap-1 py-3">
-                  <span className="text-2xl font-bold text-amber-400">{stats.unsatisfiedPct ?? 0}%</span>
-                  <span className="text-xs text-makina-muted">Unsatisfied</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </main>
     </div>
   );

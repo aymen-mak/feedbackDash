@@ -22,6 +22,7 @@ import {
   ArrowUpRight,
   Star as StarIcon,
   Image as ImageIcon,
+  Search,
 } from "lucide-react";
 
 type CategoryId = "Product" | "UX" | "Support";
@@ -105,6 +106,7 @@ export default function TeamPage() {
   const [loading, setLoading] = useState(true);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
 
   const enrichItems = (data: TeamItem[]): TeamItem[] =>
     data.map((item) => ({
@@ -212,9 +214,11 @@ export default function TeamPage() {
   };
 
   const currentList = getCurrentList();
-  const filteredItems = categoryFilter === "all"
-    ? currentList
-    : currentList.filter((i) => i.category === categoryFilter);
+  const filteredItems = currentList.filter((i) => {
+    if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
+    if (search && !i.message.toLowerCase().includes(search.toLowerCase()) && !i.userName.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
   const sortedItems = sortItems(filteredItems);
 
   const urgentCount = feedback.filter((f) => f.priority === "high" || f.type === "issue").length;
@@ -313,20 +317,32 @@ export default function TeamPage() {
                 </button>
               ))}
             </div>
-            <div className="flex gap-1">
-              {(["all", "Product", "UX", "Support"] as (CategoryId | "all")[]).map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                    categoryFilter === cat
-                      ? "bg-makina-accent text-makina-bg"
-                      : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                  }`}
-                >
-                  {cat === "all" ? "All" : cat}
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              <div className="flex gap-1">
+                {(["all", "Product", "UX", "Support"] as (CategoryId | "all")[]).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      categoryFilter === cat
+                        ? "bg-makina-accent text-makina-bg"
+                        : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                    }`}
+                  >
+                    {cat === "all" ? "All" : cat}
+                  </button>
+                ))}
+              </div>
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search feedback..."
+                  className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
+                />
+              </div>
             </div>
           </div>
 

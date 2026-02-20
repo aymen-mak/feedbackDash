@@ -6,7 +6,7 @@ import LiveFeed from "@/components/LiveFeed";
 import { AnalyticsChart } from "@/components/Charts";
 import Tooltip from "@/components/Tooltip";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
-import { Filter, Download, Search, TrendingUp, Users, MessageSquare, Star } from "lucide-react";
+import { Filter, Download, Search, TrendingUp, Users, MessageSquare } from "lucide-react";
 
 type FilterType = "all" | "issue" | "suggestion" | "question";
 type CategoryFilter = "all" | "Product" | "UX" | "Support";
@@ -14,8 +14,6 @@ type CategoryFilter = "all" | "Product" | "UX" | "Support";
 interface Stats {
   total: number;
   contributors: number;
-  avgRating: number;
-  satisfiedPct: number;
   resolutionRate: number;
   feedbackByType: { name: string; value: number; pct: number; color: string }[];
   dailyMetrics: { date: string; submissions: number; satisfaction: number; issues: number; resolved: number }[];
@@ -87,12 +85,6 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2 cursor-default">
                   <Users size={13} className="text-makina-muted" />
                   <span className="text-sm font-semibold">{stats?.contributors ?? 0}</span>
-                </div>
-              </Tooltip>
-              <Tooltip content="Average rating across all feedback">
-                <div className="flex items-center gap-2 cursor-default">
-                  <Star size={13} className="text-makina-muted" />
-                  <span className="text-sm font-semibold">{stats?.avgRating?.toFixed(1) ?? "0.0"}/5</span>
                 </div>
               </Tooltip>
               <Tooltip content="Resolution rate — feedback addressed vs total">
