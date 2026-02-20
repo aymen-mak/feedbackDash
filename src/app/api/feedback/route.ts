@@ -1,21 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllFeedback, getArchivedFeedback, getTrashFeedback, cleanupTrash, createFeedback, type CategoryId, type FeedbackType } from "@/lib/store";
-import { hasPostgres, pgGetAllFeedback, pgGetArchivedFeedback, pgGetTrashFeedback, pgCleanupTrash, pgCreateFeedback, pgSeedIfEmpty } from "@/lib/db";
+import { getAllFeedback, getArchivedFeedback, getTrashFeedback, getFeedbackByIds, cleanupTrash, createFeedback, type CategoryId, type FeedbackType } from "@/lib/store";
+import { hasPostgres, pgGetAllFeedback, pgGetArchivedFeedback, pgGetTrashFeedback, pgGetFeedbackByIds, pgCleanupTrash, pgCreateFeedback, pgSeedIfEmpty } from "@/lib/db";
 import { seed } from "@/lib/store";
 
 export async function GET(req: NextRequest) {
   try {
     const view = req.nextUrl.searchParams.get("view");
+    const idsParam = req.nextUrl.searchParams.get("ids");
 
     if (hasPostgres()) {
       await pgSeedIfEmpty(seed());
       await pgCleanupTrash();
+      if (idsParam) {
+        const ids = idsParam.split(",").filter(Boolean);
+        return NextResponse.json(await pgGetFeedbackByIds(ids));
+      }
       if (view === "archived") return NextResponse.json(await pgGetArchivedFeedback());
       if (view === "trash") return NextResponse.json(await pgGetTrashFeedback());
       return NextResponse.json(await pgGetAllFeedback());
     }
 
     cleanupTrash();
+    if (idsParam) {
+      const ids = idsParam.split(",").filter(Boolean);
+      return NextResponse.json(getFeedbackByIds(ids));
+    }
     if (view === "archived") return NextResponse.json(getArchivedFeedback());
     if (view === "trash") return NextResponse.json(getTrashFeedback());
     return NextResponse.json(getAllFeedback());

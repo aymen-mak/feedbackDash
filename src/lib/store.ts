@@ -194,6 +194,14 @@ export function getAllFeedback(): StoredFeedback[] {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
+/** Get specific items by IDs (regardless of archived/deleted status) */
+export function getFeedbackByIds(ids: string[]): StoredFeedback[] {
+  const idSet = new Set(ids);
+  return read().feedback
+    .filter((f) => idSet.has(f.id))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
 /** Archived items (not deleted) */
 export function getArchivedFeedback(): StoredFeedback[] {
   return read().feedback

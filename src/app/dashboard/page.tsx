@@ -24,35 +24,34 @@ export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
-  const [feedback, setFeedback] = useState<FeedbackItemData[]>([]);
+  const [myFeedback, setMyFeedback] = useState<FeedbackItemData[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [myIds, setMyIds] = useState<Set<string>>(new Set());
 
-  const fetchData = () => {
+  useEffect(() => {
+    let ids: string[] = [];
+    try {
+      const stored = localStorage.getItem("makina-my-feedback-ids");
+      if (stored) ids = JSON.parse(stored);
+    } catch { /* ignore */ }
+
+    const feedbackUrl = ids.length > 0
+      ? `/api/feedback?ids=${ids.join(",")}`
+      : null;
+
     Promise.all([
-      fetch("/api/feedback").then((r) => r.ok ? r.json() : []),
+      feedbackUrl ? fetch(feedbackUrl).then((r) => r.ok ? r.json() : []) : Promise.resolve([]),
       fetch("/api/stats").then((r) => r.ok ? r.json() : null),
     ]).then(([fb, st]) => {
-      if (Array.isArray(fb)) setFeedback(fb);
+      if (Array.isArray(fb)) setMyFeedback(fb);
       if (st && typeof st.total === "number") setStats(st);
       setLoading(false);
     }).catch(() => setLoading(false));
-  };
-
-  useEffect(() => {
-    fetchData();
-    try {
-      const stored = localStorage.getItem("makina-my-feedback-ids");
-      if (stored) setMyIds(new Set(JSON.parse(stored)));
-    } catch { /* ignore */ }
   }, []);
 
   const handleItemUpdate = (updated: FeedbackItemData) => {
-    setFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+    setMyFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
   };
-
-  const myFeedback = feedback.filter((f) => myIds.has(f.id));
 
   const filtered = myFeedback.filter((f) => {
     if (selectedCategory !== "all" && f.category !== selectedCategory) return false;

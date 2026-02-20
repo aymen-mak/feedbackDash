@@ -117,6 +117,18 @@ export async function pgGetAllFeedback(): Promise<StoredFeedback[]> {
   return enrichWithReplies(rows.map(rowToFeedback));
 }
 
+export async function pgGetFeedbackByIds(ids: string[]): Promise<StoredFeedback[]> {
+  if (ids.length === 0) return [];
+  await ensureSchema();
+  const idArray = ids as unknown as string;
+  const { rows } = await sql`
+    SELECT * FROM feedback
+    WHERE id = ANY(${idArray}::text[])
+    ORDER BY created_at DESC
+  `;
+  return enrichWithReplies(rows.map(rowToFeedback));
+}
+
 export async function pgGetArchivedFeedback(): Promise<StoredFeedback[]> {
   await ensureSchema();
   const { rows } = await sql`

@@ -280,7 +280,7 @@ export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatu
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-makina-surface text-makina-muted border border-makina-border">
                   <FileCheck size={13} />
-                  Logged
+                  Received
                 </span>
               )}
               {!hideReplyInput && (
