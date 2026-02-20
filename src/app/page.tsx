@@ -374,7 +374,7 @@ export default function FeedbackPage() {
           </div>
 
           {/* Context panel */}
-          <div className="space-y-4">
+          <div className="space-y-4 lg:self-center">
             {/* Category breakdown */}
             <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
               <span className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">By category</span>
