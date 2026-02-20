@@ -260,12 +260,16 @@ export default function ReviewPage() {
       }`}>
         {/* Review controls bar */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-makina-border/50">
-          <input
-            type="checkbox"
-            checked={selectedItems.has(item.id)}
-            onChange={() => toggleSelect(item.id)}
-            className="rounded border-makina-border accent-makina-accent cursor-pointer"
-          />
+          <button
+            onClick={() => toggleSelect(item.id)}
+            className={`flex items-center justify-center w-4 h-4 rounded border transition-colors cursor-pointer shrink-0 ${
+              selectedItems.has(item.id)
+                ? "bg-makina-accent border-makina-accent text-makina-bg"
+                : "bg-makina-surface border-makina-border hover:border-makina-subtle"
+            }`}
+          >
+            {selectedItems.has(item.id) && <span className="text-[10px] font-bold leading-none">{"\u2713"}</span>}
+          </button>
 
           {viewFilter !== "trash" && viewFilter !== "archived" && (
             <>
@@ -564,13 +568,13 @@ export default function ReviewPage() {
               className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors border ${
                 allSelected
                   ? "bg-makina-accent text-makina-bg border-makina-accent"
-                  : "bg-makina-card text-makina-muted border-makina-border hover:border-makina-accent/40 hover:text-makina-text"
+                  : "bg-makina-surface text-makina-muted border-makina-border hover:border-makina-accent/40 hover:text-makina-text"
               }`}
             >
               <span className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border text-[9px] font-bold leading-none ${
                 allSelected
-                  ? "bg-white text-makina-accent border-white"
-                  : "border-makina-subtle"
+                  ? "bg-makina-bg text-makina-accent border-makina-bg"
+                  : "bg-makina-surface border-makina-subtle"
               }`}>
                 {allSelected ? "\u2713" : ""}
               </span>
