@@ -222,11 +222,11 @@ export default function FeedbackPage() {
                     className={`rounded-lg px-3 py-2.5 text-left transition-all border ${
                       feedbackType === opt.id
                         ? opt.selectedBg
-                        : "bg-makina-surface text-makina-muted border-makina-border hover:border-makina-subtle hover:text-makina-text"
+                        : "bg-makina-surface text-makina-text border-makina-border hover:border-makina-subtle"
                     }`}
                   >
                     <span className="text-xs font-semibold block">{opt.label}</span>
-                    <span className={`text-[10px] block mt-0.5 ${feedbackType === opt.id ? "text-white/70" : "text-makina-subtle"}`}>{opt.description}</span>
+                    <span className={`text-[10px] block mt-0.5 ${feedbackType === opt.id ? "text-white/70" : "text-makina-muted"}`}>{opt.description}</span>
                   </button>
                 ))}
               </div>
@@ -234,7 +234,7 @@ export default function FeedbackPage() {
 
             {/* Quick reactions -- compact row */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-makina-subtle uppercase tracking-wider">Quick reaction <span className="normal-case">(optional)</span></label>
+              <label className="text-[10px] font-medium text-makina-muted uppercase tracking-wider">Quick reaction <span className="normal-case">(optional)</span></label>
               <div className="flex flex-wrap gap-1.5">
                 {QUICK_ACTIONS.map((action) => (
                   <button
@@ -243,7 +243,7 @@ export default function FeedbackPage() {
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-all ${
                       quickAction === action.id
                         ? "bg-makina-accent-dim text-makina-accent border border-makina-accent/30"
-                        : "bg-makina-surface/30 text-makina-subtle border border-transparent hover:text-makina-muted hover:bg-makina-surface/60"
+                        : "bg-makina-surface/50 text-makina-muted border border-makina-border/50 hover:text-makina-text hover:bg-makina-surface"
                     }`}
                   >
                     <span className="text-[11px]">{action.emoji}</span>
@@ -412,7 +412,7 @@ export default function FeedbackPage() {
                 <span className="text-xs font-semibold text-makina-accent">Your voice matters</span>
               </div>
               <p className="text-[11px] text-makina-muted leading-relaxed">
-                Your feedback joins {totalSubmissions} submissions shaping our roadmap. Every voice counts.
+                Help shape the future of Makina. Every submission is reviewed by our team.
               </p>
             </div>
           </div>

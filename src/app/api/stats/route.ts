@@ -50,10 +50,11 @@ function computeStats(all: StoredFeedback[]) {
   }
 
   const reactionTotals = Object.entries(actionCounts)
+    .filter(([id]) => QUICK_ACTION_LABELS[id]) // skip unknown/legacy IDs
     .map(([id, count]) => ({
       id,
-      emoji: QUICK_ACTION_LABELS[id]?.emoji ?? "?",
-      label: QUICK_ACTION_LABELS[id]?.label ?? id,
+      emoji: QUICK_ACTION_LABELS[id].emoji,
+      label: QUICK_ACTION_LABELS[id].label,
       count,
     }))
     .sort((a, b) => b.count - a.count);
