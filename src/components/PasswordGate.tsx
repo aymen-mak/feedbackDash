@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Lock, ArrowRight } from "lucide-react";
 
 const GATE_KEY = "makina-internal-access";
-const GATE_PASSWORD = "makina2024";
+const GATE_PASSWORD = "makina2026!)";
 
 interface PasswordGateProps {
   children: React.ReactNode;
