@@ -201,7 +201,7 @@ export default function FeedbackPage() {
           <div className="rounded-lg bg-makina-card border border-makina-border p-6 space-y-5 hover-lift">
             {/* Category */}
             <div className="space-y-2">
-              <label className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">Category</label>
+              <label className="text-xs font-medium text-makina-text/70 uppercase tracking-wider mb-3 block">Category</label>
               <div className="flex gap-2">
                 {CATEGORIES.map((cat) => (
                   <button
