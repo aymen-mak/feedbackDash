@@ -193,7 +193,7 @@ export default function FeedbackPage() {
           <div className="rounded-lg bg-makina-card border border-makina-border p-6 space-y-5 hover-lift">
             {/* Category */}
             <div className="space-y-2">
-              <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Category</label>
+              <label className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">Category</label>
               <div className="flex gap-2">
                 {CATEGORIES.map((cat) => (
                   <button
@@ -202,7 +202,7 @@ export default function FeedbackPage() {
                     className={`rounded-full px-4 py-2 text-sm font-medium transition-all ${
                       category === cat
                         ? "gradient-accent text-makina-bg"
-                        : "bg-makina-surface text-makina-muted border border-makina-border hover:border-makina-subtle hover:text-makina-text"
+                        : "bg-makina-card border border-makina-border text-makina-text/80 hover:border-makina-accent/30 hover:text-makina-text"
                     }`}
                   >
                     {cat}
@@ -213,7 +213,7 @@ export default function FeedbackPage() {
 
             {/* Feedback type / severity */}
             <div className="space-y-2">
-              <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">What kind of feedback?</label>
+              <label className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">What kind of feedback?</label>
               <div className="grid grid-cols-3 gap-2">
                 {SEVERITY_OPTIONS.map((opt) => (
                   <button
@@ -222,11 +222,11 @@ export default function FeedbackPage() {
                     className={`rounded-lg px-3 py-2.5 text-left transition-all border ${
                       feedbackType === opt.id
                         ? opt.selectedBg
-                        : "bg-makina-surface text-makina-text border-makina-border hover:border-makina-subtle"
+                        : "bg-makina-card text-makina-text border-makina-border hover:border-makina-accent/30"
                     }`}
                   >
                     <span className="text-xs font-semibold block">{opt.label}</span>
-                    <span className={`text-[10px] block mt-0.5 ${feedbackType === opt.id ? "text-white/70" : "text-makina-muted"}`}>{opt.description}</span>
+                    <span className={`text-[10px] block mt-0.5 ${feedbackType === opt.id ? "text-white/70" : "text-makina-text/60"}`}>{opt.description}</span>
                   </button>
                 ))}
               </div>
@@ -234,7 +234,7 @@ export default function FeedbackPage() {
 
             {/* Quick reactions -- compact row */}
             <div className="space-y-1.5">
-              <label className="text-[10px] font-medium text-makina-muted uppercase tracking-wider">Quick reaction <span className="normal-case">(optional)</span></label>
+              <label className="text-[10px] font-medium text-makina-text/60 uppercase tracking-wider">Quick reaction <span className="normal-case">(optional)</span></label>
               <div className="flex flex-wrap gap-1.5">
                 {QUICK_ACTIONS.map((action) => (
                   <button
@@ -243,7 +243,7 @@ export default function FeedbackPage() {
                     className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-all ${
                       quickAction === action.id
                         ? "bg-makina-accent-dim text-makina-accent border border-makina-accent/30"
-                        : "bg-makina-surface/50 text-makina-muted border border-makina-border/50 hover:text-makina-text hover:bg-makina-surface"
+                        : "bg-makina-card text-makina-text/70 border border-makina-border hover:text-makina-text hover:border-makina-accent/30"
                     }`}
                   >
                     <span className="text-[11px]">{action.emoji}</span>
@@ -256,14 +256,14 @@ export default function FeedbackPage() {
             {/* Message */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Message</label>
+                <label className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">Message</label>
                 <button
                   type="button"
                   onClick={() => setAnonymous(!anonymous)}
                   className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium transition-all ${
                     anonymous
                       ? "bg-makina-accent-dim text-makina-accent border border-makina-accent/30"
-                      : "bg-makina-surface text-makina-subtle border border-makina-border hover:border-makina-subtle hover:text-makina-muted"
+                      : "bg-makina-card text-makina-text/60 border border-makina-border hover:border-makina-accent/30 hover:text-makina-text/80"
                   }`}
                 >
                   <EyeOff size={10} />
@@ -273,13 +273,13 @@ export default function FeedbackPage() {
 
               {!anonymous && (
                 <div className="flex items-center gap-2">
-                  <User size={13} className="text-makina-subtle shrink-0" />
+                  <User size={13} className="text-makina-text/50 shrink-0" />
                   <input
                     type="text"
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
                     placeholder="Your name (optional)"
-                    className="w-full rounded-md bg-makina-surface border border-makina-border px-3 py-2 text-sm text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 transition-colors"
+                    className="w-full rounded-md bg-makina-card border border-makina-border px-3 py-2 text-sm text-makina-text placeholder:text-makina-text/40 focus:outline-none focus:border-makina-accent/50 transition-colors"
                   />
                 </div>
               )}
@@ -288,14 +288,14 @@ export default function FeedbackPage() {
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder={categoryPrompts[category]}
-                className="w-full resize-none rounded-md bg-makina-surface border border-makina-border px-4 py-3 text-sm text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 transition-colors"
+                className="w-full resize-none rounded-md bg-makina-card border border-makina-border px-4 py-3 text-sm text-makina-text placeholder:text-makina-text/40 focus:outline-none focus:border-makina-accent/50 transition-colors"
                 rows={3}
               />
             </div>
 
             {/* Screenshot upload */}
             <div className="space-y-2">
-              <label className="text-xs font-medium text-makina-muted uppercase tracking-wider">Screenshot <span className="normal-case text-makina-subtle">(optional, JPG only, max 1.5MB)</span></label>
+              <label className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">Screenshot <span className="normal-case text-makina-text/50">(optional, JPG only, max 1.5MB)</span></label>
               {screenshotUrl ? (
                 <div className="flex items-center gap-3">
                   <div className="relative h-16 w-16 rounded-md overflow-hidden border border-makina-border">
@@ -304,7 +304,7 @@ export default function FeedbackPage() {
                   <button
                     type="button"
                     onClick={() => { setScreenshotUrl(""); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                    className="flex items-center gap-1 rounded-md bg-makina-surface border border-makina-border px-2 py-1 text-xs text-makina-muted hover:text-red-400 hover:border-red-500/30 transition-colors"
+                    className="flex items-center gap-1 rounded-md bg-makina-card border border-makina-border px-2 py-1 text-xs text-makina-text/70 hover:text-red-400 hover:border-red-500/30 transition-colors"
                   >
                     <X size={12} />
                     Remove
@@ -315,7 +315,7 @@ export default function FeedbackPage() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="flex items-center gap-2 rounded-md bg-makina-surface border border-makina-border px-3 py-2 text-xs text-makina-muted hover:border-makina-subtle hover:text-makina-text transition-colors disabled:opacity-50"
+                  className="flex items-center gap-2 rounded-md bg-makina-card border border-makina-border px-3 py-2 text-xs text-makina-text/70 hover:border-makina-accent/30 hover:text-makina-text transition-colors disabled:opacity-50"
                 >
                   {uploading ? (
                     <>
@@ -369,7 +369,7 @@ export default function FeedbackPage() {
           <div className="space-y-4">
             {/* Category breakdown */}
             <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
-              <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">By category</span>
+              <span className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">By category</span>
               <div className="space-y-2.5">
                 {(stats?.categoryStats ?? []).map((cat) => (
                   <div key={cat.id}>
@@ -390,7 +390,7 @@ export default function FeedbackPage() {
 
             {/* Trending reactions -- compact */}
             <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
-              <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Common tags</span>
+              <span className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">Common tags</span>
               <div className="flex flex-wrap gap-1.5">
                 {(stats?.reactionTotals ?? []).slice(0, 6).map((r) => (
                   <span key={r.label} className="inline-flex items-center gap-1 rounded-md bg-makina-surface px-2 py-1 text-[11px] text-makina-muted">
