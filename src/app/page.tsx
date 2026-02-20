@@ -426,7 +426,7 @@ export default function FeedbackPage() {
 
             {/* How it works */}
             <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-3">
-              <span className="text-xs font-medium text-makina-text/70 uppercase tracking-wider">How it works</span>
+              <span className="text-xs font-medium text-makina-text/70 uppercase tracking-wider mb-3 block">How it works</span>
               <div className="space-y-3">
                 <div className="flex items-start gap-2.5">
                   <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-makina-accent/15 text-[10px] font-bold text-makina-accent">1</div>
