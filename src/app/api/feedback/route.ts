@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllFeedback, getArchivedFeedback, getTrashFeedback, getFeedbackByIds, cleanupTrash, createFeedback, type CategoryId, type FeedbackType } from "@/lib/store";
+import { getAllFeedback, getArchivedFeedback, getTrashFeedback, getFeedbackByIds, cleanupTrash, createFeedback, sanitizeInput, type CategoryId, type FeedbackType } from "@/lib/store";
 import { hasPostgres, pgGetAllFeedback, pgGetArchivedFeedback, pgGetTrashFeedback, pgGetFeedbackByIds, pgCleanupTrash, pgCreateFeedback, pgSeedIfEmpty } from "@/lib/db";
 import { seed } from "@/lib/store";
 
@@ -49,23 +49,30 @@ export async function POST(req: NextRequest) {
       rating?: number | null;
     };
 
-    if (!category || !type) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const validCategories = ["Product", "UX"];
+    const validTypes = ["issue", "suggestion", "question"];
+    if (!category || !validCategories.includes(category)) {
+      return NextResponse.json({ error: "Invalid category" }, { status: 400 });
+    }
+    if (!type || !validTypes.includes(type)) {
+      return NextResponse.json({ error: "Invalid type" }, { status: 400 });
     }
 
-    if (!message?.trim() && !quickAction) {
+    const sanitizedMessage = sanitizeInput(message || "").slice(0, 5000);
+    if (!sanitizedMessage.trim() && !quickAction) {
       return NextResponse.json({ error: "Message or quick action required" }, { status: 400 });
     }
 
-    const displayName = anonymous ? "Anonymous" : (userName?.trim() || "Anonymous");
+    const rawName = anonymous ? "Anonymous" : (userName?.trim() || "Anonymous");
+    const displayName = sanitizeInput(rawName).slice(0, 50);
     const avatar = anonymous ? "?" : (displayName.charAt(0).toUpperCase());
 
     const data = {
       userName: displayName,
       userAvatar: avatar,
-      category,
+      category: category as CategoryId,
       type,
-      message: message || "",
+      message: sanitizedMessage,
       quickAction,
       anonymous,
       screenshotUrl: screenshotUrl ?? null,

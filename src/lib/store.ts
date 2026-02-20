@@ -4,7 +4,7 @@ import path from "path";
 // ── Types ──
 export type FeedbackType = "issue" | "suggestion" | "question";
 export type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
-export type CategoryId = "Product" | "UX" | "Support";
+export type CategoryId = "Product" | "UX";
 export type Priority = "none" | "low" | "medium" | "high";
 
 export interface Reply {
@@ -119,6 +119,19 @@ export const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string 
   "confusing": { emoji: "😕", label: "Confusing" },
 };
 
+// ── Input sanitization ──
+export function sanitizeInput(text: string): string {
+  return text
+    .replace(/<[^>]*>/g, "")
+    .replace(/https?:\/\/[^\s)}\]>]+/gi, "[link removed]")
+    .replace(/www\.[^\s)}\]>]+/gi, "[link removed]")
+    .replace(/data:[^\s]+/gi, "")
+    .replace(/javascript\s*:/gi, "")
+    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "")
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, "")
+    .trim();
+}
+
 // ── Seed data (30 items over 15 days) ──
 export function seed(): StoredFeedback[] {
   const now = Date.now();
@@ -128,34 +141,34 @@ export function seed(): StoredFeedback[] {
   const raw: Row[] = [
     ["Lina C.", "L", "Product", "issue", "The checkout flow keeps freezing on the payment step. Tried three different browsers.", null, 34, 1, 2],
     ["Marcus J.", "M", "UX", "suggestion", "The search bar should support filters like date range and category.\nRight now I have to scroll through everything.", null, 27, 3, 4],
-    ["Priya N.", "P", "Support", "suggestion", "Had an issue with my billing and the team sorted it out same day. Really appreciated the quick follow-up.", "great-support", 41, 6, 5],
+    ["Priya N.", "P", "Product", "suggestion", "Had an issue with my billing and the team sorted it out same day. Really appreciated the quick follow-up.", "great-support", 41, 6, 5],
     ["Ethan G.", "E", "Product", "suggestion", "Overall the product is great, keep it up!", "love-it", 19, 10, 5],
     ["Sophie W.", "S", "UX", "issue", "The mobile layout is broken on the account settings page.\nButtons overlap and the save button is hidden.", null, 13, 14, 2],
     ["Omar B.", "O", "Product", "suggestion", "Would be great to have bulk import from CSV.\nAdding items one by one takes forever.", null, 22, 24, 3],
     ["Aisha T.", "A", "UX", "issue", "Pages take too long to load, especially the dashboard.", null, 16, 30, 1],
-    ["Daniel F.", "D", "Support", "question", "Is there a way to transfer ownership of a workspace to another team member?", null, 5, 42, null],
+    ["Daniel F.", "D", "Product", "question", "Is there a way to transfer ownership of a workspace to another team member?", null, 5, 42, null],
     ["Rachel K.", "R", "Product", "suggestion", "The new notification system is exactly what we needed. No more missed updates.", null, 29, 48, 5],
     ["Kai L.", "K", "UX", "suggestion", "Add keyboard shortcuts for the most common actions.\nWould speed up our workflow significantly.", null, 21, 60, 4],
     ["Nadia H.", "N", "Product", "issue", "PDF export cuts off content on the right side.\nHave to manually adjust margins every time.", null, 11, 72, 2],
-    ["James R.", "J", "Support", "suggestion", "Your knowledge base articles are thorough and well-written. Saved me from contacting support multiple times.", null, 17, 96, 5],
+    ["James R.", "J", "Product", "suggestion", "Your knowledge base articles are thorough and well-written. Saved me from contacting support multiple times.", null, 17, 96, 5],
     ["Zoe M.", "Z", "UX", "suggestion", "The interface is intuitive and easy to navigate.", "easy-to-use", 36, 108, 5],
     ["Lucas P.", "L", "Product", "suggestion", "Two-factor authentication should support hardware keys, not just SMS and authenticator apps.", null, 14, 120, 3],
-    ["Mia S.", "M", "Support", "issue", "Submitted a ticket 5 days ago about data sync issues and haven't heard back yet.", null, 8, 144, 1],
+    ["Mia S.", "M", "UX", "issue", "Submitted a ticket 5 days ago about data sync issues and haven't heard back yet.", null, 8, 144, 1],
     ["Thomas A.", "T", "UX", "suggestion", "The color contrast on disabled buttons is too low.\nHard to tell what's clickable vs what isn't.", null, 12, 156, 3],
     ["Yuki O.", "Y", "Product", "suggestion", "The API documentation is excellent. Had our integration running in under an hour.", "impressive", 25, 192, 5],
     ["Isabella D.", "I", "UX", "issue", "Dropdown menus close when I try to scroll inside them on Firefox. Pretty frustrating.", null, 9, 204, 2],
     ["Ben W.", "B", "Product", "question", "Are there plans to support SSO with SAML? Our IT team requires it for all vendor tools.", null, 7, 216, null],
-    ["Camille R.", "C", "Support", "suggestion", "A live chat widget would be much faster than email for simple questions.", null, 18, 240, 4],
+    ["Camille R.", "C", "UX", "suggestion", "A live chat widget would be much faster than email for simple questions.", null, 18, 240, 4],
     ["Arjun V.", "A", "Product", "suggestion", "The permissions system is flexible without being complicated. Nice balance.", "helpful", 23, 264, 5],
     ["Freya B.", "F", "UX", "issue", "Clicking the back button after saving sometimes loses my changes.\nHappened twice today.", "confusing", 10, 288, 2],
-    ["Noah E.", "N", "Support", "suggestion", "Called about an urgent issue and the support agent stayed on the line until it was fully resolved.", "great-support", 38, 300, 5],
+    ["Noah E.", "N", "Product", "suggestion", "Called about an urgent issue and the team stayed on the line until it was fully resolved.", "great-support", 38, 300, 5],
     ["Elena G.", "E", "Product", "suggestion", "Let us schedule reports to be sent automatically.\nHaving to generate them manually weekly is tedious.", null, 30, 312, 3],
     ["Ryan T.", "R", "UX", "suggestion", "The recent redesign of the settings page is a huge improvement. Everything is where I'd expect it.", null, 20, 324, 5],
-    ["Hana K.", "H", "Support", "question", "What's the difference between the Team and Business plans?\nThe comparison page isn't clear on a few features.", null, 6, 336, null],
+    ["Hana K.", "H", "Product", "question", "What's the difference between the Team and Business plans?\nThe comparison page isn't clear on a few features.", null, 6, 336, null],
     ["Diego M.", "D", "Product", "issue", "Webhooks occasionally fire twice for the same event.\nCausing duplicate entries on our side.", null, 15, 348, 2],
     ["Clara J.", "C", "UX", "suggestion", "Please add a way to undo actions.\nAccidentally archived an important item and had to dig to restore it.", null, 24, 360, 4],
     ["Leo S.", "L", "Product", "suggestion", "The real-time sync across devices works flawlessly. Changed something on my phone and it was instant on desktop.", "impressive", 33, 372, 5],
-    ["Amara P.", "A", "Support", "issue", "The help center search returns irrelevant results.\nSearched for 'billing' and got articles about integrations.", null, 4, 380, 2],
+    ["Amara P.", "A", "UX", "issue", "The help center search returns irrelevant results.\nSearched for 'billing' and got articles about integrations.", null, 4, 380, 2],
   ];
 
   return raw.map(([userName, userAvatar, category, type, message, quickAction, upvotes, hoursAgo, rating], i) => ({
@@ -247,11 +260,11 @@ export function createFeedback(data: {
   const store = read();
   const item: StoredFeedback = {
     id: uid(),
-    userName: data.userName,
+    userName: sanitizeInput(data.userName).slice(0, 50),
     userAvatar: data.userAvatar,
     category: data.category,
     type: data.type,
-    message: data.message,
+    message: sanitizeInput(data.message).slice(0, 5000),
     quickAction: data.quickAction,
     anonymous: data.anonymous,
     status: "new",
@@ -316,6 +329,34 @@ export function addReply(id: string, message: string): StoredFeedback | null {
   return store.feedback[idx];
 }
 
+export function updateReply(feedbackId: string, replyId: string, message: string): StoredFeedback | null {
+  const store = read();
+  const idx = store.feedback.findIndex((f) => f.id === feedbackId);
+  if (idx === -1) return null;
+  const reply = store.feedback[idx].replies.find((r) => r.id === replyId);
+  if (!reply) return null;
+  reply.message = message;
+  write(store);
+  return store.feedback[idx];
+}
+
+export function deleteReply(feedbackId: string, replyId: string): StoredFeedback | null {
+  const store = read();
+  const idx = store.feedback.findIndex((f) => f.id === feedbackId);
+  if (idx === -1) return null;
+  store.feedback[idx].replies = store.feedback[idx].replies.filter((r) => r.id !== replyId);
+  write(store);
+  return store.feedback[idx];
+}
+
+export function permanentlyDeleteFeedback(id: string): boolean {
+  const store = read();
+  const before = store.feedback.length;
+  store.feedback = store.feedback.filter((f) => f.id !== id);
+  write(store);
+  return store.feedback.length < before;
+}
+
 // ── Stats ──
 
 export interface DailyMetric {
@@ -351,7 +392,7 @@ export function getStats() {
   const unsatisfiedPct = ratedTotal > 0 ? 100 - satisfiedPct - neutralPct : 0;
 
   // Category stats
-  const categories: CategoryId[] = ["Product", "UX", "Support"];
+  const categories: CategoryId[] = ["Product", "UX"];
   const categoryStats = categories.map((cat) => {
     const items = notDismissed.filter((f) => f.category === cat);
     const openIssues = items.filter((f) => f.type === "issue" && f.status !== "addressed").length;

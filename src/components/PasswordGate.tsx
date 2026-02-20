@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Lock, ArrowRight } from "lucide-react";
 
 const GATE_KEY = "makina-internal-access";
-const GATE_PASSWORD = "makina2026!)";
 
 interface PasswordGateProps {
   children: React.ReactNode;
@@ -18,16 +17,42 @@ export default function PasswordGate({ children }: PasswordGateProps) {
 
   useEffect(() => {
     const stored = sessionStorage.getItem(GATE_KEY);
-    if (stored === "true") setUnlocked(true);
-    setChecking(false);
+    if (stored) {
+      fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: stored }),
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.valid) setUnlocked(true);
+          else sessionStorage.removeItem(GATE_KEY);
+          setChecking(false);
+        })
+        .catch(() => setChecking(false));
+    } else {
+      setChecking(false);
+    }
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (input === GATE_PASSWORD) {
-      sessionStorage.setItem(GATE_KEY, "true");
-      setUnlocked(true);
-    } else {
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: input }),
+      });
+      const data = await res.json();
+      if (data.success && data.token) {
+        sessionStorage.setItem(GATE_KEY, data.token);
+        setUnlocked(true);
+      } else {
+        setError(true);
+        setTimeout(() => setError(false), 1500);
+        setInput("");
+      }
+    } catch {
       setError(true);
       setTimeout(() => setError(false), 1500);
       setInput("");

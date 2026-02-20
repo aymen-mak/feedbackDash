@@ -17,12 +17,14 @@ import {
   ChevronDown,
   ArrowUpRight,
   RotateCcw,
-  CheckCircle2,
+  Calendar,
+  XCircle,
 } from "lucide-react";
 
 type Priority = "none" | "low" | "medium" | "high";
 type FeedbackType = "issue" | "suggestion" | "question";
-type CategoryId = "Product" | "UX" | "Support";
+type CategoryId = "Product" | "UX";
+type DateFilter = "all" | "7d" | "30d" | "oldest";
 
 interface ReviewItem extends FeedbackItemData {
   priority: Priority;
@@ -67,6 +69,7 @@ export default function ReviewPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [tagDropdownId, setTagDropdownId] = useState<string | null>(null);
   const [deleteActiveId, setDeleteActiveId] = useState<string | null>(null);
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
   const enrichItems = (data: ReviewItem[]): ReviewItem[] =>
     data.map((item) => ({
@@ -169,6 +172,15 @@ export default function ReviewPage() {
     setSelectedItems(new Set());
   };
 
+  const permanentlyDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/feedback/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        setTrashItems((prev) => prev.filter((i) => i.id !== id));
+      }
+    } catch { /* ignore */ }
+  };
+
   const addTag = (id: string, tag: string) => {
     const item = items.find((i) => i.id === id);
     if (item && !item.tags.includes(tag)) {
@@ -196,21 +208,19 @@ export default function ReviewPage() {
 
   const viewList = getViewList();
 
-  // Apply type/category/search filters
+  // Apply type/category/search/date filters
   const currentList = viewList.filter((i) => {
     if (typeFilter !== "all" && i.type !== typeFilter) return false;
     if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
-    if (
-      search &&
-      !i.message.toLowerCase().includes(search.toLowerCase()) &&
-      !i.userName.toLowerCase().includes(search.toLowerCase())
-    )
-      return false;
+    if (search && !i.message.toLowerCase().includes(search.toLowerCase()) && !i.userName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (dateFilter === "7d" && Date.now() - new Date(i.createdAt).getTime() > 7 * 86400000) return false;
+    if (dateFilter === "30d" && Date.now() - new Date(i.createdAt).getTime() > 30 * 86400000) return false;
     return true;
   });
 
   // Sort: high priority first, then by date
   const sorted = [...currentList].sort((a, b) => {
+    if (dateFilter === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     const pOrder: Record<string, number> = { high: 0, medium: 1, low: 2, none: 3 };
     const pa = pOrder[a.priority] ?? 3;
     const pb = pOrder[b.priority] ?? 3;
@@ -324,13 +334,6 @@ export default function ReviewPage() {
 
           {/* Action buttons -- right side */}
           <div className="ml-auto flex items-center gap-1.5">
-            {item.acknowledged && (
-              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-makina-blue bg-makina-blue/10 rounded-full px-2 py-0.5">
-                <CheckCircle2 size={10} />
-                Acknowledged
-              </span>
-            )}
-
             {item.escalated && viewFilter !== "trash" && viewFilter !== "archived" && (
               <span className="text-[10px] font-medium text-makina-green bg-makina-green/10 rounded-full px-2 py-0.5">Escalated</span>
             )}
@@ -340,7 +343,7 @@ export default function ReviewPage() {
                 <Tooltip content={item.escalated ? "Remove from team" : "Escalate to team"}>
                   <button
                     onClick={() => patchItem(item.id, { escalated: !item.escalated })}
-                    className={`p-2 rounded-md text-xs transition-colors ${item.escalated ? "text-makina-green bg-makina-green/10 hover:bg-makina-green/20" : "text-makina-subtle bg-makina-surface hover:text-makina-green hover:bg-makina-green/10"}`}
+                    className={`btn-tactile p-2 rounded-md text-xs ${item.escalated ? "text-makina-green bg-makina-green/10 hover:bg-makina-green/20" : "text-makina-subtle bg-makina-surface hover:text-makina-green hover:bg-makina-green/10"}`}
                   >
                     <ArrowUpRight size={15} />
                   </button>
@@ -348,7 +351,7 @@ export default function ReviewPage() {
                 <Tooltip content="Archive">
                   <button
                     onClick={() => patchItem(item.id, { archived: true })}
-                    className="p-2 rounded-md text-makina-subtle bg-makina-surface hover:text-makina-blue hover:bg-blue-500/10 transition-colors"
+                    className="btn-tactile p-2 rounded-md text-makina-subtle bg-makina-surface hover:text-makina-blue hover:bg-blue-500/10"
                   >
                     <Archive size={15} />
                   </button>
@@ -356,7 +359,7 @@ export default function ReviewPage() {
                 <Tooltip content="Move to deleted">
                   <button
                     onClick={() => handleDeleteClick(item.id)}
-                    className={`p-2 rounded-md transition-all ${
+                    className={`btn-tactile p-2 rounded-md ${
                       deleteActiveId === item.id
                         ? "text-white bg-makina-red scale-95"
                         : "text-makina-subtle bg-makina-surface hover:text-makina-red hover:bg-red-500/10"
@@ -368,18 +371,29 @@ export default function ReviewPage() {
               </>
             )}
 
-            {/* Restore buttons for archived/deleted views */}
+            {/* Restore + permanent delete for archived/deleted views */}
             {(viewFilter === "archived" || viewFilter === "trash") && (
-              <button
-                onClick={() => {
-                  if (viewFilter === "archived") patchItem(item.id, { archived: false });
-                  else patchItem(item.id, { deletedAt: null });
-                }}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"
-              >
-                <RotateCcw size={13} />
-                Restore
-              </button>
+              <>
+                <button
+                  onClick={() => {
+                    if (viewFilter === "archived") patchItem(item.id, { archived: false });
+                    else patchItem(item.id, { deletedAt: null });
+                  }}
+                  className="btn-tactile inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500"
+                >
+                  <RotateCcw size={13} />
+                  Restore
+                </button>
+                {viewFilter === "trash" && (
+                  <button
+                    onClick={() => permanentlyDelete(item.id)}
+                    className="btn-tactile inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-red-600 hover:bg-red-500"
+                  >
+                    <XCircle size={13} />
+                    Delete forever
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -389,6 +403,7 @@ export default function ReviewPage() {
           <FeedbackCard
             item={item}
             showStatus
+            showInternalStatus
             onStatusChange={(id, status) => patchItem(id, { status })}
             onItemUpdate={(updated) => setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } as ReviewItem : i)))}
           />
@@ -485,7 +500,7 @@ export default function ReviewPage() {
                 <div className="flex items-center gap-1.5 text-sm text-makina-muted">
                   <Filter size={14} />
                 </div>
-                <div className="flex gap-1">
+                <div className="flex gap-1 flex-wrap">
                   {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
                     <button
                       key={type}
@@ -499,9 +514,8 @@ export default function ReviewPage() {
                       {type === "all" ? "All types" : type}
                     </button>
                   ))}
-                </div>
-                <div className="flex gap-1">
-                  {(["all", "Product", "UX", "Support"] as (CategoryId | "all")[]).map((cat) => (
+                  <span className="w-px h-5 bg-makina-border self-center mx-1" />
+                  {(["all", "Product", "UX"] as (CategoryId | "all")[]).map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setCategoryFilter(cat)}
@@ -517,6 +531,24 @@ export default function ReviewPage() {
                 </div>
               </>
             )}
+            <div className="flex items-center gap-1.5 text-sm text-makina-muted ml-2">
+              <Calendar size={14} />
+            </div>
+            <div className="flex gap-1">
+              {([["all", "All time"], ["7d", "7 days"], ["30d", "30 days"], ["oldest", "Oldest"]] as [DateFilter, string][]).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setDateFilter(val)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    dateFilter === val
+                      ? "bg-makina-accent text-makina-bg"
+                      : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <div className={`relative ${viewFilter === "trash" || viewFilter === "archived" ? "" : "ml-auto"}`}>
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
               <input

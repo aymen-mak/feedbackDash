@@ -26,7 +26,7 @@ function computeStats(all: StoredFeedback[]) {
   const neutralPct = ratedTotal > 0 ? Math.round((neutral / ratedTotal) * 100) : 0;
   const unsatisfiedPct = ratedTotal > 0 ? 100 - satisfiedPct - neutralPct : 0;
 
-  const categories: CategoryId[] = ["Product", "UX", "Support"];
+  const categories: CategoryId[] = ["Product", "UX"];
   const categoryStats = categories.map((cat) => {
     const items = notDismissed.filter((f) => f.category === cat);
     const openIssues = items.filter((f) => f.type === "issue" && f.status !== "addressed").length;

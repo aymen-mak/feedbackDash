@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateFeedback, getFeedbackById } from "@/lib/store";
-import { hasPostgres, pgUpdateFeedback, pgGetFeedbackById } from "@/lib/db";
+import { updateFeedback, getFeedbackById, permanentlyDeleteFeedback } from "@/lib/store";
+import { hasPostgres, pgUpdateFeedback, pgGetFeedbackById, pgPermanentlyDeleteFeedback } from "@/lib/db";
 
 export async function PATCH(
   req: NextRequest,
@@ -32,6 +32,28 @@ export async function PATCH(
     return NextResponse.json(updated);
   } catch (err) {
     console.error("PATCH /api/feedback/[id] error:", err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+
+    if (hasPostgres()) {
+      const deleted = await pgPermanentlyDeleteFeedback(id);
+      if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
+      return NextResponse.json({ success: true });
+    }
+
+    const deleted = permanentlyDeleteFeedback(id);
+    if (!deleted) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    console.error("DELETE /api/feedback/[id] error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }
 }

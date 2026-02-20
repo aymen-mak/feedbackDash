@@ -9,14 +9,15 @@ import {
   X,
   Box,
   Paintbrush,
-  Headphones,
   Star as StarIcon,
   Image as ImageIcon,
-  CheckCircle2,
   FileCheck,
+  Pencil,
+  Trash2,
+  Check,
 } from "lucide-react";
 
-type CategoryId = "Product" | "UX" | "Support";
+type CategoryId = "Product" | "UX";
 type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
 
 interface Reply {
@@ -29,7 +30,7 @@ export interface FeedbackItemData {
   id: string;
   userName: string;
   userAvatar: string;
-  category: CategoryId;
+  category: string;
   type: string;
   message: string;
   quickAction?: string | null;
@@ -82,6 +83,11 @@ const typeColors: Record<string, string> = {
   question: "bg-purple-600/20 text-purple-300 border border-purple-500/30",
 };
 
+const categoryColors: Record<string, string> = {
+  Product: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
+  UX: "bg-violet-500/15 text-violet-400 border border-violet-500/20",
+};
+
 const priorityBorder: Record<string, string> = {
   high: "border-l-red-500",
   medium: "border-l-amber-400",
@@ -89,10 +95,16 @@ const priorityBorder: Record<string, string> = {
   none: "border-l-transparent",
 };
 
-const categoryIcons: Record<CategoryId, React.ComponentType<{ size?: number; className?: string }>> = {
+const categoryIcons: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
   Product: Box,
   UX: Paintbrush,
-  Support: Headphones,
+};
+
+const statusColors: Record<string, string> = {
+  new: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
+  reviewed: "bg-amber-400/15 text-amber-400 border border-amber-400/20",
+  addressed: "bg-green-500/15 text-green-400 border border-green-500/20",
+  dismissed: "bg-makina-surface text-makina-muted border border-makina-border",
 };
 
 function StarRating({ rating }: { rating: number }) {
@@ -113,16 +125,19 @@ function StarRating({ rating }: { rating: number }) {
 interface FeedbackCardProps {
   item: FeedbackItemData;
   showStatus?: boolean;
+  showInternalStatus?: boolean;
   hideReplyInput?: boolean;
   onStatusChange?: (id: string, status: FeedbackStatus) => void;
   onItemUpdate?: (item: FeedbackItemData) => void;
 }
 
-export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatusChange, onItemUpdate }: FeedbackCardProps) {
+export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, onStatusChange, onItemUpdate }: FeedbackCardProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySent, setReplySent] = useState(false);
   const [screenshotOpen, setScreenshotOpen] = useState(false);
+  const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
+  const [editReplyText, setEditReplyText] = useState("");
 
   const quickAction = item.quickAction ? QUICK_ACTION_LABELS[item.quickAction] : null;
   const ts = formatTimestamp(item.createdAt);
@@ -147,6 +162,33 @@ export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatu
     } catch { /* ignore */ }
   };
 
+  const handleEditReply = async (replyId: string) => {
+    if (!editReplyText.trim()) return;
+    try {
+      const res = await fetch(`/api/feedback/${item.id}/reply/${replyId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: editReplyText.trim() }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        onItemUpdate?.(updated);
+        setEditingReplyId(null);
+        setEditReplyText("");
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleDeleteReply = async (replyId: string) => {
+    try {
+      const res = await fetch(`/api/feedback/${item.id}/reply/${replyId}`, { method: "DELETE" });
+      if (res.ok) {
+        const updated = await res.json();
+        onItemUpdate?.(updated);
+      }
+    } catch { /* ignore */ }
+  };
+
   const handleStatusChange = async (newStatus: FeedbackStatus) => {
     try {
       const res = await fetch(`/api/feedback/${item.id}`, {
@@ -167,7 +209,7 @@ export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatu
     setReplyOpen(!replyOpen);
   };
 
-  const CategoryIcon = categoryIcons[item.category];
+  const CategoryIcon = categoryIcons[item.category] || Box;
 
   return (
     <>
@@ -181,9 +223,13 @@ export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatu
           </div>
 
           <div className="min-w-0 flex-1">
-            {/* Header: poster, type, priority, acknowledged, timestamp */}
+            {/* Header: poster, category, type, priority, timestamp */}
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold">{item.userName}</span>
+              <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${categoryColors[item.category] || "bg-makina-surface text-makina-muted border border-makina-border"}`}>
+                <CategoryIcon size={9} />
+                {item.category}
+              </span>
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${typeColors[item.type] || ""}`}>
                 {item.type}
               </span>
@@ -196,26 +242,12 @@ export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatu
                   {priority}
                 </span>
               )}
-              {item.acknowledged && (
-                <span className="flex items-center gap-0.5 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-400 border border-emerald-500/20" title="Acknowledged">
-                  <CheckCircle2 size={10} />
-                  <span>Acknowledged</span>
-                </span>
-              )}
               {item.rating != null && item.rating > 0 && (
                 <StarRating rating={item.rating} />
               )}
               <span className="flex items-center gap-1 text-[11px] text-makina-muted ml-auto" title={ts.absolute}>
                 <Clock size={10} />
                 {ts.relative}
-              </span>
-            </div>
-
-            {/* Category line (separate from type badges) */}
-            <div className="mt-1 flex items-center gap-1">
-              <span className="flex items-center gap-1 rounded-full bg-makina-surface px-2 py-0.5 text-[10px] font-medium text-makina-muted">
-                <CategoryIcon size={9} />
-                {item.category}
               </span>
             </div>
 
@@ -258,12 +290,48 @@ export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatu
               <div className="mt-3 space-y-2 pl-3 border-l-2 border-makina-border">
                 {item.replies.map((reply) => {
                   const rts = formatTimestamp(reply.createdAt);
+                  const isEditing = editingReplyId === reply.id;
                   return (
-                    <div key={reply.id} className="text-xs text-makina-muted">
-                      <span className="text-makina-accent font-medium">Team reply</span>
-                      <span className="mx-1.5">&middot;</span>
-                      <span title={rts.absolute}>{rts.relative}</span>
-                      <p className="mt-0.5 text-makina-text/80">{reply.message}</p>
+                    <div key={reply.id} className="group/reply text-xs text-makina-muted">
+                      <div className="flex items-center gap-1">
+                        <span className="text-makina-accent font-medium">Team reply</span>
+                        <span className="mx-0.5">&middot;</span>
+                        <span title={rts.absolute}>{rts.relative}</span>
+                        {!hideReplyInput && !isEditing && (
+                          <span className="ml-auto flex items-center gap-1 opacity-0 group-hover/reply:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => { setEditingReplyId(reply.id); setEditReplyText(reply.message); }}
+                              className="p-0.5 rounded hover:text-makina-accent transition-colors"
+                              title="Edit reply"
+                            >
+                              <Pencil size={11} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteReply(reply.id)}
+                              className="p-0.5 rounded hover:text-makina-red transition-colors"
+                              title="Delete reply"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                      {isEditing ? (
+                        <div className="mt-1 flex gap-1.5">
+                          <input
+                            type="text"
+                            value={editReplyText}
+                            onChange={(e) => setEditReplyText(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleEditReply(reply.id)}
+                            className="flex-1 rounded-md bg-makina-surface border border-makina-border px-2 py-1 text-xs text-makina-text focus:outline-none focus:border-makina-accent/50"
+                            autoFocus
+                          />
+                          <button onClick={() => handleEditReply(reply.id)} className="p-1 rounded text-makina-green hover:bg-green-500/10 transition-colors"><Check size={12} /></button>
+                          <button onClick={() => setEditingReplyId(null)} className="p-1 rounded text-makina-muted hover:text-makina-text transition-colors"><X size={12} /></button>
+                        </div>
+                      ) : (
+                        <p className="mt-0.5 text-makina-text/80">{reply.message}</p>
+                      )}
                     </div>
                   );
                 })}
@@ -271,16 +339,27 @@ export default function FeedbackCard({ item, showStatus, hideReplyInput, onStatu
             )}
 
             {/* Actions row */}
-            <div className="mt-3 flex items-center gap-3">
-              {item.escalated ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                  <ArrowUpRight size={13} />
-                  Escalated
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-makina-surface text-makina-muted border border-makina-border">
-                  <FileCheck size={13} />
-                  Received
+            <div className="mt-3 flex items-center gap-3 flex-wrap">
+              {/* Public status: only Received / Escalated */}
+              {!showInternalStatus && (
+                <>
+                  {item.escalated ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                      <ArrowUpRight size={13} />
+                      Escalated
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium bg-makina-surface text-makina-muted border border-makina-border">
+                      <FileCheck size={13} />
+                      Received
+                    </span>
+                  )}
+                </>
+              )}
+              {/* Internal status indicator for review/team pages */}
+              {showInternalStatus && (
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${statusColors[item.status] || ""}`}>
+                  {item.status}
                 </span>
               )}
               {!hideReplyInput && (

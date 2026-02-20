@@ -234,3 +234,35 @@ html.light .hover-lift:hover {
 .animate-pulse-live {
   animation: pulse-live 2s ease-in-out infinite;
 }
+
+/* ── Comfort text mode ── */
+html.comfort-text .text-xs {
+  font-size: 0.8125rem !important;
+  line-height: 1.25rem !important;
+}
+html.comfort-text .text-\[10px\] {
+  font-size: 0.75rem !important;
+  line-height: 1rem !important;
+}
+html.comfort-text .text-\[11px\] {
+  font-size: 0.8125rem !important;
+  line-height: 1.125rem !important;
+}
+html.comfort-text .text-sm {
+  font-size: 0.9375rem !important;
+  line-height: 1.375rem !important;
+}
+
+/* ── Tactile button press ── */
+@keyframes btn-press {
+  0% { transform: scale(1); }
+  50% { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+
+.btn-tactile {
+  transition: transform 0.1s ease, background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+.btn-tactile:active {
+  animation: btn-press 0.15s ease-out;
+}

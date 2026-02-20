@@ -6,10 +6,11 @@ import LiveFeed from "@/components/LiveFeed";
 import { AnalyticsChart } from "@/components/Charts";
 import Tooltip from "@/components/Tooltip";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
-import { Filter, Download, Search, TrendingUp, Users, MessageSquare, Inbox } from "lucide-react";
+import { Filter, Download, Search, TrendingUp, Users, MessageSquare, Inbox, Calendar } from "lucide-react";
 
 type FilterType = "all" | "issue" | "suggestion" | "question";
-type CategoryFilter = "all" | "Product" | "UX" | "Support";
+type CategoryFilter = "all" | "Product" | "UX";
+type DateFilter = "all" | "7d" | "30d" | "oldest";
 
 interface Stats {
   total: number;
@@ -24,6 +25,7 @@ export default function DashboardPage() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
   const [filterType, setFilterType] = useState<FilterType>("all");
   const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [myFeedback, setMyFeedback] = useState<FeedbackItemData[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -57,7 +59,12 @@ export default function DashboardPage() {
     if (selectedCategory !== "all" && f.category !== selectedCategory) return false;
     if (filterType !== "all" && f.type !== filterType) return false;
     if (search && !f.message.toLowerCase().includes(search.toLowerCase()) && !f.userName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (dateFilter === "7d" && Date.now() - new Date(f.createdAt).getTime() > 7 * 86400000) return false;
+    if (dateFilter === "30d" && Date.now() - new Date(f.createdAt).getTime() > 30 * 86400000) return false;
     return true;
+  }).sort((a, b) => {
+    if (dateFilter === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
   if (loading) {
@@ -139,7 +146,7 @@ export default function DashboardPage() {
         <div className="space-y-4">
           {/* Category selector */}
           <div className="flex gap-2 flex-wrap">
-            {(["all", "Product", "UX", "Support"] as CategoryFilter[]).map((cat) => (
+            {(["all", "Product", "UX"] as CategoryFilter[]).map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -177,6 +184,24 @@ export default function DashboardPage() {
                   }`}
                 >
                   {type === "all" ? "All types" : type}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1.5 text-sm text-makina-muted ml-2">
+              <Calendar size={14} />
+            </div>
+            <div className="flex gap-1">
+              {([["all", "All time"], ["7d", "Last 7 days"], ["30d", "Last 30 days"], ["oldest", "Oldest first"]] as [DateFilter, string][]).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setDateFilter(val)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    dateFilter === val
+                      ? "bg-makina-accent text-makina-bg"
+                      : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                  }`}
+                >
+                  {label}
                 </button>
               ))}
             </div>

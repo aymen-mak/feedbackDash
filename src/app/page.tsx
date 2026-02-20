@@ -5,8 +5,8 @@ import { Send, Check, EyeOff, MessageSquare, Zap, Users, Hash, Flame, Sparkles, 
 import Navbar from "@/components/Navbar";
 import Tooltip from "@/components/Tooltip";
 
-type CategoryId = "Product" | "UX" | "Support";
-const CATEGORIES: CategoryId[] = ["Product", "UX", "Support"];
+type CategoryId = "Product" | "UX";
+const CATEGORIES: CategoryId[] = ["Product", "UX"];
 
 type FeedbackType = "suggestion" | "issue" | "question";
 
@@ -19,7 +19,6 @@ const SEVERITY_OPTIONS: { id: FeedbackType; label: string; description: string; 
 const categoryPrompts: Record<CategoryId, string> = {
   Product: "What would you improve about the product?",
   UX: "What felt confusing or could work better?",
-  Support: "How can we help you?",
 };
 
 const QUICK_ACTIONS = [
@@ -161,7 +160,7 @@ export default function FeedbackPage() {
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 rounded-full bg-makina-accent-dim px-4 py-1.5">
               <MessageSquare size={14} className="text-makina-accent" />
-              <span className="text-xs font-medium text-makina-accent">We read every submission</span>
+              <span className="text-xs font-medium text-makina-accent">Share your thoughts</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Makina <span className="gradient-text">Pulse</span></h1>
             <p className="text-sm text-makina-subtle">Your feedback shapes what we build next</p>

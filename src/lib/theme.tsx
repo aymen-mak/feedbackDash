@@ -9,10 +9,13 @@ const THEME_ORDER: Theme[] = ["dark", "light", "glass"];
 const ThemeContext = createContext<{
   theme: Theme;
   toggle: () => void;
-}>({ theme: "dark", toggle: () => {} });
+  comfortText: boolean;
+  toggleComfort: () => void;
+}>({ theme: "dark", toggle: () => {}, comfortText: false, toggleComfort: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");
+  const [comfortText, setComfortText] = useState(false);
 
   useEffect(() => {
     const stored = localStorage.getItem("fh-theme") as Theme | null;
@@ -22,6 +25,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (stored !== "dark") {
         document.documentElement.classList.add(stored);
       }
+    }
+    const comfort = localStorage.getItem("fh-comfort-text");
+    if (comfort === "true") {
+      setComfortText(true);
+      document.documentElement.classList.add("comfort-text");
     }
   }, []);
 
@@ -36,8 +44,19 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const toggleComfort = () => {
+    const next = !comfortText;
+    setComfortText(next);
+    localStorage.setItem("fh-comfort-text", String(next));
+    if (next) {
+      document.documentElement.classList.add("comfort-text");
+    } else {
+      document.documentElement.classList.remove("comfort-text");
+    }
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, toggle }}>
+    <ThemeContext.Provider value={{ theme, toggle, comfortText, toggleComfort }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { addReply } from "@/lib/store";
+import { addReply, sanitizeInput } from "@/lib/store";
 import { hasPostgres, pgAddReply } from "@/lib/db";
 
 export async function POST(
@@ -9,7 +9,7 @@ export async function POST(
   try {
     const { id } = await params;
     const body = await req.json();
-    const message = body.message as string;
+    const message = sanitizeInput((body.message as string) || "").slice(0, 5000);
 
     if (!message?.trim()) {
       return NextResponse.json({ error: "Message required" }, { status: 400 });

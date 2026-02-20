@@ -22,7 +22,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { theme, toggle } = useTheme();
+  const { theme, toggle, comfortText, toggleComfort } = useTheme();
 
   const handleShare = async () => {
     const url = window.location.origin;
@@ -92,6 +92,18 @@ export default function Navbar() {
 
         {/* Right side */}
         <div className="flex items-center gap-3">
+          <button
+            onClick={toggleComfort}
+            className={`rounded-md px-1.5 py-1 text-xs font-bold transition-colors ${
+              comfortText
+                ? "text-makina-accent bg-makina-accent-dim"
+                : "text-makina-muted hover:text-makina-text hover:bg-makina-card"
+            }`}
+            title={comfortText ? "Switch to compact text" : "Switch to comfortable text"}
+          >
+            Aa
+          </button>
+
           <button
             onClick={toggle}
             className="rounded-md p-2 text-makina-muted hover:text-makina-text hover:bg-makina-card transition-colors"

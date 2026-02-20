@@ -3,7 +3,7 @@ import { ThemeProvider } from "@/lib/theme";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Makina Pulse — Community Feedback",
+  title: "Makina Pulse",
   description: "Your feedback shapes what we build next. Powered by Makina.",
 };
 

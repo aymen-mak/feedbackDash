@@ -270,6 +270,24 @@ export async function pgAddReply(id: string, message: string): Promise<StoredFee
   return pgGetFeedbackById(id);
 }
 
+export async function pgUpdateReply(feedbackId: string, replyId: string, message: string): Promise<StoredFeedback | null> {
+  await ensureSchema();
+  await sql`UPDATE replies SET message = ${message} WHERE id = ${replyId} AND feedback_id = ${feedbackId}`;
+  return pgGetFeedbackById(feedbackId);
+}
+
+export async function pgDeleteReply(feedbackId: string, replyId: string): Promise<StoredFeedback | null> {
+  await ensureSchema();
+  await sql`DELETE FROM replies WHERE id = ${replyId} AND feedback_id = ${feedbackId}`;
+  return pgGetFeedbackById(feedbackId);
+}
+
+export async function pgPermanentlyDeleteFeedback(id: string): Promise<boolean> {
+  await ensureSchema();
+  const { rowCount } = await sql`DELETE FROM feedback WHERE id = ${id}`;
+  return (rowCount ?? 0) > 0;
+}
+
 export async function pgGetStats() {
   await ensureSchema();
   const items = await pgGetAllFeedback();
