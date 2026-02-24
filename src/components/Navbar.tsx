@@ -55,22 +55,22 @@ export default function Navbar() {
     glass: "Switch to dark mode",
   };
 
+  const logoSrc =
+    theme === "light"
+      ? "/1120592a-5c90-484b-a3d4-48f1cdb8e9d6.png"
+      : "/makina_pulse_dark_transparent.png";
+
   return (
-    <nav className="sticky top-0 z-40 border-b border-makina-border/40 bg-makina-bg/90 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-8 px-4">
+    <nav className="sticky top-0 z-40 border-b border-makina-border/30 bg-makina-bg/95 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-6xl items-center px-4">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0">
+        <Link href="/" className="flex items-center shrink-0 mr-10">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={theme === "light" ? "/logo-mark-light.svg" : "/logo-mark.svg"}
+            src={logoSrc}
             alt="Makina Pulse"
-            width={26}
-            height={26}
+            className="h-9 w-auto object-contain"
           />
-          <div className="flex items-baseline gap-1">
-            <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-makina-text">Makina</span>
-            <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-makina-accent">Pulse</span>
-          </div>
         </Link>
 
         {/* Desktop nav links */}
@@ -81,16 +81,13 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`relative px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all ${
                   isActive
-                    ? "text-makina-accent"
-                    : "text-makina-muted hover:text-makina-text"
+                    ? "text-makina-accent bg-makina-accent-dim"
+                    : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
                 }`}
               >
                 {link.label}
-                {isActive && (
-                  <span className="absolute bottom-0 left-3 right-3 h-px bg-makina-accent rounded-full" />
-                )}
               </Link>
             );
           })}
@@ -100,13 +97,13 @@ export default function Navbar() {
         <div className="flex-1" />
 
         {/* Right controls */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={toggleComfort}
-            className={`rounded-md px-1.5 py-1 text-xs font-bold transition-colors ${
+            className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${
               comfortText
                 ? "text-makina-accent bg-makina-accent-dim"
-                : "text-makina-muted hover:text-makina-text"
+                : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
             }`}
             title={comfortText ? "Switch to compact text" : "Switch to comfortable text"}
           >
@@ -115,7 +112,7 @@ export default function Navbar() {
 
           <button
             onClick={toggle}
-            className="rounded-md p-1.5 text-makina-muted hover:text-makina-text transition-colors"
+            className="rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-all"
             title={themeLabel[theme]}
           >
             {themeIcon[theme]}
@@ -123,7 +120,7 @@ export default function Navbar() {
 
           <button
             onClick={handleShare}
-            className="relative rounded-md p-1.5 text-makina-muted hover:text-makina-text transition-colors"
+            className="relative rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-all"
             title="Copy feedback link"
           >
             {copied ? <Check size={16} className="text-makina-green" /> : <Link2 size={16} />}
@@ -131,7 +128,7 @@ export default function Navbar() {
 
           {/* Mobile menu toggle */}
           <button
-            className="md:hidden rounded-md p-1.5 text-makina-muted hover:text-makina-text ml-1"
+            className="md:hidden rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-surface ml-1"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
             {mobileOpen ? <X size={18} /> : <Menu size={18} />}
@@ -141,7 +138,7 @@ export default function Navbar() {
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-makina-border/40 bg-makina-surface px-4 py-2">
+        <div className="md:hidden border-t border-makina-border/30 bg-makina-surface/80 backdrop-blur-xl px-4 py-3 space-y-1">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -149,10 +146,10 @@ export default function Navbar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className={`block rounded-md px-3 py-2.5 text-sm font-medium ${
+                className={`block rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
                   isActive
-                    ? "text-makina-accent"
-                    : "text-makina-muted"
+                    ? "text-makina-accent bg-makina-accent-dim"
+                    : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
                 }`}
               >
                 {link.label}
