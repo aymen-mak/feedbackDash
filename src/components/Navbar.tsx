@@ -30,7 +30,7 @@ export default function Navbar({
           <img
             src={logoSrc}
             alt="Makina Pulse"
-            className="h-10 md:h-12 w-auto"
+            className="h-16 md:h-20 w-auto"
           />
         </Link>
 
