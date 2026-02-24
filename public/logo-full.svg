@@ -1,0 +1,15 @@
+<svg width="160" height="40" viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Pulse mark -->
+  <circle cx="16" cy="17" r="11" stroke="url(#grad-full)" stroke-width="1.5" opacity="0.18"/>
+  <circle cx="24" cy="23" r="11" stroke="url(#grad-full)" stroke-width="1.5" opacity="0.18"/>
+  <path d="M3 20H12L14.5 11L17.5 29L20 13L22.5 27L25 20H37" stroke="url(#grad-full)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Logotype -->
+  <text x="46" y="18" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="700" letter-spacing="0.15em" fill="#edf2f7" text-anchor="start">MAKINA</text>
+  <text x="46" y="31" font-family="Inter, system-ui, sans-serif" font-size="11" font-weight="700" letter-spacing="0.15em" fill="url(#grad-full)" text-anchor="start">PULSE</text>
+  <defs>
+    <linearGradient id="grad-full" x1="3" y1="20" x2="37" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5b9cf6"/>
+      <stop offset="100%" stop-color="#3b82f6"/>
+    </linearGradient>
+  </defs>
+</svg>

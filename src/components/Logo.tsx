@@ -32,8 +32,8 @@ export default function PulseLogo({ size = 32, className = "", variant = "color"
       {variant === "color" && (
         <defs>
           <linearGradient id={id} x1="3" y1="20" x2="37" y2="20" gradientUnits="userSpaceOnUse">
-            <stop offset="0%" stopColor="#34d399" />
-            <stop offset="100%" stopColor="#10b981" />
+            <stop offset="0%" stopColor="#5b9cf6" />
+            <stop offset="100%" stopColor="#3b82f6" />
           </linearGradient>
         </defs>
       )}
