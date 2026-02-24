@@ -493,83 +493,70 @@ export default function ReviewPage() {
             </div>
           )}
 
-          {/* Filters -- shown for all views */}
-          <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+          {/* Filters -- single row */}
+          <div className="flex items-center gap-2 flex-wrap animate-fade-in-up" style={{ animationDelay: "100ms" }}>
             {viewFilter !== "trash" && viewFilter !== "archived" && (
               <>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 text-sm text-makina-muted">
-                    <Filter size={14} />
-                    <span className="text-xs">Type</span>
-                  </div>
-                  <div className="flex gap-1">
-                    {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
-                      <button
-                        key={type}
-                        onClick={() => setTypeFilter(type)}
-                        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                          typeFilter === type
-                            ? "bg-makina-accent text-makina-bg"
-                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                        }`}
-                      >
-                        {type === "all" ? "All types" : type}
-                      </button>
-                    ))}
-                  </div>
+                <Filter size={14} className="text-makina-muted shrink-0" />
+                <div className="flex gap-1">
+                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setTypeFilter(type)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        typeFilter === type
+                          ? "bg-makina-accent text-makina-bg"
+                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                      }`}
+                    >
+                      {type === "all" ? "All types" : type}
+                    </button>
+                  ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 text-sm text-makina-muted">
-                    <Filter size={14} className="invisible" />
-                    <span className="text-xs">Category</span>
-                  </div>
-                  <div className="flex gap-1">
-                    {(["all", "Product", "UX"] as (CategoryId | "all")[]).map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={() => setCategoryFilter(cat)}
-                        className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                          categoryFilter === cat
-                            ? "bg-makina-blue text-white"
-                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                        }`}
-                      >
-                        {cat === "all" ? "All categories" : cat}
-                      </button>
-                    ))}
-                  </div>
+                <div className="h-4 w-px bg-makina-border shrink-0" />
+                <div className="flex gap-1">
+                  {(["all", "Product", "UX"] as (CategoryId | "all")[]).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        categoryFilter === cat
+                          ? "bg-makina-blue text-white"
+                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                      }`}
+                    >
+                      {cat === "all" ? "All categories" : cat}
+                    </button>
+                  ))}
                 </div>
+                <div className="h-4 w-px bg-makina-border shrink-0" />
               </>
             )}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-sm text-makina-muted">
-                <Calendar size={14} />
-              </div>
-              <div className="flex gap-1">
-                {([["all", "All time"], ["7d", "7 days"], ["30d", "30 days"], ["oldest", "Oldest"]] as [DateFilter, string][]).map(([val, label]) => (
-                  <button
-                    key={val}
-                    onClick={() => setDateFilter(val)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      dateFilter === val
-                        ? "bg-makina-accent text-makina-bg"
-                        : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                    }`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="relative ml-auto">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search feedback..."
-                  className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
-                />
-              </div>
+            <Calendar size={14} className="text-makina-muted shrink-0" />
+            <div className="flex gap-1">
+              {([["all", "All time"], ["7d", "7 days"], ["30d", "30 days"], ["oldest", "Oldest"]] as [DateFilter, string][]).map(([val, label]) => (
+                <button
+                  key={val}
+                  onClick={() => setDateFilter(val)}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    dateFilter === val
+                      ? "bg-makina-accent text-makina-bg"
+                      : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="relative ml-auto">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search feedback..."
+                className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48"
+              />
             </div>
           </div>
 

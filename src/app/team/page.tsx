@@ -102,11 +102,12 @@ interface Stats {
   categoryStats: { id: string; submissions: number; openIssues: number; satisfaction: number }[];
 }
 
-type ViewFilter = "active" | "archived" | "deleted";
+type ViewFilter = "active" | "addressed" | "archived" | "deleted";
 
 export default function TeamPage() {
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
   const [feedback, setFeedback] = useState<TeamItem[]>([]);
+  const [addressedItems, setAddressedItems] = useState<TeamItem[]>([]);
   const [archivedItems, setArchivedItems] = useState<TeamItem[]>([]);
   const [deletedItems, setDeletedItems] = useState<TeamItem[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
@@ -139,11 +140,16 @@ export default function TeamPage() {
       // Only show escalated items or high-priority issues/suggestions
       const escalated = allFb.filter(
         (f) => f.escalated || ((f.type === "issue" || f.type === "suggestion") && f.upvotes > 10)
-      ).filter((f) => !(f as TeamItem & { dismissed?: boolean }).dismissed);
-      setFeedback(escalated);
+      );
+      // Split: addressed → addressed tab, dismissed → archived tab, rest → active
+      const active = escalated.filter((f) => f.status !== "addressed" && f.status !== "dismissed");
+      const addressed = escalated.filter((f) => f.status === "addressed");
+      const dismissed = escalated.filter((f) => f.status === "dismissed");
+      setFeedback(active);
+      setAddressedItems(addressed);
 
       const archivedEscalated = enrichItems(archived as TeamItem[]).filter((f) => f.escalated);
-      setArchivedItems(archivedEscalated);
+      setArchivedItems([...dismissed, ...archivedEscalated]);
 
       const deletedEscalated = enrichItems(trash as TeamItem[]).filter((f) => f.escalated);
       setDeletedItems(deletedEscalated);
@@ -153,6 +159,19 @@ export default function TeamPage() {
     }).catch(() => setLoading(false));
   }, []);
 
+  const findItem = (id: string): TeamItem | undefined =>
+    feedback.find((i) => i.id === id) ||
+    addressedItems.find((i) => i.id === id) ||
+    archivedItems.find((i) => i.id === id) ||
+    deletedItems.find((i) => i.id === id);
+
+  const removeFromAll = (id: string) => {
+    setFeedback((prev) => prev.filter((i) => i.id !== id));
+    setAddressedItems((prev) => prev.filter((i) => i.id !== id));
+    setArchivedItems((prev) => prev.filter((i) => i.id !== id));
+    setDeletedItems((prev) => prev.filter((i) => i.id !== id));
+  };
+
   const patchItem = async (id: string, updates: Partial<TeamItem>) => {
     try {
       const res = await fetch(`/api/feedback/${id}`, {
@@ -161,42 +180,64 @@ export default function TeamPage() {
         body: JSON.stringify(updates),
       });
       if (res.ok) {
-        // Handle acknowledged toggle — update in-place
-        if ("acknowledged" in updates && updates.archived === undefined && !updates.deletedAt) {
+        // Acknowledged toggle — update in-place across all lists
+        if ("acknowledged" in updates && updates.archived === undefined && !updates.deletedAt && !("status" in updates)) {
           const updateList = (prev: TeamItem[]) =>
             prev.map((i) => (i.id === id ? { ...i, ...updates } : i));
           setFeedback(updateList);
+          setAddressedItems(updateList);
           setArchivedItems(updateList);
           setDeletedItems(updateList);
           return;
         }
-        // Handle status change — update in-place
-        if ("status" in updates && updates.archived === undefined && !updates.deletedAt && updates.archived !== false && updates.deletedAt !== null) {
-          const updateList = (prev: TeamItem[]) =>
-            prev.map((i) => (i.id === id ? { ...i, ...updates } : i));
-          setFeedback(updateList);
-          setArchivedItems(updateList);
-          setDeletedItems(updateList);
+
+        const item = findItem(id);
+        if (!item) return;
+        const merged = { ...item, ...updates };
+
+        // Deletion takes priority
+        if (updates.deletedAt) {
+          removeFromAll(id);
+          setDeletedItems((prev) => [merged, ...prev]);
           return;
         }
-        if (updates.archived === true) {
-          setFeedback((prev) => prev.filter((i) => i.id !== id));
-          const item = feedback.find((i) => i.id === id);
-          if (item) setArchivedItems((prev) => [{ ...item, ...updates }, ...prev]);
-        } else if (updates.deletedAt) {
-          setFeedback((prev) => prev.filter((i) => i.id !== id));
-          setArchivedItems((prev) => prev.filter((i) => i.id !== id));
-          const item = feedback.find((i) => i.id === id) || archivedItems.find((i) => i.id === id);
-          if (item) setDeletedItems((prev) => [{ ...item, ...updates }, ...prev]);
-        } else if (updates.archived === false) {
-          setArchivedItems((prev) => prev.filter((i) => i.id !== id));
-          const item = archivedItems.find((i) => i.id === id);
-          if (item) setFeedback((prev) => [{ ...item, archived: false }, ...prev]);
-        } else if (updates.deletedAt === null) {
-          setDeletedItems((prev) => prev.filter((i) => i.id !== id));
-          const item = deletedItems.find((i) => i.id === id);
-          if (item) setFeedback((prev) => [{ ...item, deletedAt: null }, ...prev]);
+        // Restore from trash
+        if (updates.deletedAt === null) {
+          removeFromAll(id);
+          setFeedback((prev) => [{ ...merged, deletedAt: null }, ...prev]);
+          return;
         }
+        // Archive (or dismiss → archive)
+        if (updates.archived === true || (updates as { status?: string }).status === "dismissed") {
+          removeFromAll(id);
+          setArchivedItems((prev) => [merged, ...prev]);
+          return;
+        }
+        // Restore from archive
+        if (updates.archived === false) {
+          removeFromAll(id);
+          setFeedback((prev) => [{ ...merged, archived: false }, ...prev]);
+          return;
+        }
+        // Status change to addressed → move to addressed tab
+        if ((updates as { status?: string }).status === "addressed") {
+          removeFromAll(id);
+          setAddressedItems((prev) => [merged, ...prev]);
+          return;
+        }
+        // Any other status change (e.g. back to "new"/"reviewed") → move to active
+        if ("status" in updates) {
+          removeFromAll(id);
+          setFeedback((prev) => [merged, ...prev]);
+          return;
+        }
+        // Default: update in-place
+        const updateList = (prev: TeamItem[]) =>
+          prev.map((i) => (i.id === id ? merged : i));
+        setFeedback(updateList);
+        setAddressedItems(updateList);
+        setArchivedItems(updateList);
+        setDeletedItems(updateList);
       }
     } catch { /* ignore */ }
   };
@@ -225,6 +266,7 @@ export default function TeamPage() {
     });
 
   const getCurrentList = (): TeamItem[] => {
+    if (viewFilter === "addressed") return addressedItems;
     if (viewFilter === "archived") return archivedItems;
     if (viewFilter === "deleted") return deletedItems;
     return feedback;
@@ -315,6 +357,7 @@ export default function TeamPage() {
             <div className="flex items-center gap-1 border-b border-makina-border">
               {([
                 { key: "active" as ViewFilter, label: "Active", count: feedback.length },
+                { key: "addressed" as ViewFilter, label: "Addressed", count: addressedItems.length },
                 { key: "archived" as ViewFilter, label: "Archived", count: archivedItems.length },
                 { key: "deleted" as ViewFilter, label: "Deleted", count: deletedItems.length },
               ]).map((tab) => (
@@ -327,6 +370,7 @@ export default function TeamPage() {
                       : "border-transparent text-makina-muted hover:text-makina-text"
                   }`}
                 >
+                  {tab.key === "addressed" && <CheckSquare size={14} />}
                   {tab.key === "archived" && <Archive size={14} />}
                   {tab.key === "deleted" && <Trash2 size={14} />}
                   {tab.label}
@@ -519,33 +563,27 @@ export default function TeamPage() {
                         </span>
 
                         <div className="ml-auto flex items-center gap-1.5">
-                          {viewFilter === "active" && (
+                          {(viewFilter === "active" || viewFilter === "addressed") && (
                             <>
                               {/* Status action buttons */}
-                              <Tooltip content="Mark as addressed">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); patchItem(item.id, { status: "addressed" as FeedbackStatus }); }}
-                                  className={`btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                                    item.status === "addressed"
-                                      ? "text-green-400 bg-green-500/15 border-green-500/20"
-                                      : "text-makina-muted bg-makina-surface border-makina-border hover:text-green-400 hover:bg-green-500/10 hover:border-green-500/20"
-                                  }`}
-                                >
-                                  <CheckSquare size={14} />
-                                  Addressed
-                                </button>
-                              </Tooltip>
+                              {viewFilter === "active" && (
+                                <Tooltip content="Mark as addressed">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); patchItem(item.id, { status: "addressed" as FeedbackStatus }); }}
+                                    className="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors text-makina-muted bg-makina-surface border-makina-border hover:text-green-400 hover:bg-green-500/10 hover:border-green-500/20"
+                                  >
+                                    <CheckSquare size={14} />
+                                    Addressed
+                                  </button>
+                                </Tooltip>
+                              )}
                               <Tooltip content="Dismiss feedback">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); patchItem(item.id, { status: "dismissed" as FeedbackStatus }); }}
-                                  className={`btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-                                    item.status === "dismissed"
-                                      ? "text-makina-muted bg-makina-surface border-makina-border"
-                                      : "text-makina-muted bg-makina-surface border-makina-border hover:text-makina-muted hover:bg-makina-surface/80"
-                                  }`}
+                                  className="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors text-makina-muted bg-makina-surface border-makina-border hover:text-makina-muted hover:bg-makina-surface/80"
                                 >
                                   <XSquare size={14} />
-                                  Dismissed
+                                  Dismiss
                                 </button>
                               </Tooltip>
 
@@ -617,6 +655,11 @@ export default function TeamPage() {
                 <>
                   <Archive size={32} className="text-makina-subtle mx-auto" />
                   <p className="text-sm text-makina-muted">No archived items</p>
+                </>
+              ) : viewFilter === "addressed" ? (
+                <>
+                  <CheckSquare size={32} className="text-makina-subtle mx-auto" />
+                  <p className="text-sm text-makina-muted">No addressed items yet</p>
                 </>
               ) : (
                 <>
