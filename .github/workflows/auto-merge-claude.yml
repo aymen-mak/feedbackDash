@@ -24,6 +24,10 @@ jobs:
 
       - name: Merge into master
         run: |
-          git checkout master
+          if git rev-parse --verify origin/master >/dev/null 2>&1; then
+            git checkout master
+          else
+            git checkout -b master origin/${{ github.ref_name }}
+          fi
           git merge --ff-only origin/${{ github.ref_name }} || git merge -X theirs origin/${{ github.ref_name }}
           git push origin master
