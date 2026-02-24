@@ -4,8 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  MessageSquare,
-  LayoutDashboard,
   Link2,
   Menu,
   X,
@@ -13,10 +11,9 @@ import {
   Moon,
   Droplets,
   Check,
-  ClipboardList,
-  Users,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme";
+import PulseLogo from "./Logo";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -41,16 +38,16 @@ export default function Navbar() {
   };
 
   const links = [
-    { href: "/", label: "Feedback", icon: MessageSquare },
-    { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/review", label: "Review", icon: ClipboardList },
-    { href: "/team", label: "Team", icon: Users },
+    { href: "/", label: "Feedback" },
+    { href: "/dashboard", label: "Dashboard" },
+    { href: "/review", label: "Review" },
+    { href: "/team", label: "Team" },
   ];
 
   const themeIcon = {
-    dark: <Sun size={18} />,
-    light: <Droplets size={18} />,
-    glass: <Moon size={18} />,
+    dark: <Sun size={16} />,
+    light: <Droplets size={16} />,
+    glass: <Moon size={16} />,
   };
 
   const themeLabel = {
@@ -60,44 +57,48 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-makina-border bg-makina-surface/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 relative">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-1.5">
-          <span className="text-lg font-semibold tracking-tight">
-            Makina <span className="gradient-text">Pulse</span>
-          </span>
+    <nav className="border-b border-makina-border/40">
+      <div className="mx-auto flex h-14 max-w-6xl items-center gap-8 px-4">
+        {/* Brand */}
+        <Link href="/" className="flex items-center gap-2.5 shrink-0">
+          <PulseLogo size={26} />
+          <div className="flex items-baseline gap-1">
+            <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-makina-text">Makina</span>
+            <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-makina-accent">Pulse</span>
+          </div>
         </Link>
 
-        {/* Desktop nav — absolutely centered */}
-        <div className="hidden md:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
+        {/* Desktop nav links */}
+        <div className="hidden md:flex items-center gap-1">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                   isActive
-                    ? "bg-makina-accent-dim text-makina-accent"
-                    : "text-makina-muted hover:text-makina-text hover:bg-makina-card"
+                    ? "text-makina-accent"
+                    : "text-makina-muted hover:text-makina-text"
                 }`}
               >
-                <link.icon size={16} />
                 {link.label}
               </Link>
             );
           })}
         </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-3">
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Right controls */}
+        <div className="flex items-center gap-1">
           <button
             onClick={toggleComfort}
             className={`rounded-md px-1.5 py-1 text-xs font-bold transition-colors ${
               comfortText
                 ? "text-makina-accent bg-makina-accent-dim"
-                : "text-makina-muted hover:text-makina-text hover:bg-makina-card"
+                : "text-makina-muted hover:text-makina-text"
             }`}
             title={comfortText ? "Switch to compact text" : "Switch to comfortable text"}
           >
@@ -106,7 +107,7 @@ export default function Navbar() {
 
           <button
             onClick={toggle}
-            className="rounded-md p-2 text-makina-muted hover:text-makina-text hover:bg-makina-card transition-colors"
+            className="rounded-md p-1.5 text-makina-muted hover:text-makina-text transition-colors"
             title={themeLabel[theme]}
           >
             {themeIcon[theme]}
@@ -114,25 +115,25 @@ export default function Navbar() {
 
           <button
             onClick={handleShare}
-            className="relative rounded-md p-2 text-makina-muted hover:text-makina-text hover:bg-makina-card transition-colors"
+            className="relative rounded-md p-1.5 text-makina-muted hover:text-makina-text transition-colors"
             title="Copy feedback link"
           >
-            {copied ? <Check size={18} className="text-makina-green" /> : <Link2 size={18} />}
+            {copied ? <Check size={16} className="text-makina-green" /> : <Link2 size={16} />}
           </button>
 
           {/* Mobile menu toggle */}
           <button
-            className="md:hidden rounded-md p-2 text-makina-muted hover:text-makina-text"
+            className="md:hidden rounded-md p-1.5 text-makina-muted hover:text-makina-text ml-1"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
-            {mobileOpen ? <X size={20} /> : <Menu size={20} />}
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </div>
 
       {/* Mobile nav */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-makina-border bg-makina-surface px-4 py-2">
+        <div className="md:hidden border-t border-makina-border/40 bg-makina-surface px-4 py-2">
           {links.map((link) => {
             const isActive = pathname === link.href;
             return (
@@ -140,13 +141,12 @@ export default function Navbar() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2 rounded-md px-4 py-3 text-sm font-medium ${
+                className={`block rounded-md px-3 py-2.5 text-sm font-medium ${
                   isActive
-                    ? "text-makina-accent bg-makina-accent-dim"
+                    ? "text-makina-accent"
                     : "text-makina-muted"
                 }`}
               >
-                <link.icon size={16} />
                 {link.label}
               </Link>
             );

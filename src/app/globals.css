@@ -1,43 +1,43 @@
 @import "tailwindcss";
 
 @theme {
-  /* Makina color palette — dark mode defaults */
-  --color-makina-bg: #080c14;
-  --color-makina-surface: #0f1520;
-  --color-makina-card: #141c2b;
-  --color-makina-card-hover: #1a2436;
-  --color-makina-border: #1e2a3d;
-  --color-makina-accent: #C4B5FD;
-  --color-makina-accent-dim: #C4B5FD20;
-  --color-makina-accent-deep: #A78BFA;
+  /* Makina color palette — dark mode defaults (deep navy + emerald accent) */
+  --color-makina-bg: #080d17;
+  --color-makina-surface: #0e1525;
+  --color-makina-card: #131c2e;
+  --color-makina-card-hover: #182438;
+  --color-makina-border: #1c2b42;
+  --color-makina-accent: #34d399;
+  --color-makina-accent-dim: #10b98118;
+  --color-makina-accent-deep: #10b981;
   --color-makina-blue: #3b82f6;
   --color-makina-green: #22c55e;
   --color-makina-red: #ef4444;
-  --color-makina-text: #f1f5f9;
+  --color-makina-text: #edf2f7;
   --color-makina-muted: #64748b;
-  --color-makina-subtle: #334155;
+  --color-makina-subtle: #2d3d56;
 }
 
 /* Light mode overrides */
 html.light {
-  --color-makina-bg: #f8fafc;
-  --color-makina-surface: #f1f5f9;
+  --color-makina-bg: #f7f9fb;
+  --color-makina-surface: #edf2f7;
   --color-makina-card: #ffffff;
-  --color-makina-card-hover: #f8fafc;
-  --color-makina-border: #e2e8f0;
-  --color-makina-accent: #8b5cf6;
-  --color-makina-accent-dim: #8b5cf620;
-  --color-makina-accent-deep: #7c3aed;
+  --color-makina-card-hover: #f7f9fb;
+  --color-makina-border: #dfe6ee;
+  --color-makina-accent: #059669;
+  --color-makina-accent-dim: #05966920;
+  --color-makina-accent-deep: #047857;
   --color-makina-blue: #3b82f6;
   --color-makina-green: #16a34a;
   --color-makina-red: #dc2626;
   --color-makina-text: #0f172a;
   --color-makina-muted: #64748b;
   --color-makina-subtle: #94a3b8;
-  --chart-grid: #e2e8f0;
+  --chart-grid: #dfe6ee;
   --chart-tick: #64748b;
   --chart-tooltip-bg: #ffffff;
-  --chart-tooltip-border: #e2e8f0;
+  --chart-tooltip-border: #dfe6ee;
   --chart-tooltip-text: #0f172a;
   --chart-cursor: #cbd5e1;
   --chart-dot-stroke: #ffffff;
@@ -45,14 +45,14 @@ html.light {
 
 /* ── Liquid Glass mode ── */
 html.glass {
-  --color-makina-bg: #080c18;
+  --color-makina-bg: #070c1a;
   --color-makina-surface: rgba(255, 255, 255, 0.03);
   --color-makina-card: rgba(255, 255, 255, 0.05);
   --color-makina-card-hover: rgba(255, 255, 255, 0.08);
   --color-makina-border: rgba(255, 255, 255, 0.08);
-  --color-makina-accent: #d8b4fe;
-  --color-makina-accent-dim: rgba(216, 180, 254, 0.1);
-  --color-makina-accent-deep: #c084fc;
+  --color-makina-accent: #6ee7b7;
+  --color-makina-accent-dim: rgba(52, 211, 153, 0.1);
+  --color-makina-accent-deep: #34d399;
   --color-makina-blue: #60a5fa;
   --color-makina-green: #4ade80;
   --color-makina-red: #f87171;
@@ -71,9 +71,9 @@ html.glass {
 /* Glass — multi-color ambient glow */
 html.glass body::before {
   background:
-    radial-gradient(ellipse 50% 30% at 25% 5%, rgba(216, 180, 254, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 25% at 75% 15%, rgba(96, 165, 250, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse 35% 20% at 50% 85%, rgba(192, 132, 252, 0.05) 0%, transparent 50%);
+    radial-gradient(ellipse 50% 30% at 25% 5%, rgba(52, 211, 153, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 25% at 75% 15%, rgba(96, 165, 250, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 35% 20% at 50% 85%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
 }
 
 /* Glass — frosted blur on cards and nav */
@@ -91,18 +91,18 @@ html.glass .hover-lift {
 /* Glass — hover glow is more diffuse and colorful */
 html.glass .hover-lift:hover {
   box-shadow:
-    0 8px 32px rgba(216, 180, 254, 0.08),
+    0 8px 32px rgba(52, 211, 153, 0.07),
     0 0 0 1px rgba(255, 255, 255, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Glass — gradient accent gets iridescent shimmer */
+/* Glass — gradient accent */
 html.glass .gradient-accent {
-  background: linear-gradient(135deg, #d8b4fe, #c084fc, #a78bfa);
+  background: linear-gradient(135deg, #6ee7b7, #34d399, #10b981);
 }
 
 html.glass .gradient-text {
-  background: linear-gradient(135deg, #d8b4fe, #c084fc, #818cf8);
+  background: linear-gradient(135deg, #6ee7b7, #34d399, #10b981);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -110,18 +110,18 @@ html.glass .gradient-text {
 
 /* Glass — glow effects are softer */
 html.glass .glow-accent {
-  box-shadow: 0 0 24px rgba(216, 180, 254, 0.12);
+  box-shadow: 0 0 24px rgba(52, 211, 153, 0.12);
 }
 
 /* Dark mode chart defaults */
 :root {
-  --chart-grid: #1e2a3d;
+  --chart-grid: #1c2b42;
   --chart-tick: #64748b;
-  --chart-tooltip-bg: #141c2b;
-  --chart-tooltip-border: #1e2a3d;
-  --chart-tooltip-text: #f1f5f9;
-  --chart-cursor: #334155;
-  --chart-dot-stroke: #141c2b;
+  --chart-tooltip-bg: #131c2e;
+  --chart-tooltip-border: #1c2b42;
+  --chart-tooltip-text: #edf2f7;
+  --chart-cursor: #2d3d56;
+  --chart-dot-stroke: #131c2e;
 }
 
 body {
@@ -138,15 +138,15 @@ body::before {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(196, 181, 253, 0.04) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(167, 139, 250, 0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(16, 185, 129, 0.03) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(52, 211, 153, 0.02) 0%, transparent 60%);
   pointer-events: none;
 }
 
 html.light body::before {
   background:
-    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(139, 92, 246, 0.04) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(124, 58, 237, 0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(5, 150, 105, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(4, 120, 87, 0.03) 0%, transparent 60%);
 }
 
 /* Custom scrollbar */
@@ -164,7 +164,7 @@ html.light body::before {
   background: var(--color-makina-subtle);
 }
 
-/* Gradient accent — monochromatic purple */
+/* Gradient accent — emerald */
 .gradient-accent {
   background: linear-gradient(135deg, var(--color-makina-accent), var(--color-makina-accent-deep));
 }
@@ -192,10 +192,10 @@ html.light body::before {
 }
 .hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(196, 181, 253, 0.08);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.06);
 }
 html.light .hover-lift:hover {
-  box-shadow: 0 8px 24px rgba(139, 92, 246, 0.1);
+  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.08);
 }
 
 /* Stagger fade-in animation */

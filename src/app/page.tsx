@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Send, Check, EyeOff, MessageSquare, Zap, Users, Hash, Flame, Sparkles, BarChart3, User, Image as ImageIcon, X, Upload } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import PulseLogo from "@/components/Logo";
 import Tooltip from "@/components/Tooltip";
 
 type CategoryId = "Product" | "UX";
@@ -157,13 +158,10 @@ export default function FeedbackPage() {
 
         {/* Zone 1: Hero + Metrics */}
         <div className="text-center space-y-4 animate-fade-in-up">
-          <div className="space-y-2">
-            <div className="inline-flex items-center gap-2 rounded-full bg-makina-accent-dim px-4 py-1.5">
-              <MessageSquare size={14} className="text-makina-accent" />
-              <span className="text-xs font-medium text-makina-accent">Share your thoughts</span>
-            </div>
+          <div className="space-y-3">
+            <PulseLogo size={40} className="mx-auto" />
             <h1 className="text-3xl font-bold tracking-tight">Makina <span className="gradient-text">Pulse</span></h1>
-            <p className="text-sm text-makina-subtle">Your feedback shapes what we build next</p>
+            <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
           </div>
 
           {/* Inline metrics strip */}

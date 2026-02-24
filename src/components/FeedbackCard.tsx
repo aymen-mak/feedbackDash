@@ -85,7 +85,7 @@ const typeColors: Record<string, string> = {
 
 const categoryColors: Record<string, string> = {
   Product: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
-  UX: "bg-violet-500/15 text-violet-400 border border-violet-500/20",
+  UX: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/20",
 };
 
 const priorityBorder: Record<string, string> = {

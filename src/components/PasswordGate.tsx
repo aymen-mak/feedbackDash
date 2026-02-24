@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Lock, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import PulseLogo from "./Logo";
 
 const GATE_KEY = "makina-internal-access";
 
@@ -66,11 +67,12 @@ export default function PasswordGate({ children }: PasswordGateProps) {
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6 animate-fade-in-up">
-        <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center h-12 w-12 rounded-lg bg-makina-card border border-makina-border mx-auto">
-            <Lock size={20} className="text-makina-accent" />
+        <div className="text-center space-y-3">
+          <PulseLogo size={40} className="mx-auto" />
+          <div className="flex items-baseline justify-center gap-1">
+            <span className="text-sm font-bold tracking-[0.15em] uppercase text-makina-text">Makina</span>
+            <span className="text-sm font-bold tracking-[0.15em] uppercase text-makina-accent">Pulse</span>
           </div>
-          <h1 className="text-xl font-bold">Internal Access</h1>
           <p className="text-sm text-makina-muted">
             Enter the team password to continue
           </p>
