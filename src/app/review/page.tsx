@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
 import FeedbackCard, { type FeedbackItemData } from "@/components/FeedbackCard";
+import { AnalyticsChart } from "@/components/Charts";
 import Tooltip from "@/components/Tooltip";
 import {
   Filter,
@@ -70,6 +71,7 @@ export default function ReviewPage() {
   const [tagDropdownId, setTagDropdownId] = useState<string | null>(null);
   const [deleteActiveId, setDeleteActiveId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [dailyMetrics, setDailyMetrics] = useState<{ date: string; submissions: number; satisfaction: number; issues: number; resolved: number }[]>([]);
 
   const enrichItems = (data: ReviewItem[]): ReviewItem[] =>
     data.map((item) => ({
@@ -91,10 +93,12 @@ export default function ReviewPage() {
       fetch("/api/feedback").then((r) => r.ok ? r.json() : []),
       fetch("/api/feedback?view=archived").then((r) => r.ok ? r.json() : []),
       fetch("/api/feedback?view=trash").then((r) => r.ok ? r.json() : []),
-    ]).then(([active, archived, trash]) => {
+      fetch("/api/stats").then((r) => r.ok ? r.json() : null),
+    ]).then(([active, archived, trash, st]) => {
       setItems(enrichItems(active));
       setArchivedItems(enrichItems(archived));
       setTrashItems(enrichItems(trash));
+      if (st?.dailyMetrics) setDailyMetrics(st.dailyMetrics);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -462,6 +466,9 @@ export default function ReviewPage() {
               </div>
             </div>
           </div>
+
+          {/* Analytics overview */}
+          <AnalyticsChart data={dailyMetrics} />
 
           {/* View tabs */}
           <div className="flex items-center gap-1 border-b border-makina-border animate-fade-in-up" style={{ animationDelay: "50ms" }}>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Check, EyeOff, MessageSquare, Zap, Users, Hash, Flame, Sparkles, BarChart3, User, Image as ImageIcon, X, Upload } from "lucide-react";
+import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import Tooltip from "@/components/Tooltip";
+import LiveFeed from "@/components/LiveFeed";
+import { type FeedbackItemData } from "@/components/FeedbackCard";
 
 type CategoryId = "Product" | "UX";
 const CATEGORIES: CategoryId[] = ["Product", "UX"];
@@ -32,15 +33,9 @@ const QUICK_ACTIONS = [
 
 interface Stats {
   total: number;
-  contributors: number;
-  weeklyVolume: number;
   categoryStats: { id: string; submissions: number; openIssues: number; satisfaction: number }[];
   reactionTotals: { id: string; emoji: string; label: string; count: number; pct: number }[];
-  trendingTopics: { topic: string; mentions: number; trend: "up" | "steady" | "new"; category: string }[];
 }
-
-const trendIcon = { up: "\u2191", steady: "\u2192", new: "\u2605" };
-const trendColor = { up: "text-makina-green", steady: "text-makina-blue", new: "text-makina-accent" };
 
 export default function FeedbackPage() {
   const [category, setCategory] = useState<CategoryId>("Product");
@@ -55,18 +50,27 @@ export default function FeedbackPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [screenshotUrl, setScreenshotUrl] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [myFeedback, setMyFeedback] = useState<FeedbackItemData[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/stats")
-      .then((r) => {
-        if (!r.ok) throw new Error(`Stats API returned ${r.status}`);
-        return r.json();
-      })
-      .then((data) => {
-        if (data && typeof data.total === "number") setStats(data);
-      })
-      .catch((err) => console.error("Failed to load stats:", err));
+    let ids: string[] = [];
+    try {
+      const stored = localStorage.getItem("makina-my-feedback-ids");
+      if (stored) ids = JSON.parse(stored);
+    } catch { /* ignore */ }
+
+    const feedbackUrl = ids.length > 0
+      ? `/api/feedback?ids=${ids.join(",")}`
+      : null;
+
+    Promise.all([
+      fetch("/api/stats").then((r) => r.ok ? r.json() : null),
+      feedbackUrl ? fetch(feedbackUrl).then((r) => r.ok ? r.json() : []) : Promise.resolve([]),
+    ]).then(([st, fb]) => {
+      if (st && typeof st.total === "number") setStats(st);
+      if (Array.isArray(fb)) setMyFeedback(fb);
+    }).catch(() => {});
   }, []);
 
   const handleScreenshotUpload = async (file: File) => {
@@ -126,6 +130,7 @@ export default function FeedbackPage() {
             if (!ids.includes(created.id)) ids.push(created.id);
             localStorage.setItem("makina-my-feedback-ids", JSON.stringify(ids));
           } catch { /* ignore */ }
+          if (created) setMyFeedback((prev) => [created, ...prev]);
         }
         setMessage("");
         setQuickAction(null);
@@ -134,7 +139,6 @@ export default function FeedbackPage() {
         setScreenshotUrl("");
         setSubmitted(true);
         setTimeout(() => setSubmitted(false), 2500);
-        fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {});
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.error || `Submission failed (${res.status}). Please try again.`);
@@ -149,42 +153,18 @@ export default function FeedbackPage() {
   const canSubmit = (message.trim() || quickAction) && !submitting;
   const totalSubmissions = stats?.total ?? 0;
 
+  const handleMyItemUpdate = (updated: FeedbackItemData) => {
+    setMyFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
+  };
+
   return (
     <div className="min-h-screen">
       <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 py-8 space-y-6">
 
-        {/* Zone 1: Metrics */}
-        <div className="text-center space-y-3 animate-fade-in-up">
+        <div className="text-center animate-fade-in-up">
           <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
-
-          {/* Inline metrics strip */}
-          <div className="flex items-center justify-center gap-6 flex-wrap">
-            <Tooltip content="Total feedback submissions across all categories">
-              <div className="flex items-center gap-2 cursor-default">
-                <MessageSquare size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">{totalSubmissions}</span>
-                <span className="text-xs text-makina-green font-medium">+12%</span>
-              </div>
-            </Tooltip>
-            <div className="h-4 w-px bg-makina-border hidden sm:block" />
-            <Tooltip content="Submissions received in the last 7 days">
-              <div className="flex items-center gap-2 cursor-default">
-                <BarChart3 size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">{stats?.weeklyVolume ?? 0}</span>
-                <span className="text-xs text-makina-muted">this week</span>
-              </div>
-            </Tooltip>
-            <div className="h-4 w-px bg-makina-border hidden sm:block" />
-            <Tooltip content="Unique contributors who submitted feedback">
-              <div className="flex items-center gap-2 cursor-default">
-                <Users size={13} className="text-makina-muted" />
-                <span className="text-sm font-semibold">{stats?.contributors ?? 0}</span>
-                <span className="text-xs text-makina-muted">contributors</span>
-              </div>
-            </Tooltip>
-          </div>
         </div>
 
         {/* Zone 2: Form + Context */}
@@ -445,29 +425,21 @@ export default function FeedbackPage() {
           </div>
         </div>
 
-        {/* Zone 3: Trending Topics */}
-        {stats && stats.trendingTopics.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
-            {stats.trendingTopics.slice(0, 3).map((item) => (
-              <div key={item.topic} className="flex items-start gap-3 rounded-lg bg-makina-card border border-makina-border p-4 hover-lift">
-                <div className="flex items-center justify-center h-8 w-8 rounded-md bg-makina-surface shrink-0">
-                  {item.trend === "up" ? <Flame size={14} className="text-makina-green" /> :
-                   item.trend === "new" ? <Sparkles size={14} className="text-makina-accent" /> :
-                   <Hash size={14} className="text-makina-muted" />}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-semibold text-makina-text">{item.topic}</p>
-                    <span className={`text-[10px] font-medium ${trendColor[item.trend]}`}>
-                      {trendIcon[item.trend]} {item.trend}
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-makina-muted mt-0.5">
-                    {item.mentions} mentions &middot; {item.category}
-                  </p>
-                </div>
-              </div>
-            ))}
+        {/* My submissions */}
+        {myFeedback.length > 0 && (
+          <div className="space-y-3 pt-2 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
+            <div className="flex items-center gap-2 border-t border-makina-border pt-6">
+              <Inbox size={14} className="text-makina-muted" />
+              <h2 className="text-xs font-semibold text-makina-muted uppercase tracking-wider">My Submissions</h2>
+              <span className="text-[10px] text-makina-muted bg-makina-surface rounded-full px-1.5 py-0.5">{myFeedback.length}</span>
+            </div>
+            <LiveFeed
+              feedback={myFeedback}
+              category="all"
+              hideReplyInput
+              hidePublicStatus
+              onItemUpdate={handleMyItemUpdate}
+            />
           </div>
         )}
 

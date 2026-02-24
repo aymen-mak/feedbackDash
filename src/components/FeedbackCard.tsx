@@ -127,11 +127,12 @@ interface FeedbackCardProps {
   showStatus?: boolean;
   showInternalStatus?: boolean;
   hideReplyInput?: boolean;
+  hidePublicStatus?: boolean;
   onStatusChange?: (id: string, status: FeedbackStatus) => void;
   onItemUpdate?: (item: FeedbackItemData) => void;
 }
 
-export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, onStatusChange, onItemUpdate }: FeedbackCardProps) {
+export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, hidePublicStatus, onStatusChange, onItemUpdate }: FeedbackCardProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySent, setReplySent] = useState(false);
@@ -341,7 +342,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
             {/* Actions row */}
             <div className="mt-3 flex items-center gap-3 flex-wrap">
               {/* Public status: only Received / Escalated */}
-              {!showInternalStatus && (
+              {!showInternalStatus && !hidePublicStatus && (
                 <>
                   {item.escalated ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
