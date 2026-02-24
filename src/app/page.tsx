@@ -164,7 +164,7 @@ export default function FeedbackPage() {
             <img
               src={theme === "light" ? "/makina_pulse_light_logo_480x120.png" : "/makina_pulse_logo_480x120.png"}
               alt="Makina Pulse"
-              className="mx-auto h-16 md:h-20 w-auto"
+              className="h-12 w-auto mx-auto"
             />
             <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
           </div>

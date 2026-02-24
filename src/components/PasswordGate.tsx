@@ -73,7 +73,7 @@ export default function PasswordGate({ children }: PasswordGateProps) {
           <img
             src={theme === "light" ? "/makina_pulse_light_logo_480x120.png" : "/makina_pulse_logo_480x120.png"}
             alt="Makina Pulse"
-            className="mx-auto h-14 w-auto"
+            className="h-10 w-auto mx-auto"
           />
           <p className="text-sm text-makina-muted">
             Enter the team password to continue
