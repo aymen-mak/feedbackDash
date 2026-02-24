@@ -1,19 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useTheme } from "@/lib/theme";
 
-export default function Navbar({
-  theme,
-  setTheme,
-}: {
-  theme: "dark" | "light" | "glass";
-  setTheme: (theme: "dark" | "light" | "glass") => void;
-}) {
+export default function Navbar() {
+  const { theme, toggle } = useTheme();
 
   const logoSrc =
     theme === "light"
-      ? "/makina_pulse_light.png"   // your light logo filename
-      : "/makina_pulse_dark_transparent.png"; // your dark/liquid logo filename
+      ? "/makina_pulse_light.png"
+      : "/makina_pulse_dark_transparent.png";
 
   const themeLabel = {
     dark: "Dark",
@@ -49,15 +45,7 @@ export default function Navbar({
 
         {/* Theme Switch */}
         <button
-          onClick={() =>
-            setTheme(
-              theme === "dark"
-                ? "light"
-                : theme === "light"
-                ? "glass"
-                : "dark"
-            )
-          }
+          onClick={toggle}
           className="text-xs text-makina-muted hover:text-makina-text transition"
         >
           {themeLabel[theme]}
