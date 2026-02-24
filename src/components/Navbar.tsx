@@ -8,8 +8,8 @@ export default function Navbar() {
 
   const logoSrc =
     theme === "light"
-      ? "/1120592a-5c90-484b-a3d4-48f1cdb8e9d6.png"
-      : "/makina_pulse_dark_transparent.png";
+      ? "/makina_pulse_light_logo_320x80.png"
+      : "/makina_pulse_logo_320x80.png";
 
   const themeLabel = {
     dark: "Dark",
@@ -26,7 +26,7 @@ export default function Navbar() {
           <img
             src={logoSrc}
             alt="Makina Pulse"
-            className="h-14 md:h-16 w-auto"
+            className="h-10 w-auto"
           />
         </Link>
 

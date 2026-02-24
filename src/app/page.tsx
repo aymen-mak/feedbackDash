@@ -162,9 +162,9 @@ export default function FeedbackPage() {
           <div className="space-y-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={theme === "light" ? "/1120592a-5c90-484b-a3d4-48f1cdb8e9d6.png" : "/makina_pulse_dark_transparent.png"}
+              src={theme === "light" ? "/makina_pulse_light_logo_480x120.png" : "/makina_pulse_logo_480x120.png"}
               alt="Makina Pulse"
-              className="mx-auto h-28 md:h-36 w-auto"
+              className="mx-auto h-16 md:h-20 w-auto"
             />
             <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
           </div>
