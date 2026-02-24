@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Send, Check, EyeOff, MessageSquare, Zap, Users, Hash, Flame, Sparkles, BarChart3, User, Image as ImageIcon, X, Upload } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Tooltip from "@/components/Tooltip";
+import { useTheme } from "@/lib/theme";
 
 type CategoryId = "Product" | "UX";
 const CATEGORIES: CategoryId[] = ["Product", "UX"];
@@ -43,6 +44,7 @@ const trendIcon = { up: "\u2191", steady: "\u2192", new: "\u2605" };
 const trendColor = { up: "text-makina-green", steady: "text-makina-blue", new: "text-makina-accent" };
 
 export default function FeedbackPage() {
+  const { theme } = useTheme();
   const [category, setCategory] = useState<CategoryId>("Product");
   const [feedbackType, setFeedbackType] = useState<FeedbackType>("suggestion");
   const [quickAction, setQuickAction] = useState<string | null>(null);
@@ -159,8 +161,11 @@ export default function FeedbackPage() {
         <div className="text-center space-y-4 animate-fade-in-up">
           <div className="space-y-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-mark.svg" alt="Makina Pulse" width={44} height={44} className="mx-auto" />
-            <h1 className="text-3xl font-bold tracking-tight">Makina <span className="gradient-text">Pulse</span></h1>
+            <img
+              src={theme === "light" ? "/1120592a-5c90-484b-a3d4-48f1cdb8e9d6.png" : "/makina_pulse_dark_transparent.png"}
+              alt="Makina Pulse"
+              className="h-12 w-auto mx-auto"
+            />
             <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
           </div>
 

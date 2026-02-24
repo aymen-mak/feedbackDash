@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
+import { useTheme } from "@/lib/theme";
 
 const GATE_KEY = "makina-internal-access";
 
@@ -10,6 +11,7 @@ interface PasswordGateProps {
 }
 
 export default function PasswordGate({ children }: PasswordGateProps) {
+  const { theme } = useTheme();
   const [unlocked, setUnlocked] = useState(false);
   const [input, setInput] = useState("");
   const [error, setError] = useState(false);
@@ -68,11 +70,11 @@ export default function PasswordGate({ children }: PasswordGateProps) {
       <div className="w-full max-w-sm space-y-6 animate-fade-in-up">
         <div className="text-center space-y-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mark.svg" alt="Makina Pulse" width={44} height={44} className="mx-auto" />
-          <div className="flex items-baseline justify-center gap-1">
-            <span className="text-sm font-bold tracking-[0.15em] uppercase text-makina-text">Makina</span>
-            <span className="text-sm font-bold tracking-[0.15em] uppercase text-makina-accent">Pulse</span>
-          </div>
+          <img
+            src={theme === "light" ? "/1120592a-5c90-484b-a3d4-48f1cdb8e9d6.png" : "/makina_pulse_dark_transparent.png"}
+            alt="Makina Pulse"
+            className="h-10 w-auto mx-auto"
+          />
           <p className="text-sm text-makina-muted">
             Enter the team password to continue
           </p>

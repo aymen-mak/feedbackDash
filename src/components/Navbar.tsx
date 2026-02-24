@@ -59,18 +59,13 @@ export default function Navbar() {
     <nav className="sticky top-0 z-40 border-b border-makina-border/40 bg-makina-bg/90 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-8 px-4">
         {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0">
+        <Link href="/" className="flex items-center shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={theme === "light" ? "/logo-mark-light.svg" : "/logo-mark.svg"}
+            src={theme === "light" ? "/1120592a-5c90-484b-a3d4-48f1cdb8e9d6.png" : "/makina_pulse_dark_transparent.png"}
             alt="Makina Pulse"
-            width={26}
-            height={26}
+            className="h-[22px] w-auto"
           />
-          <div className="flex items-baseline gap-1">
-            <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-makina-text">Makina</span>
-            <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-makina-accent">Pulse</span>
-          </div>
         </Link>
 
         {/* Desktop nav links */}
