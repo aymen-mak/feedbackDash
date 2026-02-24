@@ -161,8 +161,11 @@ export default function FeedbackPage() {
         <div className="text-center space-y-4 animate-fade-in-up">
           <div className="space-y-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-mark.svg" alt="Makina Pulse" width={72} height={72} className="mx-auto" />
-            <h1 className="text-3xl font-bold tracking-tight">Makina <span className="gradient-text">Pulse</span></h1>
+            <img
+              src={theme === "light" ? "/logo-full-light.svg" : "/logo-full.svg"}
+              alt="Makina Pulse"
+              className="mx-auto h-14 md:h-20 w-auto"
+            />
             <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
           </div>
 
