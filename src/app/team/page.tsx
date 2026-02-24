@@ -7,9 +7,7 @@ import Tooltip from "@/components/Tooltip";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import {
   AlertTriangle,
-  Lightbulb,
   Hash,
-  BarChart3,
   ChevronRight,
   Clock,
   Box,
@@ -92,15 +90,6 @@ function timeAgo(date: string | Date): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-interface Stats {
-  total: number;
-  avgRating: number;
-  satisfiedPct: number;
-  neutralPct: number;
-  unsatisfiedPct: number;
-  weeklyVolume: number;
-  categoryStats: { id: string; submissions: number; openIssues: number; satisfaction: number }[];
-}
 
 type ViewFilter = "active" | "addressed" | "archived" | "deleted";
 
@@ -110,7 +99,6 @@ export default function TeamPage() {
   const [addressedItems, setAddressedItems] = useState<TeamItem[]>([]);
   const [archivedItems, setArchivedItems] = useState<TeamItem[]>([]);
   const [deletedItems, setDeletedItems] = useState<TeamItem[]>([]);
-  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -134,8 +122,7 @@ export default function TeamPage() {
       fetch("/api/feedback").then((r) => r.ok ? r.json() : []),
       fetch("/api/feedback?view=archived").then((r) => r.ok ? r.json() : []),
       fetch("/api/feedback?view=trash").then((r) => r.ok ? r.json() : []),
-      fetch("/api/stats").then((r) => r.ok ? r.json() : null),
-    ]).then(([fb, archived, trash, st]) => {
+    ]).then(([fb, archived, trash]) => {
       const allFb = Array.isArray(fb) ? enrichItems(fb as TeamItem[]) : [];
       // Only show escalated items or high-priority issues/suggestions
       const escalated = allFb.filter(
@@ -154,7 +141,6 @@ export default function TeamPage() {
       const deletedEscalated = enrichItems(trash as TeamItem[]).filter((f) => f.escalated);
       setDeletedItems(deletedEscalated);
 
-      if (st && typeof st.total === "number") setStats(st);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
@@ -286,7 +272,7 @@ export default function TeamPage() {
 
   const urgentCount = feedback.filter((f) => f.priority === "high" || f.type === "issue").length;
   const actionableCount = feedback.filter((f) => f.type === "issue" || f.type === "suggestion").length;
-  const topCategory = stats?.categoryStats.reduce((a, b) => (a.openIssues > b.openIssues ? a : b), stats.categoryStats[0]);
+
 
   if (loading) {
     return (
@@ -577,6 +563,17 @@ export default function TeamPage() {
                                   </button>
                                 </Tooltip>
                               )}
+                              {viewFilter === "addressed" && (
+                                <Tooltip content="Move back to active">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); patchItem(item.id, { status: "reviewed" as FeedbackStatus }); }}
+                                    className="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium border transition-colors text-makina-muted bg-amber-500/10 border-amber-500/20 hover:text-amber-400 hover:bg-amber-500/20"
+                                  >
+                                    <RotateCcw size={14} />
+                                    Reopen
+                                  </button>
+                                </Tooltip>
+                              )}
                               <Tooltip content="Dismiss feedback">
                                 <button
                                   onClick={(e) => { e.stopPropagation(); patchItem(item.id, { status: "dismissed" as FeedbackStatus }); }}
@@ -674,55 +671,6 @@ export default function TeamPage() {
             </div>
           )}
 
-          {/* Stats section -- pushed to bottom */}
-          {stats && viewFilter === "active" && (
-            <div className="space-y-3 pt-4 border-t border-makina-border animate-fade-in-up" style={{ animationDelay: "150ms" }}>
-              <h2 className="text-xs font-medium text-makina-muted uppercase tracking-wider">Context</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle size={14} className="text-amber-400" />
-                    <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Top pain point</span>
-                  </div>
-                  <p className="text-sm font-semibold">{topCategory?.id ?? "N/A"}</p>
-                  <p className="text-xs text-makina-muted">
-                    {topCategory?.openIssues ?? 0} open issues &middot; {topCategory ? Math.round(topCategory.satisfaction * 100) : 0}% satisfaction
-                  </p>
-                </div>
-
-                <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 size={14} className="text-makina-blue" />
-                    <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">Satisfaction</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1">
-                      <div className="flex h-2 rounded-full overflow-hidden">
-                        <div className="bg-makina-green" style={{ width: `${stats.satisfiedPct}%` }} />
-                        <div className="bg-makina-blue" style={{ width: `${stats.neutralPct}%` }} />
-                        <div className="bg-amber-500" style={{ width: `${stats.unsatisfiedPct}%` }} />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <StarIcon size={12} className="text-amber-400 fill-amber-400" />
-                      <span className="text-sm font-semibold">{stats.avgRating?.toFixed(1) ?? "—"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-lg bg-makina-card border border-makina-border p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Lightbulb size={14} className="text-makina-accent" />
-                    <span className="text-xs font-medium text-makina-muted uppercase tracking-wider">This week</span>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-2xl font-bold">{stats.weeklyVolume}</span>
-                  </div>
-                  <p className="text-xs text-makina-muted">total submissions</p>
-                </div>
-              </div>
-            </div>
-          )}
         </main>
       </div>
     </PasswordGate>

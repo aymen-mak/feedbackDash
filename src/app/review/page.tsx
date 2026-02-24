@@ -643,16 +643,9 @@ export default function ReviewPage() {
                   </div>
                 )}
 
-                {/* Remaining items */}
+                {/* Remaining items (no section header) */}
                 {remainingItems.length > 0 && (
                   <div className="space-y-2">
-                    {(newItems.length > 0 || highPriorityCombined.length > 0) && (
-                      <div className="flex items-center gap-2 pt-4 pb-1">
-                        <h3 className="text-xs font-semibold text-makina-muted uppercase tracking-wider">All other</h3>
-                        <span className="text-[10px] text-makina-muted bg-makina-surface rounded-full px-1.5 py-0.5">{remainingItems.length}</span>
-                        <div className="flex-1 h-px bg-makina-border ml-2" />
-                      </div>
-                    )}
                     {remainingItems.map((item, index) => renderFeedbackItem(item, newItems.length + highPriorityCombined.length + index))}
                   </div>
                 )}
