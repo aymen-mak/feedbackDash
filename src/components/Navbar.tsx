@@ -13,7 +13,6 @@ import {
   Check,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme";
-import PulseLogo from "./Logo";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -57,11 +56,17 @@ export default function Navbar() {
   };
 
   return (
-    <nav className="border-b border-makina-border/40">
+    <nav className="sticky top-0 z-40 border-b border-makina-border/40 bg-makina-bg/90 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center gap-8 px-4">
         {/* Brand */}
         <Link href="/" className="flex items-center gap-2.5 shrink-0">
-          <PulseLogo size={26} />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={theme === "light" ? "/logo-mark-light.svg" : "/logo-mark.svg"}
+            alt="Makina Pulse"
+            width={26}
+            height={26}
+          />
           <div className="flex items-baseline gap-1">
             <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-makina-text">Makina</span>
             <span className="text-[13px] font-bold tracking-[0.15em] uppercase text-makina-accent">Pulse</span>
@@ -76,13 +81,16 @@ export default function Navbar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                className={`relative px-3 py-1.5 text-sm font-medium transition-colors ${
                   isActive
                     ? "text-makina-accent"
                     : "text-makina-muted hover:text-makina-text"
                 }`}
               >
                 {link.label}
+                {isActive && (
+                  <span className="absolute bottom-0 left-3 right-3 h-px bg-makina-accent rounded-full" />
+                )}
               </Link>
             );
           })}

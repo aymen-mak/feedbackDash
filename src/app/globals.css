@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 @theme {
-  /* Makina color palette — dark mode defaults (deep navy + emerald accent) */
+  /* Makina color palette — dark mode defaults (deep navy + azure accent) */
   --color-makina-bg: #080d17;
   --color-makina-surface: #0e1525;
   --color-makina-card: #131c2e;
   --color-makina-card-hover: #182438;
   --color-makina-border: #1c2b42;
-  --color-makina-accent: #34d399;
-  --color-makina-accent-dim: #10b98118;
-  --color-makina-accent-deep: #10b981;
+  --color-makina-accent: #5b9cf6;
+  --color-makina-accent-dim: rgba(91, 156, 246, 0.12);
+  --color-makina-accent-deep: #3b82f6;
   --color-makina-blue: #3b82f6;
   --color-makina-green: #22c55e;
   --color-makina-red: #ef4444;
@@ -25,9 +25,9 @@ html.light {
   --color-makina-card: #ffffff;
   --color-makina-card-hover: #f7f9fb;
   --color-makina-border: #dfe6ee;
-  --color-makina-accent: #059669;
-  --color-makina-accent-dim: #05966920;
-  --color-makina-accent-deep: #047857;
+  --color-makina-accent: #2563eb;
+  --color-makina-accent-dim: rgba(37, 99, 235, 0.10);
+  --color-makina-accent-deep: #1d4ed8;
   --color-makina-blue: #3b82f6;
   --color-makina-green: #16a34a;
   --color-makina-red: #dc2626;
@@ -50,9 +50,9 @@ html.glass {
   --color-makina-card: rgba(255, 255, 255, 0.05);
   --color-makina-card-hover: rgba(255, 255, 255, 0.08);
   --color-makina-border: rgba(255, 255, 255, 0.08);
-  --color-makina-accent: #6ee7b7;
-  --color-makina-accent-dim: rgba(52, 211, 153, 0.1);
-  --color-makina-accent-deep: #34d399;
+  --color-makina-accent: #93c5fd;
+  --color-makina-accent-dim: rgba(147, 197, 253, 0.10);
+  --color-makina-accent-deep: #60a5fa;
   --color-makina-blue: #60a5fa;
   --color-makina-green: #4ade80;
   --color-makina-red: #f87171;
@@ -71,9 +71,9 @@ html.glass {
 /* Glass — multi-color ambient glow */
 html.glass body::before {
   background:
-    radial-gradient(ellipse 50% 30% at 25% 5%, rgba(52, 211, 153, 0.07) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 25% at 75% 15%, rgba(96, 165, 250, 0.05) 0%, transparent 50%),
-    radial-gradient(ellipse 35% 20% at 50% 85%, rgba(16, 185, 129, 0.04) 0%, transparent 50%);
+    radial-gradient(ellipse 50% 30% at 25% 5%, rgba(91, 156, 246, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 25% at 75% 15%, rgba(147, 197, 253, 0.05) 0%, transparent 50%),
+    radial-gradient(ellipse 35% 20% at 50% 85%, rgba(59, 130, 246, 0.04) 0%, transparent 50%);
 }
 
 /* Glass — frosted blur on cards and nav */
@@ -91,18 +91,18 @@ html.glass .hover-lift {
 /* Glass — hover glow is more diffuse and colorful */
 html.glass .hover-lift:hover {
   box-shadow:
-    0 8px 32px rgba(52, 211, 153, 0.07),
+    0 8px 32px rgba(91, 156, 246, 0.08),
     0 0 0 1px rgba(255, 255, 255, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* Glass — gradient accent */
 html.glass .gradient-accent {
-  background: linear-gradient(135deg, #6ee7b7, #34d399, #10b981);
+  background: linear-gradient(135deg, #93c5fd, #60a5fa, #3b82f6);
 }
 
 html.glass .gradient-text {
-  background: linear-gradient(135deg, #6ee7b7, #34d399, #10b981);
+  background: linear-gradient(135deg, #93c5fd, #60a5fa, #3b82f6);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -110,7 +110,7 @@ html.glass .gradient-text {
 
 /* Glass — glow effects are softer */
 html.glass .glow-accent {
-  box-shadow: 0 0 24px rgba(52, 211, 153, 0.12);
+  box-shadow: 0 0 24px rgba(91, 156, 246, 0.15);
 }
 
 /* Dark mode chart defaults */
@@ -138,15 +138,15 @@ body::before {
   inset: 0;
   z-index: -1;
   background:
-    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(16, 185, 129, 0.03) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(52, 211, 153, 0.02) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(59, 130, 246, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(91, 156, 246, 0.02) 0%, transparent 60%);
   pointer-events: none;
 }
 
 html.light body::before {
   background:
-    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(5, 150, 105, 0.04) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(4, 120, 87, 0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 40% at 50% 0%, rgba(37, 99, 235, 0.04) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 30% at 80% 80%, rgba(29, 78, 216, 0.03) 0%, transparent 60%);
 }
 
 /* Custom scrollbar */
@@ -164,7 +164,7 @@ html.light body::before {
   background: var(--color-makina-subtle);
 }
 
-/* Gradient accent — emerald */
+/* Gradient accent — azure */
 .gradient-accent {
   background: linear-gradient(135deg, var(--color-makina-accent), var(--color-makina-accent-deep));
 }
@@ -179,7 +179,7 @@ html.light body::before {
 
 /* Glow effects */
 .glow-accent {
-  box-shadow: 0 0 20px var(--color-makina-accent-dim);
+  box-shadow: 0 0 20px rgba(91, 156, 246, 0.18);
 }
 
 .glow-blue {
@@ -192,10 +192,10 @@ html.light body::before {
 }
 .hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.06);
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.08);
 }
 html.light .hover-lift:hover {
-  box-shadow: 0 8px 24px rgba(5, 150, 105, 0.08);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.10);
 }
 
 /* Stagger fade-in animation */

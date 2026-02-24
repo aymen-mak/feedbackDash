@@ -198,5 +198,5 @@ export const FEEDBACK_BY_TYPE = [
   { name: "Praise", value: 348, pct: 45, color: "#22c55e" },
   { name: "Suggestion", value: 216, pct: 28, color: "#3b82f6" },
   { name: "Issue", value: 131, pct: 17, color: "#ef4444" },
-  { name: "Question", value: 76, pct: 10, color: "#34d399" },
+  { name: "Question", value: 76, pct: 10, color: "#C4B5FD" },
 ];

@@ -24,7 +24,7 @@ type MetricKey = "submissions" | "satisfaction" | "issues";
 type TimeRange = "7D" | "14D" | "All";
 
 const METRICS: { key: MetricKey; label: string; color: string; format: (v: number) => string }[] = [
-  { key: "submissions", label: "Submissions", color: "#34d399", format: (v) => String(v) },
+  { key: "submissions", label: "Submissions", color: "#C4B5FD", format: (v) => String(v) },
   { key: "satisfaction", label: "Satisfaction %", color: "#22c55e", format: (v) => `${v}%` },
   { key: "issues", label: "Open Issues", color: "#ef4444", format: (v) => String(v) },
 ];

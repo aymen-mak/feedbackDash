@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { ArrowRight } from "lucide-react";
-import PulseLogo from "./Logo";
 
 const GATE_KEY = "makina-internal-access";
 
@@ -68,7 +67,8 @@ export default function PasswordGate({ children }: PasswordGateProps) {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6 animate-fade-in-up">
         <div className="text-center space-y-3">
-          <PulseLogo size={40} className="mx-auto" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mark.svg" alt="Makina Pulse" width={44} height={44} className="mx-auto" />
           <div className="flex items-baseline justify-center gap-1">
             <span className="text-sm font-bold tracking-[0.15em] uppercase text-makina-text">Makina</span>
             <span className="text-sm font-bold tracking-[0.15em] uppercase text-makina-accent">Pulse</span>
