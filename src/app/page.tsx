@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from "react";
 import { Send, Check, EyeOff, MessageSquare, Zap, Users, Hash, Flame, Sparkles, BarChart3, User, Image as ImageIcon, X, Upload } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Tooltip from "@/components/Tooltip";
-import { useTheme } from "@/lib/theme";
 
 type CategoryId = "Product" | "UX";
 const CATEGORIES: CategoryId[] = ["Product", "UX"];
@@ -44,7 +43,6 @@ const trendIcon = { up: "\u2191", steady: "\u2192", new: "\u2605" };
 const trendColor = { up: "text-makina-green", steady: "text-makina-blue", new: "text-makina-accent" };
 
 export default function FeedbackPage() {
-  const { theme } = useTheme();
   const [category, setCategory] = useState<CategoryId>("Product");
   const [feedbackType, setFeedbackType] = useState<FeedbackType>("suggestion");
   const [quickAction, setQuickAction] = useState<string | null>(null);
@@ -157,17 +155,9 @@ export default function FeedbackPage() {
 
       <main className="mx-auto max-w-6xl px-4 py-8 space-y-6">
 
-        {/* Zone 1: Hero + Metrics */}
-        <div className="text-center space-y-4 animate-fade-in-up">
-          <div className="space-y-3">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={theme === "light" ? "/makina_pulse_light_logo_480x120.png" : "/makina_pulse_logo_480x120.png"}
-              alt="Makina Pulse"
-              className="h-12 w-auto mx-auto"
-            />
-            <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
-          </div>
+        {/* Zone 1: Metrics */}
+        <div className="text-center space-y-3 animate-fade-in-up">
+          <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
 
           {/* Inline metrics strip */}
           <div className="flex items-center justify-center gap-6 flex-wrap">

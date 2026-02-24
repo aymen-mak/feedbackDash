@@ -55,22 +55,36 @@ export default function Navbar() {
     glass: "Switch to dark mode",
   };
 
-  const logoSrc =
-    theme === "light"
-      ? "/makina_pulse_light_logo_320x80.png"
-      : "/makina_pulse_logo_320x80.png";
-
   return (
     <nav className="sticky top-0 z-40 border-b border-makina-border/30 bg-makina-bg/95 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center px-4">
         {/* Brand */}
         <Link href="/" className="flex items-center shrink-0 mr-10">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={logoSrc}
-            alt="Makina Pulse"
-            className="h-9 w-auto object-contain"
-          />
+          {theme === "light" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src="/makina_pulse_light_logo_320x80.png"
+              alt="Makina Pulse"
+              className="h-9 w-auto object-contain"
+            />
+          ) : (
+            <div
+              className="h-9 w-[144px] object-contain"
+              style={{
+                backgroundColor: "#eafcfe",
+                WebkitMaskImage: `url(/makina_pulse_logo_320x80.png)`,
+                maskImage: `url(/makina_pulse_logo_320x80.png)`,
+                WebkitMaskSize: "contain",
+                maskSize: "contain",
+                WebkitMaskRepeat: "no-repeat",
+                maskRepeat: "no-repeat",
+                WebkitMaskPosition: "left center",
+                maskPosition: "left center",
+              }}
+              role="img"
+              aria-label="Makina Pulse"
+            />
+          )}
         </Link>
 
         {/* Desktop nav links */}
