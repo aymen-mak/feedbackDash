@@ -3,19 +3,23 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
 type Theme = "dark" | "light" | "glass";
+type TextSize = 0 | 1 | 2;
 
 const THEME_ORDER: Theme[] = ["dark", "light", "glass"];
+const TEXT_SIZE_CLASSES = ["", "text-size-1", "text-size-2"] as const;
+const TEXT_SIZE_LABELS = ["Compact", "Normal", "Comfort"] as const;
 
 const ThemeContext = createContext<{
   theme: Theme;
   toggle: () => void;
-  comfortText: boolean;
-  toggleComfort: () => void;
-}>({ theme: "dark", toggle: () => {}, comfortText: false, toggleComfort: () => {} });
+  textSize: TextSize;
+  textSizeLabel: string;
+  cycleTextSize: () => void;
+}>({ theme: "dark", toggle: () => {}, textSize: 0, textSizeLabel: "Compact", cycleTextSize: () => {} });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>("dark");
-  const [comfortText, setComfortText] = useState(false);
+  const [textSize, setTextSize] = useState<TextSize>(0);
 
   useEffect(() => {
     const stored = localStorage.getItem("fh-theme") as Theme | null;
@@ -26,10 +30,16 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
         document.documentElement.classList.add(stored);
       }
     }
-    const comfort = localStorage.getItem("fh-comfort-text");
-    if (comfort === "true") {
-      setComfortText(true);
-      document.documentElement.classList.add("comfort-text");
+    const storedSize = localStorage.getItem("fh-text-size");
+    if (storedSize) {
+      const parsed = Number(storedSize) as TextSize;
+      if (parsed >= 0 && parsed <= 2) {
+        setTextSize(parsed);
+        document.documentElement.classList.remove("text-size-1", "text-size-2", "comfort-text");
+        if (TEXT_SIZE_CLASSES[parsed]) {
+          document.documentElement.classList.add(TEXT_SIZE_CLASSES[parsed]);
+        }
+      }
     }
   }, []);
 
@@ -44,19 +54,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const toggleComfort = () => {
-    const next = !comfortText;
-    setComfortText(next);
-    localStorage.setItem("fh-comfort-text", String(next));
-    if (next) {
-      document.documentElement.classList.add("comfort-text");
-    } else {
-      document.documentElement.classList.remove("comfort-text");
+  const cycleTextSize = () => {
+    const next = ((textSize + 1) % 3) as TextSize;
+    setTextSize(next);
+    localStorage.setItem("fh-text-size", String(next));
+    document.documentElement.classList.remove("text-size-1", "text-size-2", "comfort-text");
+    if (TEXT_SIZE_CLASSES[next]) {
+      document.documentElement.classList.add(TEXT_SIZE_CLASSES[next]);
     }
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggle, comfortText, toggleComfort }}>
+    <ThemeContext.Provider value={{ theme, toggle, textSize, textSizeLabel: TEXT_SIZE_LABELS[textSize], cycleTextSize }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,12 +13,26 @@ import {
   Check,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme";
+import { useLoadingBar } from "@/components/LoadingBar";
 
 export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { theme, toggle, comfortText, toggleComfort } = useTheme();
+  const { theme, toggle, textSize, textSizeLabel, cycleTextSize } = useTheme();
+  const { start: lbStart, done: lbDone } = useLoadingBar();
+  const prevPath = useRef(pathname);
+
+  // Trigger loading bar on page navigation
+  useEffect(() => {
+    if (prevPath.current !== pathname) {
+      lbStart();
+      // Done after a short delay to simulate page load
+      const t = setTimeout(() => lbDone(), 300);
+      prevPath.current = pathname;
+      return () => clearTimeout(t);
+    }
+  }, [pathname, lbStart, lbDone]);
 
   const handleShare = async () => {
     const url = window.location.origin;
@@ -54,6 +68,22 @@ export default function Navbar() {
     glass: "Switch to dark mode",
   };
 
+  // Text size indicator dots
+  const sizeIndicator = (
+    <span className="flex items-center gap-0.5 ml-0.5">
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className={`inline-block rounded-full transition-all ${
+            i <= textSize
+              ? "w-1 h-1 bg-current opacity-100"
+              : "w-1 h-1 bg-current opacity-25"
+          }`}
+        />
+      ))}
+    </span>
+  );
+
   // On the public feedback page, don't render the navbar at all.
   // The feedback page renders its own centered logo + controls.
   const isPublic = pathname === "/";
@@ -61,7 +91,7 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-40 border-b border-makina-border/30 bg-makina-bg/95 backdrop-blur-xl">
-      <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
+      <div className="mx-auto flex h-14 max-w-7xl items-center px-4">
         {/* Brand */}
         <Link href="/" className="flex items-center shrink-0 mr-8">
           <div
@@ -108,15 +138,16 @@ export default function Navbar() {
         {/* Right controls */}
         <div className="flex items-center gap-1.5">
           <button
-            onClick={toggleComfort}
-            className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${
-              comfortText
+            onClick={cycleTextSize}
+            className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-all flex items-center gap-1 ${
+              textSize > 0
                 ? "text-makina-accent bg-makina-accent-dim"
                 : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
             }`}
-            title={comfortText ? "Switch to compact text" : "Switch to comfortable text"}
+            title={`Text size: ${textSizeLabel}`}
           >
             Aa
+            {sizeIndicator}
           </button>
 
           <button

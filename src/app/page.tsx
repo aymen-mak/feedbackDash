@@ -164,7 +164,7 @@ export default function FeedbackPage() {
     setMyFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
   };
 
-  const { theme, toggle, comfortText, toggleComfort } = useTheme();
+  const { theme, toggle, textSize, textSizeLabel, cycleTextSize } = useTheme();
   const [copied, setCopied] = useState(false);
 
   const handleShare = async () => {
@@ -209,15 +209,20 @@ export default function FeedbackPage() {
           {/* Compact utility controls */}
           <div className="flex items-center gap-1">
             <button
-              onClick={toggleComfort}
-              className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${
-                comfortText
+              onClick={cycleTextSize}
+              className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-all flex items-center gap-1 ${
+                textSize > 0
                   ? "text-makina-accent bg-makina-accent-dim"
                   : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
               }`}
-              title={comfortText ? "Switch to compact text" : "Switch to comfortable text"}
+              title={`Text size: ${textSizeLabel}`}
             >
               Aa
+              <span className="flex items-center gap-0.5">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className={`inline-block w-1 h-1 rounded-full bg-current ${i <= textSize ? "opacity-100" : "opacity-25"}`} />
+                ))}
+              </span>
             </button>
             <button
               onClick={toggle}

@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 
 type Priority = "none" | "low" | "medium" | "high";
-type FeedbackType = "issue" | "suggestion" | "question";
 type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
 type DateFilter = "newest" | "oldest";
 
@@ -70,7 +69,6 @@ export default function ReviewPage() {
   const [trashItems, setTrashItems] = useState<ReviewItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewFilter, setViewFilter] = useState<ViewFilter>("inbox");
-  const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all");
   const [categoryFilter, setCategoryFilter] = useState<CategoryId | "all">("all");
   const [search, setSearch] = useState("");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
@@ -218,15 +216,23 @@ export default function ReviewPage() {
     }
   };
 
-  const bulkAction = async (action: "escalate" | "dismiss" | "archive" | "delete", value?: Priority) => {
+  const bulkAction = async (action: "escalate" | "dismiss" | "archive" | "delete" | "restore" | "restore-trash") => {
     const ids = [...selectedItems];
     let updates: Partial<ReviewItem> = {};
     if (action === "escalate") updates = { escalated: true };
     else if (action === "dismiss") updates = { dismissed: true };
     else if (action === "archive") updates = { archived: true, archivedBy: "review" };
     else if (action === "delete") updates = { deletedAt: new Date().toISOString() };
+    else if (action === "restore") updates = { archived: false };
+    else if (action === "restore-trash") updates = { deletedAt: null };
 
     await Promise.all(ids.map((id) => patchItem(id, updates)));
+    setSelectedItems(new Set());
+  };
+
+  const bulkPermanentlyDelete = async () => {
+    const ids = [...selectedItems];
+    await Promise.all(ids.map((id) => permanentlyDelete(id)));
     setSelectedItems(new Set());
   };
 
@@ -268,7 +274,6 @@ export default function ReviewPage() {
   const viewList = getViewList();
 
   const currentList = viewList.filter((i) => {
-    if (typeFilter !== "all" && i.type !== typeFilter) return false;
     if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
     if (search && !i.message.toLowerCase().includes(search.toLowerCase()) && !i.userName.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -392,6 +397,11 @@ export default function ReviewPage() {
 
           {/* Action buttons -- right side */}
           <div className="ml-auto flex items-center gap-1.5">
+            {item.reviewedBy && (
+              <span className="text-[10px] font-medium text-makina-muted bg-makina-surface rounded-full px-2 py-0.5">
+                reviewed by {item.reviewedBy}
+              </span>
+            )}
             {item.escalated && viewFilter !== "trash" && viewFilter !== "archived" && (
               <span className="text-[10px] font-medium text-makina-green bg-makina-green/10 rounded-full px-2 py-0.5">Escalated</span>
             )}
@@ -453,6 +463,15 @@ export default function ReviewPage() {
                   <RotateCcw size={13} />
                   Restore
                 </button>
+                {viewFilter === "archived" && (
+                  <button
+                    onClick={() => patchItem(item.id, { deletedAt: new Date().toISOString() })}
+                    className="btn-tactile inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:text-makina-red hover:bg-red-500/10"
+                  >
+                    <Trash2 size={13} />
+                    Delete
+                  </button>
+                )}
                 {viewFilter === "trash" && (
                   <>
                     <button
@@ -501,7 +520,7 @@ export default function ReviewPage() {
       <PasswordGate>
         <div className="min-h-screen">
           <Navbar />
-          <main className="mx-auto max-w-6xl px-4 py-6 flex items-center justify-center h-[80vh]">
+          <main className="mx-auto max-w-7xl px-4 py-6 flex items-center justify-center h-[80vh]">
             <div className="text-sm text-makina-muted animate-pulse">Loading review inbox...</div>
           </main>
         </div>
@@ -513,7 +532,7 @@ export default function ReviewPage() {
     <PasswordGate>
       <div className="min-h-screen">
         <Navbar />
-        <main className="mx-auto max-w-6xl px-4 py-6 space-y-4">
+        <main className="mx-auto max-w-7xl px-4 py-6 space-y-4">
           {/* Header */}
           <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up">
             <div className="flex items-center gap-6">
@@ -591,60 +610,32 @@ export default function ReviewPage() {
 
           {/* Filters -- single row */}
           <div className="flex items-center gap-2 flex-wrap animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-            {viewFilter !== "trash" && viewFilter !== "archived" && (
-              <>
-                <Filter size={14} className="text-makina-muted shrink-0" />
-                <div className="flex gap-1">
-                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => {
-                    const activeColor: Record<string, string> = {
-                      all: "bg-makina-accent text-makina-bg",
-                      issue: "bg-red-500 text-white",
-                      suggestion: "bg-blue-500 text-white",
-                      question: "bg-violet-500 text-white",
-                    };
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => setTypeFilter(type)}
-                        className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                          typeFilter === type
-                            ? activeColor[type]
-                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                        }`}
-                      >
-                        {type === "all" ? "All types" : type}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
-                <div className="flex gap-1">
-                  {(["all", "Core", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
-                    const activeColor: Record<string, string> = {
-                      all: "bg-makina-accent text-makina-bg",
-                      Core: "bg-blue-500 text-white",
-                      "UI/UX": "bg-violet-500 text-white",
-                      App: "bg-emerald-500 text-white",
-                      "Operator CLI": "bg-orange-500 text-white",
-                    };
-                    return (
-                      <button
-                        key={cat}
-                        onClick={() => setCategoryFilter(cat)}
-                        className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                          categoryFilter === cat
-                            ? activeColor[cat]
-                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                        }`}
-                      >
-                        {cat === "all" ? "All categories" : cat}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
-              </>
-            )}
+            <Filter size={14} className="text-makina-muted shrink-0" />
+            <div className="flex gap-1">
+              {(["all", "Core", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
+                const activeColor: Record<string, string> = {
+                  all: "bg-makina-accent text-makina-bg",
+                  Core: "bg-blue-500 text-white",
+                  "UI/UX": "bg-violet-500 text-white",
+                  App: "bg-emerald-500 text-white",
+                  "Operator CLI": "bg-orange-500 text-white",
+                };
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`btn-tactile btn-ripple rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      categoryFilter === cat
+                        ? activeColor[cat]
+                        : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                    }`}
+                  >
+                    {cat === "all" ? "All categories" : cat}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
             <Calendar size={14} className="text-makina-muted shrink-0" />
             <div className="flex gap-1">
               {([["newest", "Latest"], ["oldest", "Earliest"]] as [DateFilter, string][]).map(([val, label]) => (
@@ -691,12 +682,36 @@ export default function ReviewPage() {
                     <Archive size={12} />
                     Archive
                   </button>
+                  <button onClick={() => bulkAction("delete")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:ring-red-500/40 hover:text-makina-red transition-colors">
+                    <Trash2 size={12} />
+                    Delete
+                  </button>
                 </>
               )}
-              <button onClick={() => bulkAction("delete")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:ring-red-500/40 hover:text-makina-red transition-colors">
-                <Trash2 size={12} />
-                Delete
-              </button>
+              {viewFilter === "archived" && (
+                <>
+                  <button onClick={() => bulkAction("restore")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors">
+                    <RotateCcw size={12} />
+                    Restore
+                  </button>
+                  <button onClick={() => bulkAction("delete")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:ring-red-500/40 hover:text-makina-red transition-colors">
+                    <Trash2 size={12} />
+                    Delete
+                  </button>
+                </>
+              )}
+              {viewFilter === "trash" && (
+                <>
+                  <button onClick={() => bulkAction("restore-trash")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors">
+                    <RotateCcw size={12} />
+                    Restore
+                  </button>
+                  <button onClick={() => bulkPermanentlyDelete()} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-500 ring-1 ring-red-500/30 transition-colors">
+                    <XCircle size={12} />
+                    Delete permanently
+                  </button>
+                </>
+              )}
               <button onClick={() => setSelectedItems(new Set())} className="ml-auto text-xs text-makina-muted hover:text-makina-text transition-colors">
                 Clear
               </button>

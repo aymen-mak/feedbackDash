@@ -47,6 +47,8 @@ export async function ensureSchema() {
   try { await sql`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS screenshot_url TEXT`; } catch { /* already exists */ }
   try { await sql`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS rating INTEGER`; } catch { /* already exists */ }
   try { await sql`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS acknowledged BOOLEAN NOT NULL DEFAULT FALSE`; } catch { /* already exists */ }
+  try { await sql`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS reviewed_by TEXT`; } catch { /* already exists */ }
+  try { await sql`ALTER TABLE feedback ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ`; } catch { /* already exists */ }
 }
 
 function rowToFeedback(row: Record<string, unknown>): StoredFeedback {
@@ -73,6 +75,8 @@ function rowToFeedback(row: Record<string, unknown>): StoredFeedback {
     screenshotUrl: (row.screenshot_url as string) || null,
     rating: row.rating !== null && row.rating !== undefined ? (row.rating as number) : null,
     acknowledged: (row.acknowledged as boolean) ?? false,
+    reviewedBy: (row.reviewed_by as string) || null,
+    reviewedAt: row.reviewed_at ? (row.reviewed_at as Date).toISOString() : null,
     createdAt: (row.created_at as Date).toISOString(),
   };
 }
@@ -191,7 +195,7 @@ export async function pgCreateFeedback(data: {
 
 export async function pgUpdateFeedback(
   id: string,
-  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags" | "acknowledged">>
+  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags" | "acknowledged" | "reviewedBy" | "reviewedAt">>
 ): Promise<StoredFeedback | null> {
   await ensureSchema();
   const setClauses: string[] = [];
@@ -206,6 +210,8 @@ export async function pgUpdateFeedback(
   if ("deletedAt" in updates) { setClauses.push("deleted_at"); vals.push(updates.deletedAt ? new Date(updates.deletedAt) : null); }
   if (updates.tags !== undefined) { setClauses.push("tags"); vals.push(updates.tags); }
   if (updates.acknowledged !== undefined) { setClauses.push("acknowledged"); vals.push(updates.acknowledged); }
+  if ("reviewedBy" in updates) { setClauses.push("reviewed_by"); vals.push(updates.reviewedBy || null); }
+  if ("reviewedAt" in updates) { setClauses.push("reviewed_at"); vals.push(updates.reviewedAt ? new Date(updates.reviewedAt) : null); }
 
   if (setClauses.length === 0) return pgGetFeedbackById(id);
 
@@ -227,6 +233,11 @@ export async function pgUpdateFeedback(
       await sql`UPDATE feedback SET tags = ${tagsVal}::text[] WHERE id = ${id}`;
     }
     else if (col === "acknowledged") await sql`UPDATE feedback SET acknowledged = ${val as boolean} WHERE id = ${id}`;
+    else if (col === "reviewed_by") await sql`UPDATE feedback SET reviewed_by = ${val as string | null} WHERE id = ${id}`;
+    else if (col === "reviewed_at") {
+      const tsVal = val ? (val as Date).toISOString() : null;
+      await sql`UPDATE feedback SET reviewed_at = ${tsVal} WHERE id = ${id}`;
+    }
   }
 
   return pgGetFeedbackById(id);

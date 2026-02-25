@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 
 type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
-type FeedbackType = "issue" | "suggestion" | "question";
 type DateFilter = "newest" | "oldest";
 type Priority = "none" | "low" | "medium" | "high";
 type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
@@ -85,7 +84,6 @@ export default function TeamPage() {
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("newest");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
@@ -185,15 +183,18 @@ export default function TeamPage() {
 
   const toggleSelect = (id: string) => { setSelectedItems((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
   const selectAll = () => { if (selectedItems.size === sorted.length) setSelectedItems(new Set()); else setSelectedItems(new Set(sorted.map((i) => i.id))); };
-  const bulkAction = async (action: "escalate" | "archive" | "delete") => {
+  const bulkAction = async (action: "escalate" | "archive" | "delete" | "restore" | "restore-trash") => {
     const ids = [...selectedItems];
-    const updates: Partial<TeamItem> = action === "escalate" ? { escalated: true } : action === "archive" ? { archived: true, archivedBy: "team" } : { deletedAt: new Date().toISOString() };
+    const updates: Partial<TeamItem> = action === "escalate" ? { escalated: true } : action === "archive" ? { archived: true, archivedBy: "team" } : action === "delete" ? { deletedAt: new Date().toISOString() } : action === "restore" ? { archived: false } : { deletedAt: null };
     await Promise.all(ids.map((id) => patchItem(id, updates))); setSelectedItems(new Set());
+  };
+  const bulkPermanentlyDelete = async () => {
+    const ids = [...selectedItems];
+    await Promise.all(ids.map((id) => permanentlyDelete(id))); setSelectedItems(new Set());
   };
 
   const currentList = (viewFilter === "addressed" ? addressedItems : viewFilter === "archived" ? archivedItems : viewFilter === "deleted" ? deletedItems : feedback)
     .filter((i) => {
-      if (typeFilter !== "all" && i.type !== typeFilter) return false;
       if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
       if (search && !i.message.toLowerCase().includes(search.toLowerCase()) && !i.userName.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
@@ -220,7 +221,7 @@ export default function TeamPage() {
   const urgentCount = feedback.filter((f) => f.priority === "high" || f.type === "issue").length;
   const actionableCount = feedback.filter((f) => f.type === "issue" || f.type === "suggestion").length;
 
-  if (loading) return (<PasswordGate><div className="min-h-screen"><Navbar /><main className="mx-auto max-w-6xl px-4 py-6 flex items-center justify-center h-[80vh]"><div className="text-sm text-makina-muted animate-pulse">Loading team board...</div></main></div></PasswordGate>);
+  if (loading) return (<PasswordGate><div className="min-h-screen"><Navbar /><main className="mx-auto max-w-7xl px-4 py-6 flex items-center justify-center h-[80vh]"><div className="text-sm text-makina-muted animate-pulse">Loading team board...</div></main></div></PasswordGate>);
 
   const renderItem = (item: TeamItem) => {
     const CatIcon = categoryIcons[item.category] || Box;
@@ -231,11 +232,9 @@ export default function TeamPage() {
     return (
       <div key={item.id} className={`rounded-lg border overflow-hidden transition-colors ${isSel ? "border-makina-accent/40 bg-makina-accent-dim/30" : item.priority === "high" ? "border-red-500/30 bg-makina-card" : item.type === "issue" ? "border-amber-500/20 bg-makina-card" : "border-makina-border bg-makina-card"}`}>
         <div className="flex items-center gap-3 p-4">
-          {(viewFilter === "active" || viewFilter === "addressed") && (
-            <button onClick={(e) => { e.stopPropagation(); toggleSelect(item.id); }} className={`flex items-center justify-center w-4 h-4 rounded border transition-colors cursor-pointer shrink-0 ${isSel ? "bg-makina-accent border-makina-accent text-makina-bg" : "bg-makina-surface border-makina-border hover:border-makina-subtle"}`}>
-              {isSel && <span className="text-[10px] font-bold leading-none">{"\u2713"}</span>}
-            </button>
-          )}
+          <button onClick={(e) => { e.stopPropagation(); toggleSelect(item.id); }} className={`flex items-center justify-center w-4 h-4 rounded border transition-colors cursor-pointer shrink-0 ${isSel ? "bg-makina-accent border-makina-accent text-makina-bg" : "bg-makina-surface border-makina-border hover:border-makina-subtle"}`}>
+            {isSel && <span className="text-[10px] font-bold leading-none">{"\u2713"}</span>}
+          </button>
           <button onClick={() => setExpandedId(isExp ? null : item.id)} className="flex-1 flex items-center gap-3 text-left hover:opacity-90 transition-opacity min-w-0">
             <div className={`w-1 self-stretch rounded-full shrink-0 ${item.priority === "high" ? "bg-red-500" : item.priority === "medium" ? "bg-amber-400" : item.priority === "low" ? "bg-blue-400" : item.type === "issue" ? "bg-amber-500/50" : "bg-makina-border"}`} />
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-makina-surface text-xs font-bold text-makina-accent border border-makina-border shrink-0">{item.userAvatar}</div>
@@ -286,6 +285,9 @@ export default function TeamPage() {
                 </>)}
                 {(viewFilter === "archived" || viewFilter === "deleted") && (<>
                   <Tooltip content="Restore"><button onClick={(e) => { e.stopPropagation(); if (viewFilter === "archived") patchItem(item.id, { archived: false }); else patchItem(item.id, { deletedAt: null }); }} className="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-makina-muted bg-green-500/10 border border-green-500/20 hover:text-makina-green hover:bg-green-500/20"><RotateCcw size={14} />Restore</button></Tooltip>
+                  {viewFilter === "archived" && (
+                    <button onClick={(e) => { e.stopPropagation(); patchItem(item.id, { deletedAt: new Date().toISOString() }); }} className="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:text-makina-red hover:bg-red-500/10"><Trash2 size={14} />Delete</button>
+                  )}
                   {viewFilter === "deleted" && (<>
                     <button onClick={(e) => { e.stopPropagation(); patchItem(item.id, { archived: true, archivedBy: "team" }); }} className="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-makina-muted bg-blue-500/10 border border-blue-500/20 hover:text-makina-blue hover:bg-blue-500/20"><Archive size={14} />Archive</button>
                     <button onClick={(e) => { e.stopPropagation(); permanentlyDelete(item.id); }} className="btn-tactile flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-red-600 hover:bg-red-500 ring-1 ring-red-500/30"><XCircle size={14} />Delete permanently</button>
@@ -311,7 +313,7 @@ export default function TeamPage() {
     <PasswordGate>
       <div className="min-h-screen">
         <Navbar />
-        <main className="mx-auto max-w-6xl px-4 py-6 space-y-4">
+        <main className="mx-auto max-w-7xl px-4 py-6 space-y-4">
           <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up">
             <div className="flex items-center gap-6">
               <div><p className="text-xs text-makina-muted font-medium uppercase tracking-wider">Action Required</p><h1 className="text-xl font-bold">Team Board</h1></div>
@@ -344,60 +346,32 @@ export default function TeamPage() {
 
           {/* Filters — single row */}
           <div className="flex items-center gap-2 flex-wrap animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-            {viewFilter !== "deleted" && viewFilter !== "archived" && (
-              <>
-                <Filter size={14} className="text-makina-muted shrink-0" />
-                <div className="flex gap-1">
-                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => {
-                    const activeColor: Record<string, string> = {
-                      all: "bg-makina-accent text-makina-bg",
-                      issue: "bg-red-500 text-white",
-                      suggestion: "bg-blue-500 text-white",
-                      question: "bg-violet-500 text-white",
-                    };
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => setTypeFilter(type)}
-                        className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                          typeFilter === type
-                            ? activeColor[type]
-                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                        }`}
-                      >
-                        {type === "all" ? "All types" : type}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
-                <div className="flex gap-1">
-                  {(["all", "Core", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
-                    const activeColor: Record<string, string> = {
-                      all: "bg-makina-accent text-makina-bg",
-                      Core: "bg-blue-500 text-white",
-                      "UI/UX": "bg-violet-500 text-white",
-                      App: "bg-emerald-500 text-white",
-                      "Operator CLI": "bg-orange-500 text-white",
-                    };
-                    return (
-                      <button
-                        key={cat}
-                        onClick={() => setCategoryFilter(cat)}
-                        className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                          categoryFilter === cat
-                            ? activeColor[cat]
-                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                        }`}
-                      >
-                        {cat === "all" ? "All categories" : cat}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
-              </>
-            )}
+            <Filter size={14} className="text-makina-muted shrink-0" />
+            <div className="flex gap-1">
+              {(["all", "Core", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
+                const activeColor: Record<string, string> = {
+                  all: "bg-makina-accent text-makina-bg",
+                  Core: "bg-blue-500 text-white",
+                  "UI/UX": "bg-violet-500 text-white",
+                  App: "bg-emerald-500 text-white",
+                  "Operator CLI": "bg-orange-500 text-white",
+                };
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setCategoryFilter(cat)}
+                    className={`btn-tactile btn-ripple rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      categoryFilter === cat
+                        ? activeColor[cat]
+                        : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                    }`}
+                  >
+                    {cat === "all" ? "All categories" : cat}
+                  </button>
+                );
+              })}
+            </div>
+            <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
             <Calendar size={14} className="text-makina-muted shrink-0" />
             <div className="flex gap-1">
               {([["newest", "Latest"], ["oldest", "Earliest"]] as [DateFilter, string][]).map(([v, l]) => (
@@ -417,9 +391,19 @@ export default function TeamPage() {
                 {selectedItems.size === sorted.length ? "Deselect All" : "Select All"}
               </button>
               <div className="h-4 w-px bg-makina-accent/20" />
-              <button onClick={() => bulkAction("escalate")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-accent/40 transition-colors"><ArrowUpRight size={12} />Escalate</button>
-              <button onClick={() => bulkAction("archive")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-blue/40 transition-colors"><Archive size={12} />Archive</button>
-              <button onClick={() => bulkAction("delete")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:ring-red-500/40 hover:text-makina-red transition-colors"><Trash2 size={12} />Delete</button>
+              {(viewFilter === "active" || viewFilter === "addressed") && (<>
+                <button onClick={() => bulkAction("escalate")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-accent/40 transition-colors"><ArrowUpRight size={12} />Escalate</button>
+                <button onClick={() => bulkAction("archive")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-blue/40 transition-colors"><Archive size={12} />Archive</button>
+                <button onClick={() => bulkAction("delete")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:ring-red-500/40 hover:text-makina-red transition-colors"><Trash2 size={12} />Delete</button>
+              </>)}
+              {viewFilter === "archived" && (<>
+                <button onClick={() => bulkAction("restore")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"><RotateCcw size={12} />Restore</button>
+                <button onClick={() => bulkAction("delete")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:ring-red-500/40 hover:text-makina-red transition-colors"><Trash2 size={12} />Delete</button>
+              </>)}
+              {viewFilter === "deleted" && (<>
+                <button onClick={() => bulkAction("restore-trash")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-500 transition-colors"><RotateCcw size={12} />Restore</button>
+                <button onClick={() => bulkPermanentlyDelete()} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-500 ring-1 ring-red-500/30 transition-colors"><XCircle size={12} />Delete permanently</button>
+              </>)}
               <button onClick={() => setSelectedItems(new Set())} className="ml-auto text-xs text-makina-muted hover:text-makina-text transition-colors">Clear</button>
             </div>
           )}
