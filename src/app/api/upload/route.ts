@@ -34,25 +34,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File too large (max 5 MB)" }, { status: 400 });
     }
 
-    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
     const filename = `${Date.now()}-${safeName}`;
 
-    // Try Vercel Blob if token is available, otherwise save locally
+    // Try Vercel Blob if token is available
     if (process.env.BLOB_READ_WRITE_TOKEN) {
       const { put } = await import("@vercel/blob");
       const blob = await put(`screenshots/${filename}`, file, { access: "public" });
       return NextResponse.json({ url: blob.url }, { status: 201 });
     }
 
-    // Local file storage fallback
-    const dir = path.join(process.cwd(), "public", "screenshots");
+    // Fallback: write to /tmp (writable in serverless) and serve via API route
+    const dir = path.join("/tmp", "screenshots");
     await mkdir(dir, { recursive: true });
 
     const buffer = Buffer.from(await file.arrayBuffer());
     await writeFile(path.join(dir, filename), buffer);
 
-    return NextResponse.json({ url: `/screenshots/${filename}` }, { status: 201 });
+    return NextResponse.json({ url: `/api/screenshots/${filename}` }, { status: 201 });
   } catch (err) {
     console.error("POST /api/upload error:", err);
     return NextResponse.json({ error: `Upload failed: ${err instanceof Error ? err.message : "unknown error"}` }, { status: 500 });
