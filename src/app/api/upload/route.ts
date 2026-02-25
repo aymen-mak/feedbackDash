@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
+import { writeFile, mkdir } from "fs/promises";
+import path from "path";
 
 const MAX_SIZE = 1.5 * 1024 * 1024; // 1.5 MB
 
@@ -23,12 +24,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "File too large (max 1.5 MB)" }, { status: 400 });
     }
 
-    const filename = `screenshots/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-    const blob = await put(filename, file, { access: "public" });
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const filename = `${Date.now()}-${safeName}`;
 
-    return NextResponse.json({ url: blob.url }, { status: 201 });
+    // Try Vercel Blob if token is available, otherwise save locally
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      const { put } = await import("@vercel/blob");
+      const blob = await put(`screenshots/${filename}`, file, { access: "public" });
+      return NextResponse.json({ url: blob.url }, { status: 201 });
+    }
+
+    // Local file storage fallback
+    const dir = path.join(process.cwd(), "public", "screenshots");
+    await mkdir(dir, { recursive: true });
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    await writeFile(path.join(dir, filename), buffer);
+
+    return NextResponse.json({ url: `/screenshots/${filename}` }, { status: 201 });
   } catch (err) {
     console.error("POST /api/upload error:", err);
-    return NextResponse.json({ error: "Upload failed. Make sure BLOB_READ_WRITE_TOKEN is configured." }, { status: 500 });
+    return NextResponse.json({ error: "Upload failed." }, { status: 500 });
   }
 }

@@ -362,7 +362,10 @@ export function permanentlyDeleteFeedback(id: string): boolean {
 export interface DailyMetric {
   date: string;
   submissions: number;
-  satisfaction: number;
+  core: number;
+  uiux: number;
+  app: number;
+  operatorCli: number;
   issues: number;
   resolved: number;
 }
@@ -480,8 +483,6 @@ export function getStats() {
     });
 
     const dayTotal = dayItems.length;
-    const dayRated = dayItems.filter((f) => f.rating !== null && f.rating !== undefined);
-    const dayAvg = dayRated.length > 0 ? dayRated.reduce((s, f) => s + (f.rating ?? 0), 0) / dayRated.length : 3;
     const dayIssues = dayItems.filter((f) => f.type === "issue").length;
     const dayResolved = dayItems.filter((f) => f.status === "addressed").length;
 
@@ -491,7 +492,10 @@ export function getStats() {
     dailyMetrics.push({
       date: `${month} ${day}`,
       submissions: dayTotal,
-      satisfaction: Math.round((dayAvg / 5) * 100),
+      core: dayItems.filter((f) => f.category === "Core").length,
+      uiux: dayItems.filter((f) => f.category === "UI/UX" || f.category === "UX").length,
+      app: dayItems.filter((f) => f.category === "App").length,
+      operatorCli: dayItems.filter((f) => f.category === "Operator CLI").length,
       issues: dayIssues,
       resolved: dayResolved,
     });

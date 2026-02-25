@@ -4,29 +4,34 @@ import { useState, useEffect } from "react";
 import {
   ComposedChart,
   Area,
-  Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Legend,
 } from "recharts";
 
 interface DailyMetric {
   date: string;
   submissions: number;
-  satisfaction: number;
+  core: number;
+  uiux: number;
+  app: number;
+  operatorCli: number;
   issues: number;
   resolved: number;
 }
 
-type MetricKey = "submissions" | "satisfaction" | "issues";
+type ViewMode = "categories" | "issues";
 type TimeRange = "7D" | "14D" | "All";
 
-const METRICS: { key: MetricKey; label: string; color: string; format: (v: number) => string }[] = [
-  { key: "submissions", label: "Submissions", color: "#C4B5FD", format: (v) => String(v) },
-  { key: "satisfaction", label: "Satisfaction %", color: "#22c55e", format: (v) => `${v}%` },
-  { key: "issues", label: "Open Issues", color: "#ef4444", format: (v) => String(v) },
+const CATEGORY_LINES = [
+  { key: "core", label: "Core", color: "#3b82f6" },
+  { key: "uiux", label: "UI/UX", color: "#8b5cf6" },
+  { key: "app", label: "App", color: "#10b981" },
+  { key: "operatorCli", label: "Operator CLI", color: "#f97316" },
 ];
 
 function useChartColors() {
@@ -69,33 +74,12 @@ function getTimeSlice(data: DailyMetric[], range: TimeRange) {
   return data;
 }
 
-function getTotal(data: DailyMetric[], key: MetricKey) {
-  if (key === "satisfaction") {
-    const valid = data.filter((d) => d.submissions > 0);
-    if (valid.length === 0) return 0;
-    const avg = valid.reduce((sum, d) => sum + d[key], 0) / valid.length;
-    return Math.round(avg);
-  }
-  return data.reduce((sum, d) => sum + d[key], 0);
-}
-
-function getChange(data: DailyMetric[], key: MetricKey) {
-  if (data.length < 2) return 0;
-  const half = Math.floor(data.length / 2);
-  const recent = data.slice(half);
-  const earlier = data.slice(0, half);
-  const recentAvg = recent.reduce((s, d) => s + d[key], 0) / recent.length;
-  const earlierAvg = earlier.reduce((s, d) => s + d[key], 0) / earlier.length;
-  if (earlierAvg === 0) return 0;
-  return Math.round(((recentAvg - earlierAvg) / earlierAvg) * 100);
-}
-
 interface AnalyticsChartProps {
   data?: DailyMetric[];
 }
 
 export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
-  const [activeMetric, setActiveMetric] = useState<MetricKey>("submissions");
+  const [viewMode, setViewMode] = useState<ViewMode>("categories");
   const [timeRange, setTimeRange] = useState<TimeRange>("14D");
   const [chartData, setChartData] = useState<DailyMetric[]>([]);
   const [loading, setLoading] = useState(!externalData);
@@ -117,9 +101,9 @@ export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
   }, [externalData]);
 
   const data = getTimeSlice(chartData, timeRange);
-  const metric = METRICS.find((m) => m.key === activeMetric)!;
-  const total = getTotal(data, activeMetric);
-  const change = getChange(data, activeMetric);
+
+  const totalSubmissions = data.reduce((s, d) => s + d.submissions, 0);
+  const totalIssues = data.reduce((s, d) => s + d.issues, 0);
 
   if (loading) {
     return (
@@ -134,13 +118,15 @@ export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
       <div className="p-5 pb-0">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs text-makina-muted font-medium uppercase tracking-wider mb-1">{metric.label}</p>
+            <p className="text-xs text-makina-muted font-medium uppercase tracking-wider mb-1">
+              {viewMode === "categories" ? "Submissions by Category" : "Issues & Resolution"}
+            </p>
             <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-bold tracking-tight" style={{ color: metric.color }}>
-                {metric.format(total)}
+              <span className="text-4xl font-bold tracking-tight text-makina-text">
+                {viewMode === "categories" ? totalSubmissions : totalIssues}
               </span>
-              <span className={`text-sm font-semibold ${change >= 0 ? "text-makina-green" : "text-makina-red"}`}>
-                {change >= 0 ? "+" : ""}{change}%
+              <span className="text-sm text-makina-muted">
+                {viewMode === "categories" ? "total submissions" : "total issues"}
               </span>
             </div>
           </div>
@@ -161,21 +147,17 @@ export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
           </div>
         </div>
         <div className="flex items-center gap-2 mt-4">
-          {METRICS.map((m) => (
+          {(["categories", "issues"] as ViewMode[]).map((mode) => (
             <button
-              key={m.key}
-              onClick={() => setActiveMetric(m.key)}
+              key={mode}
+              onClick={() => setViewMode(mode)}
               className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-all ${
-                activeMetric === m.key
+                viewMode === mode
                   ? "bg-makina-surface text-makina-text border border-makina-border"
                   : "text-makina-subtle hover:text-makina-muted"
               }`}
             >
-              <span
-                className="h-2 w-2 rounded-full"
-                style={{ backgroundColor: m.color, opacity: activeMetric === m.key ? 1 : 0.4 }}
-              />
-              {m.label}
+              {mode === "categories" ? "By Category" : "Issues"}
             </button>
           ))}
         </div>
@@ -184,9 +166,15 @@ export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
             <defs>
-              <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={metric.color} stopOpacity={0.2} />
-                <stop offset="100%" stopColor={metric.color} stopOpacity={0} />
+              {CATEGORY_LINES.map((cat) => (
+                <linearGradient key={cat.key} id={`grad-${cat.key}`} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={cat.color} stopOpacity={0.15} />
+                  <stop offset="100%" stopColor={cat.color} stopOpacity={0} />
+                </linearGradient>
+              ))}
+              <linearGradient id="grad-issues" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#ef4444" stopOpacity={0.15} />
+                <stop offset="100%" stopColor="#ef4444" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid vertical={false} stroke={c.grid} strokeDasharray="3 3" />
@@ -196,7 +184,7 @@ export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
               axisLine={false}
               tickLine={false}
             />
-            <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fontSize: 11, fill: c.tick }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip
               contentStyle={{
                 backgroundColor: c.tooltipBg,
@@ -207,22 +195,64 @@ export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
               }}
               cursor={{ stroke: c.cursor, strokeDasharray: "4 4" }}
             />
-            <Bar
-              dataKey={activeMetric}
-              fill={metric.color}
-              opacity={0.15}
-              radius={[4, 4, 0, 0]}
-              maxBarSize={32}
-            />
-            <Area
-              type="monotone"
-              dataKey={activeMetric}
-              stroke={metric.color}
-              strokeWidth={2}
-              fill="url(#areaGrad)"
-              dot={false}
-              activeDot={{ r: 4, fill: metric.color, stroke: c.dotStroke, strokeWidth: 2 }}
-            />
+            {viewMode === "categories" ? (
+              <>
+                {CATEGORY_LINES.map((cat) => (
+                  <Area
+                    key={cat.key}
+                    type="monotone"
+                    dataKey={cat.key}
+                    name={cat.label}
+                    stroke={cat.color}
+                    strokeWidth={2}
+                    fill={`url(#grad-${cat.key})`}
+                    dot={false}
+                    activeDot={{ r: 4, fill: cat.color, stroke: c.dotStroke, strokeWidth: 2 }}
+                  />
+                ))}
+                <Legend
+                  verticalAlign="bottom"
+                  height={30}
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(value: string) => (
+                    <span style={{ color: c.tick, fontSize: "11px" }}>{value}</span>
+                  )}
+                />
+              </>
+            ) : (
+              <>
+                <Area
+                  type="monotone"
+                  dataKey="issues"
+                  name="Issues"
+                  stroke="#ef4444"
+                  strokeWidth={2}
+                  fill="url(#grad-issues)"
+                  dot={false}
+                  activeDot={{ r: 4, fill: "#ef4444", stroke: c.dotStroke, strokeWidth: 2 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="resolved"
+                  name="Resolved"
+                  stroke="#22c55e"
+                  strokeWidth={2}
+                  strokeDasharray="4 4"
+                  dot={false}
+                  activeDot={{ r: 4, fill: "#22c55e", stroke: c.dotStroke, strokeWidth: 2 }}
+                />
+                <Legend
+                  verticalAlign="bottom"
+                  height={30}
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(value: string) => (
+                    <span style={{ color: c.tick, fontSize: "11px" }}>{value}</span>
+                  )}
+                />
+              </>
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

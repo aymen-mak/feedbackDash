@@ -184,6 +184,7 @@ export default function TeamPage() {
   };
 
   const toggleSelect = (id: string) => { setSelectedItems((p) => { const n = new Set(p); if (n.has(id)) n.delete(id); else n.add(id); return n; }); };
+  const selectAll = () => { if (selectedItems.size === sorted.length) setSelectedItems(new Set()); else setSelectedItems(new Set(sorted.map((i) => i.id))); };
   const bulkAction = async (action: "escalate" | "archive" | "delete") => {
     const ids = [...selectedItems];
     const updates: Partial<TeamItem> = action === "escalate" ? { escalated: true } : action === "archive" ? { archived: true, archivedBy: "team" } : { deletedAt: new Date().toISOString() };
@@ -412,6 +413,9 @@ export default function TeamPage() {
           {selectedItems.size > 0 && (
             <div className="flex items-center gap-3 rounded-lg bg-makina-accent-dim border border-makina-accent/20 px-4 py-2.5 animate-fade-in-up">
               <span className="text-xs font-semibold text-makina-accent">{selectedItems.size} selected</span>
+              <button onClick={selectAll} className="btn-tactile rounded-md px-2.5 py-1 text-[11px] font-medium text-makina-accent hover:bg-makina-accent/10 transition-colors">
+                {selectedItems.size === sorted.length ? "Deselect All" : "Select All"}
+              </button>
               <div className="h-4 w-px bg-makina-accent/20" />
               <button onClick={() => bulkAction("escalate")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-accent/40 transition-colors"><ArrowUpRight size={12} />Escalate</button>
               <button onClick={() => bulkAction("archive")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-blue/40 transition-colors"><Archive size={12} />Archive</button>
