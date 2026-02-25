@@ -79,12 +79,13 @@ export default function FeedbackPage() {
   }, []);
 
   const handleScreenshotUpload = async (file: File) => {
-    if (!file.type.includes("jpeg") && !file.type.includes("jpg")) {
-      setError("Only JPG images are accepted.");
+    const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    if (!allowed.some((t) => file.type.includes(t)) && !/\.(jpe?g|png|webp)$/i.test(file.name)) {
+      setError("Only JPG, PNG, or WebP images are accepted.");
       return;
     }
-    if (file.size > 1.5 * 1024 * 1024) {
-      setError("Screenshot must be under 1.5MB.");
+    if (file.size > 5 * 1024 * 1024) {
+      setError("Screenshot must be under 5MB.");
       return;
     }
     setUploading(true);
@@ -96,11 +97,11 @@ export default function FeedbackPage() {
         method: "POST",
         body: formData,
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok && data.url) {
         setScreenshotUrl(data.url);
       } else {
-        setError("Failed to upload screenshot.");
+        setError(data.error || "Failed to upload screenshot.");
       }
     } catch {
       setError("Could not upload screenshot.");
@@ -392,7 +393,7 @@ export default function FeedbackPage() {
                       <>
                         <ImageIcon size={13} />
                         Attach screenshot
-                        <span className="text-makina-text/40 ml-0.5">· JPG, max 1.5MB</span>
+                        <span className="text-makina-text/40 ml-0.5">· JPG/PNG, max 5MB</span>
                       </>
                     )}
                   </button>
@@ -400,7 +401,7 @@ export default function FeedbackPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".jpg,.jpeg,image/jpeg"
+                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -525,6 +526,7 @@ export default function FeedbackPage() {
                 feedback={myFeedback}
                 category="all"
                 hideReplyInput
+                hideReplies
                 hidePublicStatus
                 hidePriority
                 onItemUpdate={handleMyItemUpdate}

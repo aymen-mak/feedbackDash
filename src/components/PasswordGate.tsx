@@ -69,31 +69,12 @@ export default function PasswordGate({ children }: PasswordGateProps) {
     <div className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-sm space-y-6 animate-fade-in-up">
         <div className="text-center space-y-3">
-          {theme === "light" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src="/makina_pulse_light_logo_480x120.png"
-              alt="Makina Pulse"
-              className="h-10 w-auto mx-auto"
-            />
-          ) : (
-            <div
-              className="h-10 w-40 mx-auto"
-              style={{
-                backgroundColor: "#eafcfe",
-                WebkitMaskImage: `url(/makina_pulse_logo_480x120.png)`,
-                maskImage: `url(/makina_pulse_logo_480x120.png)`,
-                WebkitMaskSize: "contain",
-                maskSize: "contain",
-                WebkitMaskRepeat: "no-repeat",
-                maskRepeat: "no-repeat",
-                WebkitMaskPosition: "center",
-                maskPosition: "center",
-              }}
-              role="img"
-              aria-label="Makina Pulse"
-            />
-          )}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={theme === "light" ? "/makina_pulse_logo_trimmed_dark.png" : "/makina_pulse_logo_trimmed.png"}
+            alt="Makina Pulse"
+            className="h-14 w-auto mx-auto"
+          />
           <p className="text-sm text-makina-muted">
             Enter the team password to continue
           </p>

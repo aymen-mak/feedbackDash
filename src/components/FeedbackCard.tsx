@@ -142,13 +142,14 @@ interface FeedbackCardProps {
   showStatus?: boolean;
   showInternalStatus?: boolean;
   hideReplyInput?: boolean;
+  hideReplies?: boolean;
   hidePublicStatus?: boolean;
   hidePriority?: boolean;
   onStatusChange?: (id: string, status: FeedbackStatus) => void;
   onItemUpdate?: (item: FeedbackItemData) => void;
 }
 
-export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, hidePublicStatus, hidePriority, onStatusChange, onItemUpdate }: FeedbackCardProps) {
+export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, hideReplies, hidePublicStatus, hidePriority, onStatusChange, onItemUpdate }: FeedbackCardProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySent, setReplySent] = useState(false);
@@ -302,7 +303,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
             )}
 
             {/* Replies */}
-            {item.replies && item.replies.length > 0 && (
+            {!hideReplies && item.replies && item.replies.length > 0 && (
               <div className="mt-3 space-y-2 pl-3 border-l-2 border-makina-border">
                 {item.replies.map((reply) => {
                   const rts = formatTimestamp(reply.createdAt);

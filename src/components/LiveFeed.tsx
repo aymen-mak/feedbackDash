@@ -8,6 +8,7 @@ interface LiveFeedProps {
   showStatus?: boolean;
   showInternalStatus?: boolean;
   hideReplyInput?: boolean;
+  hideReplies?: boolean;
   hidePublicStatus?: boolean;
   hidePriority?: boolean;
   onStatusChange?: (id: string, status: string) => void;
@@ -15,7 +16,7 @@ interface LiveFeedProps {
   columns?: 1 | 2;
 }
 
-export default function LiveFeed({ feedback, category, showStatus, showInternalStatus, hideReplyInput, hidePublicStatus, hidePriority, onStatusChange, onItemUpdate, columns = 1 }: LiveFeedProps) {
+export default function LiveFeed({ feedback, category, showStatus, showInternalStatus, hideReplyInput, hideReplies, hidePublicStatus, hidePriority, onStatusChange, onItemUpdate, columns = 1 }: LiveFeedProps) {
   const filtered = category === "all" ? feedback : feedback.filter((f) => f.category === category);
 
   return (
@@ -31,6 +32,7 @@ export default function LiveFeed({ feedback, category, showStatus, showInternalS
             showStatus={showStatus}
             showInternalStatus={showInternalStatus}
             hideReplyInput={hideReplyInput}
+            hideReplies={hideReplies}
             hidePublicStatus={hidePublicStatus}
             hidePriority={hidePriority}
             onStatusChange={onStatusChange as (id: string, status: "new" | "reviewed" | "addressed" | "dismissed") => void}
