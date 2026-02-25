@@ -28,6 +28,7 @@ import {
 type Priority = "none" | "low" | "medium" | "high";
 type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
 type DateFilter = "newest" | "oldest";
+type ArchiveSubFilter = "all" | "dismissed" | "addressed";
 
 interface ReviewItem extends FeedbackItemData {
   priority: Priority;
@@ -75,6 +76,7 @@ export default function ReviewPage() {
   const [tagDropdownId, setTagDropdownId] = useState<string | null>(null);
   const [deleteActiveId, setDeleteActiveId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>("newest");
+  const [archiveSubFilter, setArchiveSubFilter] = useState<ArchiveSubFilter>("all");
   const [dailyMetrics, setDailyMetrics] = useState<{ date: string; submissions: number; core: number; uiux: number; app: number; operatorCli: number; issues: number; resolved: number }[]>([]);
   const [reviewerName, setReviewerName] = useState("");
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -276,6 +278,10 @@ export default function ReviewPage() {
   const currentList = viewList.filter((i) => {
     if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
     if (search && !i.message.toLowerCase().includes(search.toLowerCase()) && !i.userName.toLowerCase().includes(search.toLowerCase())) return false;
+    if (viewFilter === "archived" && archiveSubFilter !== "all") {
+      if (archiveSubFilter === "dismissed" && i.status !== "dismissed") return false;
+      if (archiveSubFilter === "addressed" && i.status !== "addressed") return false;
+    }
     return true;
   });
 
@@ -652,6 +658,26 @@ export default function ReviewPage() {
                 </button>
               ))}
             </div>
+            {viewFilter === "archived" && (
+              <>
+                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
+                <div className="flex gap-1">
+                  {([["all", "All"], ["dismissed", "Dismissed"], ["addressed", "Addressed"]] as [ArchiveSubFilter, string][]).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setArchiveSubFilter(val)}
+                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        archiveSubFilter === val
+                          ? "bg-makina-accent text-makina-bg"
+                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
             <div className="relative ml-auto">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
               <input
@@ -746,7 +772,7 @@ export default function ReviewPage() {
               <>
                 {/* At-a-glance: New + High priority in side-by-side columns */}
                 {(newItems.length > 0 || highPriorityCombined.length > 0) && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className={`grid grid-cols-1 ${newItems.length > 0 && highPriorityCombined.length > 0 ? "lg:grid-cols-2" : ""} gap-4`}>
                     {newItems.length > 0 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 pb-1">

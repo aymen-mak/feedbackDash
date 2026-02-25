@@ -16,6 +16,7 @@ import {
 
 type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
 type DateFilter = "newest" | "oldest";
+type ArchiveSubFilter = "all" | "dismissed" | "addressed";
 type Priority = "none" | "low" | "medium" | "high";
 type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
 type ViewFilter = "active" | "addressed" | "archived" | "deleted";
@@ -85,6 +86,7 @@ export default function TeamPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("newest");
+  const [archiveSubFilter, setArchiveSubFilter] = useState<ArchiveSubFilter>("all");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -197,6 +199,10 @@ export default function TeamPage() {
     .filter((i) => {
       if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
       if (search && !i.message.toLowerCase().includes(search.toLowerCase()) && !i.userName.toLowerCase().includes(search.toLowerCase())) return false;
+      if (viewFilter === "archived" && archiveSubFilter !== "all") {
+        if (archiveSubFilter === "dismissed" && i.status !== "dismissed") return false;
+        if (archiveSubFilter === "addressed" && i.status !== "addressed") return false;
+      }
       return true;
     });
 
@@ -378,6 +384,16 @@ export default function TeamPage() {
                 <button key={v} onClick={() => setDateFilter(v)} className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${dateFilter === v ? "bg-makina-accent text-makina-bg" : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"}`}>{l}</button>
               ))}
             </div>
+            {viewFilter === "archived" && (
+              <>
+                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
+                <div className="flex gap-1">
+                  {([["all", "All"], ["dismissed", "Dismissed"], ["addressed", "Addressed"]] as [ArchiveSubFilter, string][]).map(([val, label]) => (
+                    <button key={val} onClick={() => setArchiveSubFilter(val)} className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${archiveSubFilter === val ? "bg-makina-accent text-makina-bg" : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"}`}>{label}</button>
+                  ))}
+                </div>
+              </>
+            )}
             <div className="relative ml-auto">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
               <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search feedback..." className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48" />
@@ -415,7 +431,7 @@ export default function TeamPage() {
               <>
                 {/* At-a-glance: New + High priority in side-by-side columns */}
                 {(newItems.length > 0 || highPriorityCombined.length > 0) && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className={`grid grid-cols-1 ${newItems.length > 0 && highPriorityCombined.length > 0 ? "lg:grid-cols-2" : ""} gap-4`}>
                     {newItems.length > 0 && (
                       <div className="space-y-2">
                         <div className="flex items-center gap-2 pb-1">
