@@ -2,40 +2,15 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Link2,
-  Menu,
-  X,
-  Sun,
-  Moon,
-  Droplets,
-  Check,
-  User,
-} from "lucide-react";
 import { useTheme } from "@/lib/theme";
-import { useReviewer } from "@/lib/reviewer";
-import { useLoadingBar } from "@/components/LoadingBar";
 
 export default function Navbar() {
-  const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
-  const { theme, toggle, textSize, textSizeLabel, cycleTextSize } = useTheme();
-  const { name: reviewerName, openPrompt } = useReviewer();
-  const { start: lbStart, done: lbDone } = useLoadingBar();
-  const prevPath = useRef(pathname);
+  const { theme, toggle } = useTheme();
 
-  // Trigger loading bar on page navigation
-  useEffect(() => {
-    if (prevPath.current !== pathname) {
-      lbStart();
-      // Done after a short delay to simulate page load
-      const t = setTimeout(() => lbDone(), 300);
-      prevPath.current = pathname;
-      return () => clearTimeout(t);
-    }
-  }, [pathname, lbStart, lbDone]);
+  const logoSrc =
+    theme === "light"
+      ? "/makina_pulse_light.png"
+      : "/makina_pulse_dark_transparent.png";
 
   const handleShare = async () => {
     const url = window.location.origin;
@@ -133,8 +108,13 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* Spacer */}
-        <div className="flex-1" />
+        {/* Theme Switch */}
+        <button
+          onClick={toggle}
+          className="text-xs text-makina-muted hover:text-makina-text transition"
+        >
+          {themeLabel[theme]}
+        </button>
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5">

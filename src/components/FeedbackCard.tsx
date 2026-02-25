@@ -156,6 +156,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
   const [screenshotOpen, setScreenshotOpen] = useState(false);
   const [editingReplyId, setEditingReplyId] = useState<string | null>(null);
   const [editReplyText, setEditReplyText] = useState("");
+  const [clickRipple, setClickRipple] = useState(false);
 
   const quickAction = item.quickAction ? QUICK_ACTION_LABELS[item.quickAction] : null;
   const ts = formatTimestamp(item.createdAt);
@@ -225,6 +226,8 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
     const target = e.target as HTMLElement;
     if (target.closest("button, select, input, a, textarea, img")) return;
     setReplyOpen(!replyOpen);
+    setClickRipple(true);
+    setTimeout(() => setClickRipple(false), 400);
   };
 
   const CategoryIcon = categoryIcons[item.category] || Box;
@@ -233,7 +236,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
     <>
       <div
         onClick={handleCardClick}
-        className={`group rounded-md bg-makina-card border border-makina-border border-l-[3px] ${hidePriority ? "border-l-transparent" : priorityBorder[priority]} p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover ${hideReplyInput ? "" : "cursor-pointer"}`}
+        className={`group rounded-md bg-makina-card border border-makina-border border-l-[3px] ${priorityBorder[priority]} p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover ${hideReplyInput ? "" : "cursor-pointer"} ${clickRipple ? "animate-click-ripple" : ""}`}
       >
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-makina-surface text-sm font-bold text-makina-accent border border-makina-border">
