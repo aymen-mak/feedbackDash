@@ -11,8 +11,10 @@ import {
   Moon,
   Droplets,
   Check,
+  User,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme";
+import { useReviewer } from "@/lib/reviewer";
 import { useLoadingBar } from "@/components/LoadingBar";
 
 export default function Navbar() {
@@ -20,6 +22,7 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const { theme, toggle, textSize, textSizeLabel, cycleTextSize } = useTheme();
+  const { name: reviewerName, openPrompt } = useReviewer();
   const { start: lbStart, done: lbDone } = useLoadingBar();
   const prevPath = useRef(pathname);
 
@@ -137,6 +140,22 @@ export default function Navbar() {
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5">
+          {/* Reviewer identity */}
+          <button
+            onClick={openPrompt}
+            className="hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all text-makina-muted hover:text-makina-text hover:bg-makina-surface"
+            title={reviewerName ? `Reviewing as ${reviewerName} — click to change` : "Set your name"}
+          >
+            <User size={14} />
+            {reviewerName ? (
+              <span className="max-w-[100px] truncate">{reviewerName}</span>
+            ) : (
+              <span className="text-makina-subtle italic">Set name</span>
+            )}
+          </button>
+
+          <div className="hidden sm:block w-px h-5 bg-makina-border/50" />
+
           <button
             onClick={cycleTextSize}
             className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-all flex items-center gap-1 ${

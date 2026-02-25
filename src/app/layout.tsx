@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/lib/theme";
+import { ReviewerProvider } from "@/lib/reviewer";
 import { LoadingBarProvider } from "@/components/LoadingBar";
 import { NotificationProvider } from "@/components/Notifications";
 import "./globals.css";
@@ -18,11 +19,13 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-makina-bg text-makina-text antialiased">
         <ThemeProvider>
-          <LoadingBarProvider>
-            <NotificationProvider>
-              {children}
-            </NotificationProvider>
-          </LoadingBarProvider>
+          <ReviewerProvider>
+            <LoadingBarProvider>
+              <NotificationProvider>
+                {children}
+              </NotificationProvider>
+            </LoadingBarProvider>
+          </ReviewerProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -3,10 +3,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
+import ReviewerNamePrompt from "@/components/ReviewerNamePrompt";
 import Tooltip from "@/components/Tooltip";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { useLoadingBar } from "@/components/LoadingBar";
 import { useNotifications } from "@/components/Notifications";
+import { useReviewer } from "@/lib/reviewer";
 import {
   AlertTriangle, Hash, ChevronRight, Clock, Box, Paintbrush, Archive, Trash2,
   RotateCcw, ArrowUpRight, Star as StarIcon, Image as ImageIcon, Search,
@@ -30,6 +32,8 @@ interface TeamItem extends FeedbackItemData {
   screenshotUrl: string | null;
   rating: number | null;
   acknowledged: boolean;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
 }
 
 const QUICK_ACTION_LABELS: Record<string, { label: string }> = {
@@ -93,6 +97,7 @@ export default function TeamPage() {
   const refreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { start: lbStart, done: lbDone } = useLoadingBar();
   const { notify } = useNotifications();
+  const { name: reviewerName } = useReviewer();
   const TWELVE_HOURS = 12 * 60 * 60 * 1000;
 
   const enrichItems = (data: TeamItem[]): TeamItem[] =>
@@ -144,6 +149,11 @@ export default function TeamPage() {
   };
 
   const patchItem = async (id: string, updates: Partial<TeamItem>) => {
+    // Auto-attach reviewer attribution
+    if (reviewerName.trim()) {
+      (updates as Record<string, unknown>).reviewedBy = reviewerName.trim();
+      (updates as Record<string, unknown>).reviewedAt = new Date().toISOString();
+    }
     lbStart();
     try {
       const res = await fetch(`/api/feedback/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(updates) });
@@ -260,7 +270,18 @@ export default function TeamPage() {
               </div>
               <p className="text-xs text-makina-text/80 mt-1 truncate">{qa ? qa.label : ""}{qa && item.message ? " — " : ""}{item.message}</p>
             </div>
-            <div className="hidden sm:flex items-center gap-3 shrink-0"><span className="text-[11px] text-makina-muted"><Clock size={10} className="inline mr-1" />{timeAgo(item.createdAt)}</span></div>
+            <div className="hidden sm:flex items-center gap-3 shrink-0">
+              <span className="text-[11px] text-makina-muted"><Clock size={10} className="inline mr-1" />{timeAgo(item.createdAt)}</span>
+              {item.reviewedBy && (
+                <>
+                  <span className="w-px h-4 bg-makina-border/60 shrink-0" />
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-makina-accent-dim/40 border border-makina-accent/15 px-2.5 py-0.5 text-[10px] font-medium text-makina-accent whitespace-nowrap">
+                    <span className="w-1 h-1 rounded-full bg-makina-accent/60" />
+                    {item.reviewedBy}
+                  </span>
+                </>
+              )}
+            </div>
             <ChevronRight size={16} className={`text-makina-subtle transition-transform shrink-0 ${isExp ? "rotate-90" : ""}`} />
           </button>
         </div>
@@ -317,6 +338,7 @@ export default function TeamPage() {
 
   return (
     <PasswordGate>
+      <ReviewerNamePrompt />
       <div className="min-h-screen">
         <Navbar />
         <main className="mx-auto max-w-7xl px-4 py-6 space-y-4">

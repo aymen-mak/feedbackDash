@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
+import ReviewerNamePrompt from "@/components/ReviewerNamePrompt";
 import FeedbackCard, { type FeedbackItemData } from "@/components/FeedbackCard";
 import { AnalyticsChart } from "@/components/Charts";
 import Tooltip from "@/components/Tooltip";
 import { useLoadingBar } from "@/components/LoadingBar";
 import { useNotifications } from "@/components/Notifications";
+import { useReviewer } from "@/lib/reviewer";
 import {
   Filter,
   Search,
@@ -78,23 +80,10 @@ export default function ReviewPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("newest");
   const [archiveSubFilter, setArchiveSubFilter] = useState<ArchiveSubFilter>("all");
   const [dailyMetrics, setDailyMetrics] = useState<{ date: string; submissions: number; core: number; uiux: number; app: number; operatorCli: number; issues: number; resolved: number }[]>([]);
-  const [reviewerName, setReviewerName] = useState("");
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const { start: lbStart, done: lbDone } = useLoadingBar();
   const { notify } = useNotifications();
-
-  // Load reviewer name from localStorage
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("makina-reviewer-name");
-      if (stored) setReviewerName(stored);
-    } catch { /* ignore */ }
-  }, []);
-
-  const saveReviewerName = (name: string) => {
-    setReviewerName(name);
-    try { localStorage.setItem("makina-reviewer-name", name); } catch { /* ignore */ }
-  };
+  const { name: reviewerName } = useReviewer();
 
   const TWELVE_HOURS = 12 * 60 * 60 * 1000;
 
@@ -403,11 +392,6 @@ export default function ReviewPage() {
 
           {/* Action buttons -- right side */}
           <div className="ml-auto flex items-center gap-1.5">
-            {item.reviewedBy && (
-              <span className="text-[10px] font-medium text-makina-muted bg-makina-surface rounded-full px-2 py-0.5">
-                reviewed by {item.reviewedBy}
-              </span>
-            )}
             {item.escalated && viewFilter !== "trash" && viewFilter !== "archived" && (
               <span className="text-[10px] font-medium text-makina-green bg-makina-green/10 rounded-full px-2 py-0.5">Escalated</span>
             )}
@@ -505,6 +489,17 @@ export default function ReviewPage() {
                 by {item.archivedBy}
               </span>
             )}
+
+            {/* Reviewer attribution — far right, visually separated */}
+            {item.reviewedBy && (
+              <>
+                <span className="w-px h-4 bg-makina-border/60 mx-1 shrink-0" />
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-makina-accent-dim/40 border border-makina-accent/15 px-2.5 py-0.5 text-[10px] font-medium text-makina-accent shrink-0 whitespace-nowrap">
+                  <span className="w-1 h-1 rounded-full bg-makina-accent/60" />
+                  {item.reviewedBy}
+                </span>
+              </>
+            )}
           </div>
         </div>
 
@@ -536,6 +531,7 @@ export default function ReviewPage() {
 
   return (
     <PasswordGate>
+      <ReviewerNamePrompt />
       <div className="min-h-screen">
         <Navbar />
         <main className="mx-auto max-w-7xl px-4 py-6 space-y-4">
