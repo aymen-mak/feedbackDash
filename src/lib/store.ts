@@ -36,6 +36,8 @@ export interface StoredFeedback {
   screenshotUrl: string | null;
   rating: number | null;
   acknowledged: boolean;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
   createdAt: string;
 }
 
@@ -194,6 +196,8 @@ export function seed(): StoredFeedback[] {
     screenshotUrl: null,
     rating: rating ?? null,
     acknowledged: i === 2 || i === 8 || i === 11 || i === 22,
+    reviewedBy: i >= 5 && i < 15 ? "Sarah" : i >= 15 ? "Alex" : null,
+    reviewedAt: i >= 5 ? new Date(now - (hoursAgo - 1) * H).toISOString() : null,
     createdAt: new Date(now - hoursAgo * H).toISOString(),
   }));
 }
@@ -281,6 +285,8 @@ export function createFeedback(data: {
     screenshotUrl: data.screenshotUrl ?? null,
     rating: data.rating ?? null,
     acknowledged: false,
+    reviewedBy: null,
+    reviewedAt: null,
     createdAt: new Date().toISOString(),
   };
   store.feedback.push(item);
@@ -290,7 +296,7 @@ export function createFeedback(data: {
 
 export function updateFeedback(
   id: string,
-  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags" | "acknowledged">>
+  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags" | "acknowledged" | "reviewedBy" | "reviewedAt">>
 ): StoredFeedback | null {
   const store = read();
   const idx = store.feedback.findIndex((f) => f.id === id);

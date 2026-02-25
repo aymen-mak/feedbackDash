@@ -42,6 +42,8 @@ interface ReviewItem extends FeedbackItemData {
   screenshotUrl: string | null;
   rating: number | null;
   acknowledged: boolean;
+  reviewedBy?: string | null;
+  reviewedAt?: string | null;
 }
 
 const priorityColors: Record<Priority, string> = {
@@ -76,9 +78,23 @@ export default function ReviewPage() {
   const [deleteActiveId, setDeleteActiveId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>("newest");
   const [dailyMetrics, setDailyMetrics] = useState<{ date: string; submissions: number; core: number; uiux: number; app: number; operatorCli: number; issues: number; resolved: number }[]>([]);
+  const [reviewerName, setReviewerName] = useState("");
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const { start: lbStart, done: lbDone } = useLoadingBar();
   const { notify } = useNotifications();
+
+  // Load reviewer name from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("makina-reviewer-name");
+      if (stored) setReviewerName(stored);
+    } catch { /* ignore */ }
+  }, []);
+
+  const saveReviewerName = (name: string) => {
+    setReviewerName(name);
+    try { localStorage.setItem("makina-reviewer-name", name); } catch { /* ignore */ }
+  };
 
   const TWELVE_HOURS = 12 * 60 * 60 * 1000;
 
@@ -136,6 +152,11 @@ export default function ReviewPage() {
   }, []);
 
   const patchItem = async (id: string, updates: Partial<ReviewItem>) => {
+    // Auto-attach reviewer attribution
+    if (reviewerName.trim()) {
+      (updates as Record<string, unknown>).reviewedBy = reviewerName.trim();
+      (updates as Record<string, unknown>).reviewedAt = new Date().toISOString();
+    }
     lbStart();
     try {
       const res = await fetch(`/api/feedback/${id}`, {
