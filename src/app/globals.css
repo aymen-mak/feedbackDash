@@ -473,3 +473,57 @@ html.text-size-2 .text-sm {
   0% { transform: translateY(0); opacity: 1; }
   100% { transform: translateY(6px); opacity: 0; }
 }
+
+/* ── How-it-works: isometric background ── */
+.iso-bg-grid {
+  position: absolute;
+  inset: -20%;
+  background-image:
+    linear-gradient(var(--color-makina-accent) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-makina-accent) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.03;
+  transform: perspective(600px) rotateX(60deg) rotateZ(-45deg) scale(1.8);
+  animation: iso-bg-grid-pulse 6s ease-in-out infinite;
+}
+@keyframes iso-bg-grid-pulse {
+  0%, 100% { opacity: 0.03; }
+  50% { opacity: 0.06; }
+}
+
+/* Expanding rings behind the step cards */
+.iso-bg-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  border-radius: 50%;
+  border: 1px solid var(--color-makina-accent);
+  transform: translate(-50%, -50%) perspective(400px) rotateX(55deg);
+  opacity: 0;
+  animation: iso-bg-ring-expand 5s ease-out infinite;
+}
+.iso-bg-ring-1 { animation-delay: 0s; }
+.iso-bg-ring-2 { animation-delay: 1.66s; }
+.iso-bg-ring-3 { animation-delay: 3.33s; }
+@keyframes iso-bg-ring-expand {
+  0% { width: 60px; height: 60px; opacity: 0.2; }
+  100% { width: 700px; height: 700px; opacity: 0; }
+}
+
+/* Small floating accent particles */
+.iso-bg-particle {
+  position: absolute;
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: var(--color-makina-accent);
+  animation: iso-bg-particle-float 7s ease-in-out infinite;
+}
+.iso-bg-particle-1 { top: 15%; left: 10%; animation-delay: 0s; }
+.iso-bg-particle-2 { top: 70%; right: 12%; animation-delay: -2s; }
+.iso-bg-particle-3 { top: 30%; right: 25%; animation-delay: -4s; }
+.iso-bg-particle-4 { bottom: 20%; left: 30%; animation-delay: -5.5s; }
+@keyframes iso-bg-particle-float {
+  0%, 100% { opacity: 0.15; transform: translateY(0) scale(1); }
+  50% { opacity: 0.5; transform: translateY(-12px) scale(1.5); }
+}

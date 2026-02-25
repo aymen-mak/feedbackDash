@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox, ChevronUp, ChevronDown } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox, ChevronUp, ChevronDown, Sun, Moon, Droplets, Link2 } from "lucide-react";
 import LiveFeed from "@/components/LiveFeed";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { useLoadingBar } from "@/components/LoadingBar";
+import { useTheme } from "@/lib/theme";
 
 type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
 const CATEGORIES: CategoryId[] = ["Core", "UI/UX", "App", "Operator CLI"];
@@ -165,11 +165,82 @@ export default function FeedbackPage() {
     setMyFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
   };
 
+  const { theme, toggle, textSize, textSizeLabel, cycleTextSize } = useTheme();
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    const url = window.location.origin;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const themeIcon: Record<string, React.ReactNode> = {
+    dark: <Sun size={15} />,
+    light: <Droplets size={15} />,
+    glass: <Moon size={15} />,
+  };
+
   return (
     <div className="min-h-screen">
-      <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 pt-8 pb-8 space-y-6">
+      <main className="mx-auto max-w-6xl px-4 pt-10 pb-8 space-y-6">
+
+        {/* Centered logo + utility controls */}
+        <div className="flex flex-col items-center gap-4 animate-fade-in-up">
+          {/* Logo — use trimmed images with natural proportions */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={theme === "light" ? "/makina_pulse_logo_trimmed_dark.png" : "/makina_pulse_logo_trimmed.png"}
+            alt="Makina Pulse"
+            className="h-16 w-auto"
+          />
+
+          <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
+
+          {/* Compact utility controls */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={cycleTextSize}
+              className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-all flex items-center gap-1 ${
+                textSize > 0
+                  ? "text-makina-accent bg-makina-accent-dim"
+                  : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
+              }`}
+              title={`Text size: ${textSizeLabel}`}
+            >
+              Aa
+              <span className="flex items-center gap-0.5">
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className={`inline-block w-1 h-1 rounded-full bg-current ${i <= textSize ? "opacity-100" : "opacity-25"}`} />
+                ))}
+              </span>
+            </button>
+            <button
+              onClick={toggle}
+              className="rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-all"
+              title="Toggle theme"
+            >
+              {themeIcon[theme]}
+            </button>
+            <button
+              onClick={handleShare}
+              className="relative rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-all"
+              title="Copy feedback link"
+            >
+              {copied ? <Check size={15} className="text-makina-green" /> : <Link2 size={15} />}
+            </button>
+          </div>
+        </div>
 
         {/* Zone 2: Form + Context */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 animate-fade-in-up" style={{ animationDelay: "100ms" }}>

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTheme } from "@/lib/theme";
-import { ArrowRight, MessageSquare, BarChart3, Users, Zap, Shield, Layers } from "lucide-react";
+import { ArrowRight, MessageSquare, Lightbulb, Star, Zap, Image as ImageIcon, Eye } from "lucide-react";
 
 export default function LandingPage() {
   const { theme } = useTheme();
@@ -80,7 +80,7 @@ export default function LandingPage() {
             what we build next
           </h1>
           <p className="text-base sm:text-lg text-makina-muted mt-5 max-w-lg mx-auto leading-relaxed">
-            A single place for your team to collect, triage, and act on user feedback. Every voice matters.
+            Tell us what works, what doesn&apos;t, and what you wish existed. Every piece of feedback is read and acted on.
           </p>
         </div>
 
@@ -90,14 +90,8 @@ export default function LandingPage() {
             href="/feedback"
             className="group flex items-center gap-2.5 rounded-xl gradient-accent px-7 py-3.5 text-sm font-bold text-makina-bg shadow-lg shadow-makina-accent/20 hover:shadow-makina-accent/30 hover:brightness-110 transition-all"
           >
-            Share Feedback
+            Share Your Feedback
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
-          </Link>
-          <Link
-            href="/review"
-            className="flex items-center gap-2 rounded-xl bg-makina-card border border-makina-border px-7 py-3.5 text-sm font-semibold text-makina-text hover:border-makina-accent/40 hover:bg-makina-card-hover transition-all"
-          >
-            Review Dashboard
           </Link>
         </div>
 
@@ -109,39 +103,55 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Features Section ── */}
-      <section className="relative px-4 py-24">
-        <div className="mx-auto max-w-5xl">
+      {/* ── How it works — from the user's perspective ── */}
+      <section className="relative px-4 py-24 overflow-hidden">
+        {/* Isometric background — pulsating grid + glow */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Tilted grid plane */}
+          <div className="iso-bg-grid" />
+          {/* Pulsating rings behind the cards */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            <div className="iso-bg-ring iso-bg-ring-1" />
+            <div className="iso-bg-ring iso-bg-ring-2" />
+            <div className="iso-bg-ring iso-bg-ring-3" />
+          </div>
+          {/* Floating accent particles */}
+          <div className="iso-bg-particle iso-bg-particle-1" />
+          <div className="iso-bg-particle iso-bg-particle-2" />
+          <div className="iso-bg-particle iso-bg-particle-3" />
+          <div className="iso-bg-particle iso-bg-particle-4" />
+        </div>
+
+        <div className="relative mx-auto max-w-5xl">
           <div className="text-center mb-16 animate-fade-in-up">
             <p className="text-xs font-semibold uppercase tracking-widest text-makina-accent mb-3">How it works</p>
-            <h2 className="text-3xl font-bold">Feedback flows, your product grows</h2>
+            <h2 className="text-3xl font-bold">Three steps. That&apos;s it.</h2>
           </div>
 
-          {/* Isometric flow — 3 step pipeline */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
                 icon: <MessageSquare size={22} />,
-                title: "Collect",
-                desc: "Users submit feedback — issues, suggestions, questions — with screenshots, ratings, and quick actions.",
+                title: "Share",
+                desc: "Pick a category, describe what\u2019s on your mind \u2014 a suggestion, an issue, or a question. Add a screenshot if it helps.",
                 color: "text-makina-accent",
                 bg: "bg-makina-accent-dim",
                 border: "border-makina-accent/20",
                 delay: "0ms",
               },
               {
-                icon: <BarChart3 size={22} />,
-                title: "Triage",
-                desc: "Reviewers prioritize, tag, pin, and escalate. Analytics surface trends so nothing slips through the cracks.",
+                icon: <Eye size={22} />,
+                title: "Get heard",
+                desc: "Your feedback goes straight to the people building the product. No black hole, no ticketing limbo.",
                 color: "text-amber-400",
                 bg: "bg-amber-400/10",
                 border: "border-amber-400/20",
                 delay: "100ms",
               },
               {
-                icon: <Users size={22} />,
-                title: "Act",
-                desc: "The team board shows what needs attention. Address, dismiss, or reply — with full attribution of who did what.",
+                icon: <Star size={22} />,
+                title: "See impact",
+                desc: "Upvote what matters to you, follow along as ideas turn into real improvements. Your voice drives the roadmap.",
                 color: "text-makina-green",
                 bg: "bg-green-500/10",
                 border: "border-green-500/20",
@@ -153,7 +163,6 @@ export default function LandingPage() {
                 className={`group relative rounded-2xl bg-makina-card border ${step.border} p-8 hover-lift animate-fade-in-up`}
                 style={{ animationDelay: step.delay }}
               >
-                {/* Connector line between cards on desktop */}
                 <div className="hidden md:block absolute top-1/2 -right-3 w-6 h-px bg-makina-border last:hidden" />
 
                 <div className={`inline-flex items-center justify-center w-11 h-11 rounded-xl ${step.bg} ${step.color} mb-5`}>
@@ -167,17 +176,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Capabilities grid ── */}
+      {/* ── What you can do ── */}
       <section className="relative px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: <Zap size={18} />, title: "Quick actions", desc: "One-tap feedback labels for fast classification" },
-              { icon: <Shield size={18} />, title: "Password-gated", desc: "Review and team pages protected behind a shared key" },
-              { icon: <Layers size={18} />, title: "Multi-category", desc: "Core, UI/UX, App, Operator CLI — slice feedback by domain" },
-              { icon: <BarChart3 size={18} />, title: "Live analytics", desc: "Daily submission trends, category breakdowns, sentiment at a glance" },
-              { icon: <Users size={18} />, title: "Team attribution", desc: "Every action stamped with who did it — no accounts needed" },
-              { icon: <MessageSquare size={18} />, title: "Threaded replies", desc: "Reply directly to feedback — users see team responses" },
+              { icon: <Lightbulb size={18} />, title: "Suggest ideas", desc: "Have a feature in mind? Tell us \u2014 the best ideas come from real users." },
+              { icon: <Zap size={18} />, title: "Quick reactions", desc: "Short on time? Use one-tap labels like \u201CLove it!\u201D or \u201CNeeds improvement\u201D." },
+              { icon: <ImageIcon size={18} />, title: "Attach screenshots", desc: "A picture is worth a thousand words. Show us exactly what you see." },
+              { icon: <MessageSquare size={18} />, title: "Report issues", desc: "Found a bug or something broken? Flag it so we can fix it fast." },
+              { icon: <Star size={18} />, title: "Upvote others", desc: "See feedback you agree with? Upvote it to help us prioritize." },
+              { icon: <Eye size={18} />, title: "Stay anonymous", desc: "Prefer not to share your name? Toggle anonymous mode \u2014 your call." },
             ].map((cap, i) => (
               <div
                 key={cap.title}
@@ -198,22 +207,22 @@ export default function LandingPage() {
       {/* ── Bottom CTA ── */}
       <section className="relative px-4 py-20 text-center">
         <div className="mx-auto max-w-lg animate-fade-in-up">
-          <h2 className="text-2xl font-bold mb-3">Ready to start collecting?</h2>
+          <h2 className="text-2xl font-bold mb-3">We&apos;re listening</h2>
           <p className="text-sm text-makina-muted mb-8">
-            Share the feedback link with your users. It takes seconds.
+            It only takes a minute. Your feedback directly influences what gets built next.
           </p>
           <Link
             href="/feedback"
             className="group inline-flex items-center gap-2.5 rounded-xl gradient-accent px-8 py-4 text-sm font-bold text-makina-bg shadow-lg shadow-makina-accent/20 hover:shadow-makina-accent/30 hover:brightness-110 transition-all"
           >
-            Open Feedback Form
+            Share Your Feedback
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>
 
         {/* Footer */}
         <div className="mt-20 text-xs text-makina-subtle">
-          Makina Pulse &middot; Built to listen
+          Makina Pulse &middot; Your voice, our direction
         </div>
       </section>
     </div>
