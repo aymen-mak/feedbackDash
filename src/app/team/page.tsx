@@ -40,13 +40,20 @@ interface TeamItem extends FeedbackItemData {
   acknowledged: boolean;
 }
 
-const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
-  "love-it": { emoji: "🎉", label: "Love it!" },
-  "easy-to-use": { emoji: "✨", label: "Easy to use" },
-  "great-support": { emoji: "👏", label: "Great support" },
-  "impressive": { emoji: "🤩", label: "Impressive" },
-  "helpful": { emoji: "🙌", label: "Helpful" },
-  "confusing": { emoji: "😕", label: "Confusing" },
+const QUICK_ACTION_LABELS: Record<string, { label: string }> = {
+  "works-well": { label: "Works well" },
+  "needs-improvement": { label: "Needs improvement" },
+  "missing-feature": { label: "Missing feature" },
+  "performance-issue": { label: "Performance issue" },
+  "hard-to-use": { label: "Hard to use" },
+  "good-docs": { label: "Good documentation" },
+  // Legacy labels for older submissions
+  "love-it": { label: "Love it!" },
+  "easy-to-use": { label: "Easy to use" },
+  "great-support": { label: "Great support" },
+  "impressive": { label: "Impressive" },
+  "helpful": { label: "Helpful" },
+  "confusing": { label: "Confusing" },
 };
 
 const sentimentColors: Record<string, string> = {
@@ -105,17 +112,23 @@ export default function TeamPage() {
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
 
+  const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+
   const enrichItems = (data: TeamItem[]): TeamItem[] =>
-    data.map((item) => ({
-      ...item,
-      priority: item.priority || ("none" as Priority),
-      escalated: item.escalated ?? false,
-      archived: item.archived ?? false,
-      deletedAt: item.deletedAt ?? null,
-      screenshotUrl: item.screenshotUrl ?? null,
-      rating: item.rating ?? null,
-      acknowledged: item.acknowledged ?? false,
-    }));
+    data.map((item) => {
+      const isExpiredNew = item.status === "new" && (Date.now() - new Date(item.createdAt).getTime()) > TWELVE_HOURS;
+      return {
+        ...item,
+        status: isExpiredNew ? "reviewed" as FeedbackStatus : item.status,
+        priority: item.priority || ("none" as Priority),
+        escalated: item.escalated ?? false,
+        archived: item.archived ?? false,
+        deletedAt: item.deletedAt ?? null,
+        screenshotUrl: item.screenshotUrl ?? null,
+        rating: item.rating ?? null,
+        acknowledged: item.acknowledged ?? false,
+      };
+    });
 
   useEffect(() => {
     Promise.all([
@@ -481,7 +494,7 @@ export default function TeamPage() {
                         </span>
                       </div>
                       <p className="text-xs text-makina-text/80 mt-1 truncate">
-                        {quickAction ? `${quickAction.emoji} ${quickAction.label}` : ""}
+                        {quickAction ? quickAction.label : ""}
                         {quickAction && item.message ? " — " : ""}
                         {item.message}
                       </p>
@@ -500,8 +513,7 @@ export default function TeamPage() {
                   {isExpanded && (
                     <div className="border-t border-makina-border/50 bg-makina-surface/50 p-4 space-y-3 animate-fade-in-up">
                       {quickAction && (
-                        <div className="inline-flex items-center gap-1.5 rounded-md bg-makina-surface px-3 py-1.5 text-sm">
-                          <span>{quickAction.emoji}</span>
+                        <div className="inline-flex items-center rounded-md bg-makina-surface px-3 py-1.5 text-sm">
                           <span className="font-medium">{quickAction.label}</span>
                         </div>
                       )}
@@ -547,6 +559,26 @@ export default function TeamPage() {
                         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[10px] font-semibold capitalize border ${statusColors[item.status] || ""}`}>
                           {item.status}
                         </span>
+
+                        {/* Priority selector */}
+                        {(viewFilter === "active" || viewFilter === "addressed") && (
+                          <select
+                            value={item.priority}
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={(e) => { e.stopPropagation(); patchItem(item.id, { priority: e.target.value as Priority }); }}
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold cursor-pointer border focus:outline-none transition-colors ${
+                              item.priority === "high" ? "bg-red-500/15 text-red-400 border-red-500/20" :
+                              item.priority === "medium" ? "bg-amber-400/15 text-amber-400 border-amber-400/20" :
+                              item.priority === "low" ? "bg-blue-400/15 text-blue-400 border-blue-400/20" :
+                              "bg-makina-surface text-makina-muted border-makina-border"
+                            }`}
+                          >
+                            <option value="none">No priority</option>
+                            <option value="low">Low</option>
+                            <option value="medium">Medium</option>
+                            <option value="high">High</option>
+                          </select>
+                        )}
 
                         <div className="ml-auto flex items-center gap-1.5">
                           {(viewFilter === "active" || viewFilter === "addressed") && (

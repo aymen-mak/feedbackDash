@@ -73,20 +73,26 @@ export default function ReviewPage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [dailyMetrics, setDailyMetrics] = useState<{ date: string; submissions: number; satisfaction: number; issues: number; resolved: number }[]>([]);
 
+  const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+
   const enrichItems = (data: ReviewItem[]): ReviewItem[] =>
-    data.map((item) => ({
-      ...item,
-      priority: item.priority || ("none" as Priority),
-      starred: item.starred ?? false,
-      tags: item.tags || [],
-      escalated: item.escalated ?? false,
-      dismissed: item.dismissed ?? false,
-      archived: item.archived ?? false,
-      deletedAt: item.deletedAt ?? null,
-      screenshotUrl: item.screenshotUrl ?? null,
-      rating: item.rating ?? null,
-      acknowledged: item.acknowledged ?? false,
-    }));
+    data.map((item) => {
+      const isExpiredNew = item.status === "new" && (Date.now() - new Date(item.createdAt).getTime()) > TWELVE_HOURS;
+      return {
+        ...item,
+        status: isExpiredNew ? "reviewed" as const : item.status,
+        priority: item.priority || ("none" as Priority),
+        starred: item.starred ?? false,
+        tags: item.tags || [],
+        escalated: item.escalated ?? false,
+        dismissed: item.dismissed ?? false,
+        archived: item.archived ?? false,
+        deletedAt: item.deletedAt ?? null,
+        screenshotUrl: item.screenshotUrl ?? null,
+        rating: item.rating ?? null,
+        acknowledged: item.acknowledged ?? false,
+      };
+    });
 
   useEffect(() => {
     Promise.all([

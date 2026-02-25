@@ -46,13 +46,20 @@ export interface FeedbackItemData {
   acknowledged?: boolean;
 }
 
-const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
-  "love-it": { emoji: "🎉", label: "Love it!" },
-  "easy-to-use": { emoji: "✨", label: "Easy to use" },
-  "great-support": { emoji: "👏", label: "Great support" },
-  "impressive": { emoji: "🤩", label: "Impressive" },
-  "helpful": { emoji: "🙌", label: "Helpful" },
-  "confusing": { emoji: "😕", label: "Confusing" },
+const QUICK_ACTION_LABELS: Record<string, { label: string }> = {
+  "works-well": { label: "Works well" },
+  "needs-improvement": { label: "Needs improvement" },
+  "missing-feature": { label: "Missing feature" },
+  "performance-issue": { label: "Performance issue" },
+  "hard-to-use": { label: "Hard to use" },
+  "good-docs": { label: "Good documentation" },
+  // Legacy labels for older submissions
+  "love-it": { label: "Love it!" },
+  "easy-to-use": { label: "Easy to use" },
+  "great-support": { label: "Great support" },
+  "impressive": { label: "Impressive" },
+  "helpful": { label: "Helpful" },
+  "confusing": { label: "Confusing" },
 };
 
 function formatTimestamp(date: string | Date): { relative: string; absolute: string } {
@@ -128,11 +135,12 @@ interface FeedbackCardProps {
   showInternalStatus?: boolean;
   hideReplyInput?: boolean;
   hidePublicStatus?: boolean;
+  hidePriority?: boolean;
   onStatusChange?: (id: string, status: FeedbackStatus) => void;
   onItemUpdate?: (item: FeedbackItemData) => void;
 }
 
-export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, hidePublicStatus, onStatusChange, onItemUpdate }: FeedbackCardProps) {
+export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, hidePublicStatus, hidePriority, onStatusChange, onItemUpdate }: FeedbackCardProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySent, setReplySent] = useState(false);
@@ -216,7 +224,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
     <>
       <div
         onClick={handleCardClick}
-        className={`group rounded-md bg-makina-card border border-makina-border border-l-[3px] ${priorityBorder[priority]} p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover ${hideReplyInput ? "" : "cursor-pointer"}`}
+        className={`group rounded-md bg-makina-card border border-makina-border border-l-[3px] ${hidePriority ? "border-l-transparent" : priorityBorder[priority]} p-4 hover-lift hover:border-makina-subtle hover:bg-makina-card-hover ${hideReplyInput ? "" : "cursor-pointer"}`}
       >
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-makina-surface text-sm font-bold text-makina-accent border border-makina-border">
@@ -234,7 +242,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${typeColors[item.type] || ""}`}>
                 {item.type}
               </span>
-              {priority !== "none" && (
+              {priority !== "none" && !hidePriority && (
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   priority === "high" ? "bg-red-500/15 text-red-400" :
                   priority === "medium" ? "bg-amber-400/15 text-amber-400" :
@@ -255,8 +263,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
             {/* Content */}
             <div className="mt-2">
               {quickAction && (
-                <div className="inline-flex items-center gap-1.5 rounded-md bg-makina-surface px-3 py-1.5 text-sm">
-                  <span>{quickAction.emoji}</span>
+                <div className="inline-flex items-center rounded-md bg-makina-surface px-3 py-1.5 text-sm">
                   <span className="font-medium">{quickAction.label}</span>
                 </div>
               )}

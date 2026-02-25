@@ -23,12 +23,12 @@ const categoryPrompts: Record<CategoryId, string> = {
 };
 
 const QUICK_ACTIONS = [
-  { id: "love-it", emoji: "\u{1F389}", label: "Love it!" },
-  { id: "easy-to-use", emoji: "\u2728", label: "Easy to use" },
-  { id: "great-support", emoji: "\u{1F44F}", label: "Great support" },
-  { id: "impressive", emoji: "\u{1F929}", label: "Impressive" },
-  { id: "helpful", emoji: "\u{1F64C}", label: "Helpful" },
-  { id: "confusing", emoji: "\u{1F615}", label: "Confusing" },
+  { id: "works-well", label: "Works well" },
+  { id: "needs-improvement", label: "Needs improvement" },
+  { id: "missing-feature", label: "Missing feature" },
+  { id: "performance-issue", label: "Performance issue" },
+  { id: "hard-to-use", label: "Hard to use" },
+  { id: "good-docs", label: "Good documentation" },
 ];
 
 interface Stats {
@@ -220,20 +220,19 @@ export default function FeedbackPage() {
 
               {/* Quick reactions -- compact row */}
               <div className="space-y-1.5">
-                <label className="text-[10px] font-medium text-makina-text/50 uppercase tracking-wider">Quick reaction <span className="normal-case">(optional)</span></label>
+                <label className="text-[10px] font-medium text-makina-text/50 uppercase tracking-wider">Quick tag <span className="normal-case">(optional)</span></label>
                 <div className="flex flex-wrap gap-1.5">
                   {QUICK_ACTIONS.map((action) => (
                     <button
                       key={action.id}
                       onClick={() => setQuickAction(quickAction === action.id ? null : action.id)}
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-all ${
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] transition-all ${
                         quickAction === action.id
                           ? "bg-makina-accent-dim text-makina-accent border border-makina-accent/30"
                           : "bg-makina-surface text-makina-text/70 border border-makina-border hover:text-makina-text hover:border-makina-accent/30"
                       }`}
                     >
-                      <span className="text-[11px]">{action.emoji}</span>
-                      <span>{action.label}</span>
+                      {action.label}
                     </button>
                   ))}
                 </div>
@@ -377,17 +376,16 @@ export default function FeedbackPage() {
 
             {/* Common tags */}
             <div className="rounded-xl bg-makina-card border border-makina-border p-4 space-y-3">
-              <span className="text-xs font-semibold text-makina-text/60 uppercase tracking-wider">Common Reactions</span>
+              <span className="text-xs font-semibold text-makina-text/60 uppercase tracking-wider">Common Tags</span>
               <div className="flex flex-wrap gap-1.5">
                 {(stats?.reactionTotals ?? []).slice(0, 6).map((r) => (
                   <span key={r.label} className="inline-flex items-center gap-1 rounded-md bg-makina-surface border border-makina-border/50 px-2 py-1 text-[11px] text-makina-muted">
-                    <span>{r.emoji}</span>
                     <span>{r.label}</span>
                     <span className="text-makina-subtle font-medium ml-0.5">{r.count}</span>
                   </span>
                 ))}
                 {(!stats || stats.reactionTotals.length === 0) && (
-                  <p className="text-xs text-makina-subtle">No reactions yet</p>
+                  <p className="text-xs text-makina-subtle">No tags yet</p>
                 )}
               </div>
             </div>
@@ -410,7 +408,7 @@ export default function FeedbackPage() {
                 {[
                   { n: "1", title: "Submit feedback", desc: "Pick a category, type, and share your thoughts." },
                   { n: "2", title: "Team reviews", desc: "Our team reads and triages every submission." },
-                  { n: "3", title: "Track progress", desc: "Check the dashboard to see the status of your feedback." },
+                  { n: "3", title: "Track progress", desc: "Your submissions appear below so you can follow up." },
                 ].map((step) => (
                   <div key={step.n} className="flex items-start gap-2.5">
                     <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-makina-accent/15 text-[10px] font-bold text-makina-accent">{step.n}</div>
@@ -438,6 +436,7 @@ export default function FeedbackPage() {
               category="all"
               hideReplyInput
               hidePublicStatus
+              hidePriority
               onItemUpdate={handleMyItemUpdate}
             />
           </div>
