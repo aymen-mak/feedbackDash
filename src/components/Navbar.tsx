@@ -54,25 +54,30 @@ export default function Navbar() {
     glass: "Switch to dark mode",
   };
 
+  // On the public feedback page, don't render the navbar at all.
+  // The feedback page renders its own centered logo + controls.
+  const isPublic = pathname === "/";
+  if (isPublic) return null;
+
   return (
     <nav className="sticky top-0 z-40 border-b border-makina-border/30 bg-makina-bg/95 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-6xl items-center px-4">
+      <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
         {/* Brand */}
-        <Link href="/" className="flex items-center shrink-0 mr-10">
+        <Link href="/" className="flex items-center shrink-0 mr-8">
           {theme === "light" ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src="/makina_pulse_light_logo_320x80.png"
+              src="/makina_pulse_light_logo_480x120.png"
               alt="Makina Pulse"
-              className="h-9 w-auto object-contain"
+              className="h-8 w-auto"
             />
           ) : (
             <div
-              className="h-9 w-[144px] object-contain"
+              className="h-8 w-[128px]"
               style={{
                 backgroundColor: "#eafcfe",
-                WebkitMaskImage: `url(/makina_pulse_logo_320x80.png)`,
-                maskImage: `url(/makina_pulse_logo_320x80.png)`,
+                WebkitMaskImage: `url(/makina_pulse_logo_480x120.png)`,
+                maskImage: `url(/makina_pulse_logo_480x120.png)`,
                 WebkitMaskSize: "contain",
                 maskSize: "contain",
                 WebkitMaskRepeat: "no-repeat",

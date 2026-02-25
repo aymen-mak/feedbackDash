@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox, ChevronUp, ChevronDown } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox, ChevronUp, ChevronDown, Sun, Moon, Droplets, Link2 } from "lucide-react";
 import LiveFeed from "@/components/LiveFeed";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { useLoadingBar } from "@/components/LoadingBar";
+import { useTheme } from "@/lib/theme";
 
-type CategoryId = "Platform" | "UI/UX" | "App" | "Operator CLI";
-const CATEGORIES: CategoryId[] = ["Platform", "UI/UX", "App", "Operator CLI"];
+type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
+const CATEGORIES: CategoryId[] = ["Core", "UI/UX", "App", "Operator CLI"];
 
 type FeedbackType = "suggestion" | "issue" | "question";
 
@@ -19,7 +19,7 @@ const SEVERITY_OPTIONS: { id: FeedbackType; label: string; description: string; 
 ];
 
 const categoryPrompts: Record<CategoryId, string> = {
-  Platform: "What would you improve about the platform?",
+  Core: "What would you improve about the core platform?",
   "UI/UX": "What felt confusing or could work better?",
   App: "How can we improve the app experience?",
   "Operator CLI": "What would make the CLI better?",
@@ -41,7 +41,7 @@ interface Stats {
 }
 
 export default function FeedbackPage() {
-  const [category, setCategory] = useState<CategoryId>("Platform");
+  const [category, setCategory] = useState<CategoryId>("Core");
   const [feedbackType, setFeedbackType] = useState<FeedbackType>("suggestion");
   const [quickAction, setQuickAction] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -164,14 +164,97 @@ export default function FeedbackPage() {
     setMyFeedback((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
   };
 
+  const { theme, toggle, comfortText, toggleComfort } = useTheme();
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    const url = window.location.origin;
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const themeIcon: Record<string, React.ReactNode> = {
+    dark: <Sun size={15} />,
+    light: <Droplets size={15} />,
+    glass: <Moon size={15} />,
+  };
+
   return (
     <div className="min-h-screen">
-      <Navbar />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 space-y-6">
+      <main className="mx-auto max-w-6xl px-4 pt-10 pb-8 space-y-6">
 
-        <div className="text-center animate-fade-in-up">
+        {/* Centered logo + utility controls */}
+        <div className="flex flex-col items-center gap-4 animate-fade-in-up">
+          {/* Logo */}
+          <div className="flex items-center justify-center">
+            {theme === "light" ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src="/makina_pulse_light_logo_480x120.png"
+                alt="Makina Pulse"
+                className="h-14 w-auto"
+              />
+            ) : (
+              <div
+                className="h-14 w-[224px]"
+                style={{
+                  backgroundColor: "#eafcfe",
+                  WebkitMaskImage: `url(/makina_pulse_logo_480x120.png)`,
+                  maskImage: `url(/makina_pulse_logo_480x120.png)`,
+                  WebkitMaskSize: "contain",
+                  maskSize: "contain",
+                  WebkitMaskRepeat: "no-repeat",
+                  maskRepeat: "no-repeat",
+                  WebkitMaskPosition: "center",
+                  maskPosition: "center",
+                }}
+                role="img"
+                aria-label="Makina Pulse"
+              />
+            )}
+          </div>
+
           <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
+
+          {/* Compact utility controls */}
+          <div className="flex items-center gap-1">
+            <button
+              onClick={toggleComfort}
+              className={`rounded-lg px-2 py-1.5 text-xs font-bold transition-all ${
+                comfortText
+                  ? "text-makina-accent bg-makina-accent-dim"
+                  : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
+              }`}
+              title={comfortText ? "Switch to compact text" : "Switch to comfortable text"}
+            >
+              Aa
+            </button>
+            <button
+              onClick={toggle}
+              className="rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-all"
+              title="Toggle theme"
+            >
+              {themeIcon[theme]}
+            </button>
+            <button
+              onClick={handleShare}
+              className="relative rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-all"
+              title="Copy feedback link"
+            >
+              {copied ? <Check size={15} className="text-makina-green" /> : <Link2 size={15} />}
+            </button>
+          </div>
         </div>
 
         {/* Zone 2: Form + Context */}
@@ -189,7 +272,7 @@ export default function FeedbackPage() {
               <div className="flex gap-1.5">
                 {CATEGORIES.map((cat) => {
                   const activeColor: Record<string, string> = {
-                    Platform: "bg-blue-500 text-white",
+                    Core: "bg-blue-500 text-white",
                     "UI/UX": "bg-violet-500 text-white",
                     App: "bg-emerald-500 text-white",
                     "Operator CLI": "bg-orange-500 text-white",

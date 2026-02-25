@@ -19,7 +19,7 @@ import {
   Terminal,
 } from "lucide-react";
 
-type CategoryId = "Platform" | "UI/UX" | "App" | "Operator CLI" | "UX";
+type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI" | "UX";
 type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
 
 interface Reply {
@@ -93,7 +93,7 @@ const typeColors: Record<string, string> = {
 };
 
 const categoryColors: Record<string, string> = {
-  Platform: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
+  Core: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
   "UI/UX": "bg-violet-500/15 text-violet-400 border border-violet-500/20",
   App: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20",
   "Operator CLI": "bg-orange-500/15 text-orange-400 border border-orange-500/20",
@@ -108,7 +108,7 @@ const priorityBorder: Record<string, string> = {
 };
 
 const categoryIcons: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Platform: Box,
+  Core: Box,
   "UI/UX": Paintbrush,
   UX: Paintbrush,
   App: Smartphone,

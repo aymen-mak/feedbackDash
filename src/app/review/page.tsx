@@ -27,7 +27,7 @@ import {
 
 type Priority = "none" | "low" | "medium" | "high";
 type FeedbackType = "issue" | "suggestion" | "question";
-type CategoryId = "Platform" | "UI/UX" | "App" | "Operator CLI";
+type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
 type DateFilter = "newest" | "oldest";
 
 interface ReviewItem extends FeedbackItemData {
@@ -595,10 +595,10 @@ export default function ReviewPage() {
                 </div>
                 <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
                 <div className="flex gap-1">
-                  {(["all", "Platform", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
+                  {(["all", "Core", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
                     const activeColor: Record<string, string> = {
                       all: "bg-makina-accent text-makina-bg",
-                      Platform: "bg-blue-500 text-white",
+                      Core: "bg-blue-500 text-white",
                       "UI/UX": "bg-violet-500 text-white",
                       App: "bg-emerald-500 text-white",
                       "Operator CLI": "bg-orange-500 text-white",

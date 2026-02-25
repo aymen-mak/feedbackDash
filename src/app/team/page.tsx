@@ -14,7 +14,7 @@ import {
   Terminal, MessageSquare, Filter, Inbox,
 } from "lucide-react";
 
-type CategoryId = "Platform" | "UI/UX" | "App" | "Operator CLI";
+type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
 type FeedbackType = "issue" | "suggestion" | "question";
 type DateFilter = "newest" | "oldest";
 type Priority = "none" | "low" | "medium" | "high";
@@ -56,10 +56,10 @@ const statusColors: Record<FeedbackStatus, string> = {
   dismissed: "bg-makina-surface text-makina-muted border-makina-border",
 };
 const categoryIcons: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Platform: Box, "UI/UX": Paintbrush, UX: Paintbrush, App: Smartphone, "Operator CLI": Terminal,
+  Core: Box, "UI/UX": Paintbrush, UX: Paintbrush, App: Smartphone, "Operator CLI": Terminal,
 };
 const categoryColorClasses: Record<string, string> = {
-  Platform: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
+  Core: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
   "UI/UX": "bg-violet-500/15 text-violet-400 border border-violet-500/20",
   UX: "bg-violet-500/15 text-violet-400 border border-violet-500/20",
   App: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20",
@@ -371,10 +371,10 @@ export default function TeamPage() {
                 </div>
                 <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
                 <div className="flex gap-1">
-                  {(["all", "Platform", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
+                  {(["all", "Core", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
                     const activeColor: Record<string, string> = {
                       all: "bg-makina-accent text-makina-bg",
-                      Platform: "bg-blue-500 text-white",
+                      Core: "bg-blue-500 text-white",
                       "UI/UX": "bg-violet-500 text-white",
                       App: "bg-emerald-500 text-white",
                       "Operator CLI": "bg-orange-500 text-white",
