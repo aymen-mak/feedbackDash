@@ -262,13 +262,16 @@ export default function ReviewPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  // Inbox grouping: new + high priority at top, rest below — compact two-column grid
+  // Inbox grouping: new + high priority at top, pinned below, rest at bottom
   const newItems = viewFilter === "inbox" ? sorted.filter((i) => i.status === "new" && i.priority !== "high") : [];
   const highPriorityItems = viewFilter === "inbox" ? sorted.filter((i) => i.priority === "high" && i.status !== "new") : [];
   const newAndHighItems = viewFilter === "inbox" ? sorted.filter((i) => i.status === "new" && i.priority === "high") : [];
   const highPriorityCombined = [...newAndHighItems, ...highPriorityItems];
+  const newAndHighIds = new Set([...newItems, ...highPriorityCombined].map((i) => i.id));
+  const pinnedItems = viewFilter === "inbox" ? sorted.filter((i) => i.starred && !newAndHighIds.has(i.id)) : [];
+  const pinnedIds = new Set(pinnedItems.map((i) => i.id));
   const remainingItems = viewFilter === "inbox"
-    ? sorted.filter((i) => !(i.status === "new" && i.priority !== "high") && !(i.priority === "high" && i.status !== "new") && !(i.status === "new" && i.priority === "high"))
+    ? sorted.filter((i) => !newAndHighIds.has(i.id) && !pinnedIds.has(i.id))
     : sorted;
 
   const totalInbox = items.filter((i) => !i.dismissed).length;
@@ -731,17 +734,31 @@ export default function ReviewPage() {
                   </div>
                 )}
 
+                {/* Pinned items */}
+                {pinnedItems.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 pt-2 pb-1">
+                      <div className="flex-1 h-px bg-makina-border" />
+                      <Pin size={11} className="text-amber-400" />
+                      <span className="text-[10px] text-amber-400 uppercase tracking-wider font-semibold">Pinned</span>
+                      <span className="text-[10px] text-makina-muted bg-amber-500/10 rounded-full px-1.5 py-0.5">{pinnedItems.length}</span>
+                      <div className="flex-1 h-px bg-makina-border" />
+                    </div>
+                    {pinnedItems.map((item, index) => renderFeedbackItem(item, newItems.length + highPriorityCombined.length + index))}
+                  </div>
+                )}
+
                 {/* Remaining items */}
                 {remainingItems.length > 0 && (
                   <div className="space-y-2">
-                    {(newItems.length > 0 || highPriorityCombined.length > 0) && (
+                    {(newItems.length > 0 || highPriorityCombined.length > 0 || pinnedItems.length > 0) && (
                       <div className="flex items-center gap-2 pt-2 pb-1">
                         <div className="flex-1 h-px bg-makina-border" />
                         <span className="text-[10px] text-makina-muted uppercase tracking-wider">All other</span>
                         <div className="flex-1 h-px bg-makina-border" />
                       </div>
                     )}
-                    {remainingItems.map((item, index) => renderFeedbackItem(item, newItems.length + highPriorityCombined.length + index))}
+                    {remainingItems.map((item, index) => renderFeedbackItem(item, newItems.length + highPriorityCombined.length + pinnedItems.length + index))}
                   </div>
                 )}
               </>
