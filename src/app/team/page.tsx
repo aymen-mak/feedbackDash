@@ -115,6 +115,7 @@ export default function TeamPage() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [clickedItemId, setClickedItemId] = useState<string | null>(null);
 
   const enrichItems = (data: TeamItem[]): TeamItem[] =>
     data.map((item) => ({
@@ -409,10 +410,14 @@ export default function TeamPage() {
                       : item.type === "issue"
                       ? "border-amber-500/20 bg-makina-card"
                       : "border-makina-border bg-makina-card"
-                  }`}
+                  } ${clickedItemId === item.id ? "animate-click-ripple" : ""}`}
                 >
                   <button
-                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                    onClick={() => {
+                      setExpandedId(isExpanded ? null : item.id);
+                      setClickedItemId(item.id);
+                      setTimeout(() => setClickedItemId(null), 400);
+                    }}
                     className="w-full flex items-center gap-3 p-4 text-left hover:bg-makina-card-hover transition-colors"
                   >
                     {/* Priority indicator */}
