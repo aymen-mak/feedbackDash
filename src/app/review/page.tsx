@@ -28,7 +28,7 @@ import {
 type Priority = "none" | "low" | "medium" | "high";
 type FeedbackType = "issue" | "suggestion" | "question";
 type CategoryId = "Product" | "UI/UX" | "App" | "Operator CLI";
-type DateFilter = "all" | "7d" | "30d" | "oldest";
+type DateFilter = "newest" | "oldest";
 
 interface ReviewItem extends FeedbackItemData {
   priority: Priority;
@@ -74,7 +74,7 @@ export default function ReviewPage() {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [tagDropdownId, setTagDropdownId] = useState<string | null>(null);
   const [deleteActiveId, setDeleteActiveId] = useState<string | null>(null);
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("newest");
   const [dailyMetrics, setDailyMetrics] = useState<{ date: string; submissions: number; satisfaction: number; issues: number; resolved: number }[]>([]);
   const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
   const { start: lbStart, done: lbDone } = useLoadingBar();
@@ -250,8 +250,6 @@ export default function ReviewPage() {
     if (typeFilter !== "all" && i.type !== typeFilter) return false;
     if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
     if (search && !i.message.toLowerCase().includes(search.toLowerCase()) && !i.userName.toLowerCase().includes(search.toLowerCase())) return false;
-    if (dateFilter === "7d" && Date.now() - new Date(i.createdAt).getTime() > 7 * 86400000) return false;
-    if (dateFilter === "30d" && Date.now() - new Date(i.createdAt).getTime() > 30 * 86400000) return false;
     return true;
   });
 
@@ -587,7 +585,7 @@ export default function ReviewPage() {
                     </button>
                   ))}
                 </div>
-                <div className="h-4 w-px bg-makina-border shrink-0" />
+                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
                 <div className="flex gap-1">
                   {(["all", "Product", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => (
                     <button
@@ -603,12 +601,12 @@ export default function ReviewPage() {
                     </button>
                   ))}
                 </div>
-                <div className="h-4 w-px bg-makina-border shrink-0" />
+                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
               </>
             )}
             <Calendar size={14} className="text-makina-muted shrink-0" />
             <div className="flex gap-1">
-              {([["all", "All time"], ["7d", "7 days"], ["30d", "30 days"], ["oldest", "Oldest"]] as [DateFilter, string][]).map(([val, label]) => (
+              {([["newest", "Latest"], ["oldest", "Earliest"]] as [DateFilter, string][]).map(([val, label]) => (
                 <button
                   key={val}
                   onClick={() => setDateFilter(val)}

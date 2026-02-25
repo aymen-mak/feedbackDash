@@ -11,11 +11,12 @@ import {
   AlertTriangle, Hash, ChevronRight, Clock, Box, Paintbrush, Archive, Trash2,
   RotateCcw, ArrowUpRight, Star as StarIcon, Image as ImageIcon, Search,
   Calendar, XCircle, CheckSquare, XSquare, RefreshCw, Send, X, Smartphone,
-  Terminal, MessageSquare,
+  Terminal, MessageSquare, Filter, Inbox,
 } from "lucide-react";
 
 type CategoryId = "Product" | "UI/UX" | "App" | "Operator CLI";
-type DateFilter = "all" | "7d" | "30d" | "oldest";
+type FeedbackType = "issue" | "suggestion" | "question";
+type DateFilter = "newest" | "oldest";
 type Priority = "none" | "low" | "medium" | "high";
 type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
 type ViewFilter = "active" | "addressed" | "archived" | "deleted";
@@ -84,7 +85,8 @@ export default function TeamPage() {
   const [viewFilter, setViewFilter] = useState<ViewFilter>("active");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("all");
+  const [typeFilter, setTypeFilter] = useState<FeedbackType | "all">("all");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("newest");
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [replyOpenId, setReplyOpenId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -188,27 +190,34 @@ export default function TeamPage() {
     await Promise.all(ids.map((id) => patchItem(id, updates))); setSelectedItems(new Set());
   };
 
-  const sortItems = (list: TeamItem[]) => [...list].sort((a, b) => {
-    const pO: Record<string, number> = { high: 0, medium: 1, low: 2, none: 3 };
-    if ((pO[a.priority] ?? 3) !== (pO[b.priority] ?? 3)) return (pO[a.priority] ?? 3) - (pO[b.priority] ?? 3);
-    const tO: Record<string, number> = { issue: 0, suggestion: 1, question: 2 };
-    if ((tO[a.type] ?? 3) !== (tO[b.type] ?? 3)) return (tO[a.type] ?? 3) - (tO[b.type] ?? 3);
-    return b.upvotes - a.upvotes;
-  });
-
   const currentList = (viewFilter === "addressed" ? addressedItems : viewFilter === "archived" ? archivedItems : viewFilter === "deleted" ? deletedItems : feedback)
     .filter((i) => {
+      if (typeFilter !== "all" && i.type !== typeFilter) return false;
       if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
       if (search && !i.message.toLowerCase().includes(search.toLowerCase()) && !i.userName.toLowerCase().includes(search.toLowerCase())) return false;
-      if (dateFilter === "7d" && Date.now() - new Date(i.createdAt).getTime() > 7 * 86400000) return false;
-      if (dateFilter === "30d" && Date.now() - new Date(i.createdAt).getTime() > 30 * 86400000) return false;
       return true;
     });
-  const sortedItems = dateFilter === "oldest" ? [...currentList].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()) : sortItems(currentList);
+
+  const sorted = [...currentList].sort((a, b) => {
+    if (dateFilter === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    const pOrder: Record<string, number> = { high: 0, medium: 1, low: 2, none: 3 };
+    const pa = pOrder[a.priority] ?? 3;
+    const pb = pOrder[b.priority] ?? 3;
+    if (pa !== pb) return pa - pb;
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
+  // Inbox grouping: new + high priority at top, rest below — matching review page
+  const newItems = viewFilter === "active" ? sorted.filter((i) => i.status === "new" && i.priority !== "high") : [];
+  const highPriorityItems = viewFilter === "active" ? sorted.filter((i) => i.priority === "high" && i.status !== "new") : [];
+  const newAndHighItems = viewFilter === "active" ? sorted.filter((i) => i.status === "new" && i.priority === "high") : [];
+  const highPriorityCombined = [...newAndHighItems, ...highPriorityItems];
+  const remainingItems = viewFilter === "active"
+    ? sorted.filter((i) => !(i.status === "new" && i.priority !== "high") && !(i.priority === "high" && i.status !== "new") && !(i.status === "new" && i.priority === "high"))
+    : sorted;
+
   const urgentCount = feedback.filter((f) => f.priority === "high" || f.type === "issue").length;
   const actionableCount = feedback.filter((f) => f.type === "issue" || f.type === "suggestion").length;
-  const urgentItems = viewFilter === "active" ? sortedItems.filter((f) => f.priority === "high") : [];
-  const nonUrgentItems = viewFilter === "active" ? sortedItems.filter((f) => f.priority !== "high") : sortedItems;
 
   if (loading) return (<PasswordGate><div className="min-h-screen"><Navbar /><main className="mx-auto max-w-6xl px-4 py-6 flex items-center justify-center h-[80vh]"><div className="text-sm text-makina-muted animate-pulse">Loading team board...</div></main></div></PasswordGate>);
 
@@ -321,28 +330,65 @@ export default function TeamPage() {
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up" style={{ animationDelay: "50ms" }}>
-            <div className="flex items-center gap-1 border-b border-makina-border">
-              {([{ key: "active" as ViewFilter, label: "Active", count: feedback.length }, { key: "addressed" as ViewFilter, label: "Addressed", count: addressedItems.length }, { key: "archived" as ViewFilter, label: "Archived", count: archivedItems.length }, { key: "deleted" as ViewFilter, label: "Deleted", count: deletedItems.length }]).map((tab) => (
-                <button key={tab.key} onClick={() => { setViewFilter(tab.key); setSelectedItems(new Set()); }} className={`btn-tactile flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${viewFilter === tab.key ? "border-makina-accent text-makina-accent" : "border-transparent text-makina-muted hover:text-makina-text"}`}>
-                  {tab.key === "addressed" && <CheckSquare size={14} />}{tab.key === "archived" && <Archive size={14} />}{tab.key === "deleted" && <Trash2 size={14} />}
-                  {tab.label}<span className={`text-xs rounded-full px-1.5 py-0.5 ${viewFilter === tab.key ? "bg-makina-accent-dim text-makina-accent" : "bg-makina-card text-makina-subtle"}`}>{tab.count}</span>
-                </button>
+          {/* View tabs */}
+          <div className="flex items-center gap-1 border-b border-makina-border animate-fade-in-up" style={{ animationDelay: "50ms" }}>
+            {([{ key: "active" as ViewFilter, label: "Active", count: feedback.length, icon: <Inbox size={14} /> }, { key: "addressed" as ViewFilter, label: "Addressed", count: addressedItems.length, icon: <CheckSquare size={14} /> }, { key: "archived" as ViewFilter, label: "Archived", count: archivedItems.length, icon: <Archive size={14} /> }, { key: "deleted" as ViewFilter, label: "Deleted", count: deletedItems.length, icon: <Trash2 size={14} /> }]).map((tab) => (
+              <button key={tab.key} onClick={() => { setViewFilter(tab.key); setSelectedItems(new Set()); }} className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${viewFilter === tab.key ? "border-makina-accent text-makina-accent" : "border-transparent text-makina-muted hover:text-makina-text"}`}>
+                {tab.icon}
+                {tab.label}
+                <span className={`text-xs rounded-full px-1.5 py-0.5 ${viewFilter === tab.key ? "bg-makina-accent-dim text-makina-accent" : "bg-makina-card text-makina-subtle"}`}>{tab.count}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Filters — single row */}
+          <div className="flex items-center gap-2 flex-wrap animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+            {viewFilter !== "deleted" && viewFilter !== "archived" && (
+              <>
+                <Filter size={14} className="text-makina-muted shrink-0" />
+                <div className="flex gap-1">
+                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => setTypeFilter(type)}
+                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        typeFilter === type
+                          ? "bg-makina-accent text-makina-bg"
+                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                      }`}
+                    >
+                      {type === "all" ? "All types" : type}
+                    </button>
+                  ))}
+                </div>
+                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
+                <div className="flex gap-1">
+                  {(["all", "Product", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                        categoryFilter === cat
+                          ? "bg-makina-blue text-white"
+                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                      }`}
+                    >
+                      {cat === "all" ? "All categories" : cat}
+                    </button>
+                  ))}
+                </div>
+                <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
+              </>
+            )}
+            <Calendar size={14} className="text-makina-muted shrink-0" />
+            <div className="flex gap-1">
+              {([["newest", "Latest"], ["oldest", "Earliest"]] as [DateFilter, string][]).map(([v, l]) => (
+                <button key={v} onClick={() => setDateFilter(v)} className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${dateFilter === v ? "bg-makina-accent text-makina-bg" : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"}`}>{l}</button>
               ))}
             </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="flex gap-1">
-                {(["all", "Product", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => (
-                  <button key={cat} onClick={() => setCategoryFilter(cat)} className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${categoryFilter === cat ? "bg-makina-accent text-makina-bg" : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"}`}>{cat === "all" ? "All" : cat}</button>
-                ))}
-              </div>
-              <Calendar size={14} className="text-makina-muted" />
-              <div className="flex gap-1">
-                {([["all", "All time"], ["7d", "7 days"], ["30d", "30 days"], ["oldest", "Oldest"]] as [DateFilter, string][]).map(([v, l]) => (
-                  <button key={v} onClick={() => setDateFilter(v)} className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${dateFilter === v ? "bg-makina-accent text-makina-bg" : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"}`}>{l}</button>
-                ))}
-              </div>
-              <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" /><input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search..." className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48" /></div>
+            <div className="relative ml-auto">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-makina-subtle" />
+              <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search feedback..." className="rounded-md bg-makina-card border border-makina-border pl-9 pr-4 py-1.5 text-xs text-makina-text placeholder:text-makina-subtle focus:outline-none focus:border-makina-accent/50 w-48" />
             </div>
           </div>
 
@@ -359,22 +405,55 @@ export default function TeamPage() {
 
           {viewFilter === "deleted" && deletedItems.length > 0 && <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 px-4 py-3 text-xs text-amber-400">Items in Deleted are automatically removed after 30 days.</div>}
 
-          {viewFilter === "active" && urgentItems.length > 0 && nonUrgentItems.length > 0 ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 pb-1"><AlertTriangle size={13} className="text-makina-red" /><h3 className="text-xs font-semibold text-makina-red uppercase tracking-wider">Urgent</h3><span className="text-[10px] text-makina-muted bg-red-500/10 rounded-full px-1.5 py-0.5">{urgentItems.length}</span></div>
-                {urgentItems.map(renderItem)}
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 pb-1"><Hash size={13} className="text-makina-muted" /><h3 className="text-xs font-semibold text-makina-muted uppercase tracking-wider">Other</h3><span className="text-[10px] text-makina-muted bg-makina-surface rounded-full px-1.5 py-0.5">{nonUrgentItems.length}</span></div>
-                {nonUrgentItems.map(renderItem)}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2 animate-fade-in-up" style={{ animationDelay: "100ms" }}>{sortedItems.map(renderItem)}</div>
-          )}
+          <div className="space-y-2">
+            {viewFilter === "active" ? (
+              <>
+                {/* At-a-glance: New + High priority in side-by-side columns */}
+                {(newItems.length > 0 || highPriorityCombined.length > 0) && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {newItems.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 pb-1">
+                          <Inbox size={13} className="text-makina-accent" />
+                          <h3 className="text-xs font-semibold text-makina-accent uppercase tracking-wider">New</h3>
+                          <span className="text-[10px] text-makina-muted bg-makina-accent-dim rounded-full px-1.5 py-0.5">{newItems.length}</span>
+                        </div>
+                        {newItems.map(renderItem)}
+                      </div>
+                    )}
+                    {highPriorityCombined.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 pb-1">
+                          <AlertTriangle size={13} className="text-makina-red" />
+                          <h3 className="text-xs font-semibold text-makina-red uppercase tracking-wider">Urgent</h3>
+                          <span className="text-[10px] text-makina-muted bg-red-500/10 rounded-full px-1.5 py-0.5">{highPriorityCombined.length}</span>
+                        </div>
+                        {highPriorityCombined.map(renderItem)}
+                      </div>
+                    )}
+                  </div>
+                )}
 
-          {sortedItems.length === 0 && (
+                {/* Remaining items */}
+                {remainingItems.length > 0 && (
+                  <div className="space-y-2">
+                    {(newItems.length > 0 || highPriorityCombined.length > 0) && (
+                      <div className="flex items-center gap-2 pt-2 pb-1">
+                        <div className="flex-1 h-px bg-makina-border" />
+                        <span className="text-[10px] text-makina-muted uppercase tracking-wider">All other</span>
+                        <div className="flex-1 h-px bg-makina-border" />
+                      </div>
+                    )}
+                    {remainingItems.map(renderItem)}
+                  </div>
+                )}
+              </>
+            ) : (
+              sorted.map(renderItem)
+            )}
+          </div>
+
+          {sorted.length === 0 && (
             <div className="text-center py-16 space-y-3 animate-fade-in-up">
               {viewFilter === "deleted" ? (<><Trash2 size={32} className="text-makina-subtle mx-auto" /><p className="text-sm text-makina-muted">Deleted is empty</p></>) :
                viewFilter === "archived" ? (<><Archive size={32} className="text-makina-subtle mx-auto" /><p className="text-sm text-makina-muted">No archived items</p></>) :
