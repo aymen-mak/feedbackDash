@@ -196,34 +196,23 @@ export default function FeedbackPage() {
 
         {/* Centered logo + utility controls */}
         <div className="flex flex-col items-center gap-4 animate-fade-in-up">
-          {/* Logo */}
-          <div className="flex items-center justify-center">
-            {theme === "light" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src="/makina_pulse_light_logo_480x120.png"
-                alt="Makina Pulse"
-                className="h-14 w-auto"
-              />
-            ) : (
-              <div
-                className="h-14 w-[224px]"
-                style={{
-                  backgroundColor: "#eafcfe",
-                  WebkitMaskImage: `url(/makina_pulse_logo_480x120.png)`,
-                  maskImage: `url(/makina_pulse_logo_480x120.png)`,
-                  WebkitMaskSize: "contain",
-                  maskSize: "contain",
-                  WebkitMaskRepeat: "no-repeat",
-                  maskRepeat: "no-repeat",
-                  WebkitMaskPosition: "center",
-                  maskPosition: "center",
-                }}
-                role="img"
-                aria-label="Makina Pulse"
-              />
-            )}
-          </div>
+          {/* Logo — mask technique for both themes, same image, different fill color */}
+          <div
+            className="h-16 w-[256px]"
+            style={{
+              backgroundColor: theme === "light" ? "#0f172a" : "#eafcfe",
+              WebkitMaskImage: `url(/makina_pulse_logo_480x120.png)`,
+              maskImage: `url(/makina_pulse_logo_480x120.png)`,
+              WebkitMaskSize: "contain",
+              maskSize: "contain",
+              WebkitMaskRepeat: "no-repeat",
+              maskRepeat: "no-repeat",
+              WebkitMaskPosition: "center",
+              maskPosition: "center",
+            }}
+            role="img"
+            aria-label="Makina Pulse"
+          />
 
           <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
 

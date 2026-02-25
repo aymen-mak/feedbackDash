@@ -64,31 +64,22 @@ export default function Navbar() {
       <div className="mx-auto flex h-14 max-w-6xl items-center px-4">
         {/* Brand */}
         <Link href="/" className="flex items-center shrink-0 mr-8">
-          {theme === "light" ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src="/makina_pulse_light_logo_480x120.png"
-              alt="Makina Pulse"
-              className="h-8 w-auto"
-            />
-          ) : (
-            <div
-              className="h-8 w-[128px]"
-              style={{
-                backgroundColor: "#eafcfe",
-                WebkitMaskImage: `url(/makina_pulse_logo_480x120.png)`,
-                maskImage: `url(/makina_pulse_logo_480x120.png)`,
-                WebkitMaskSize: "contain",
-                maskSize: "contain",
-                WebkitMaskRepeat: "no-repeat",
-                maskRepeat: "no-repeat",
-                WebkitMaskPosition: "left center",
-                maskPosition: "left center",
-              }}
-              role="img"
-              aria-label="Makina Pulse"
-            />
-          )}
+          <div
+            className="h-8 w-[128px]"
+            style={{
+              backgroundColor: theme === "light" ? "#0f172a" : "#eafcfe",
+              WebkitMaskImage: `url(/makina_pulse_logo_480x120.png)`,
+              maskImage: `url(/makina_pulse_logo_480x120.png)`,
+              WebkitMaskSize: "contain",
+              maskSize: "contain",
+              WebkitMaskRepeat: "no-repeat",
+              maskRepeat: "no-repeat",
+              WebkitMaskPosition: "left center",
+              maskPosition: "left center",
+            }}
+            role="img"
+            aria-label="Makina Pulse"
+          />
         </Link>
 
         {/* Desktop nav links */}
