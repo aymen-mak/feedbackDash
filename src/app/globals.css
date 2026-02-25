@@ -350,3 +350,126 @@ html.text-size-2 .text-sm {
   transform: scale(2.5);
   transition: opacity 0s, transform 0s;
 }
+
+/* ── Landing page: Isometric scene ── */
+.iso-scene {
+  position: relative;
+  width: 320px;
+  height: 200px;
+  transform: rotateX(55deg) rotateZ(-45deg);
+  transform-style: preserve-3d;
+  perspective: 800px;
+}
+
+/* Central platform — isometric diamond */
+.iso-platform {
+  position: absolute;
+  inset: 40px 40px;
+  background: linear-gradient(
+    135deg,
+    var(--color-makina-accent-dim) 0%,
+    rgba(91, 156, 246, 0.04) 100%
+  );
+  border: 1px solid var(--color-makina-accent);
+  border-radius: 8px;
+  opacity: 0.35;
+  animation: iso-platform-pulse 4s ease-in-out infinite;
+}
+@keyframes iso-platform-pulse {
+  0%, 100% { opacity: 0.35; }
+  50% { opacity: 0.5; }
+}
+
+/* Floating cards above the platform */
+.iso-card {
+  position: absolute;
+  width: 64px;
+  height: 44px;
+  border-radius: 6px;
+  background: var(--color-makina-card);
+  border: 1px solid var(--color-makina-border);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotateX(-55deg) rotateZ(45deg);
+  animation: iso-float 6s ease-in-out infinite;
+}
+.iso-card-inner {
+  padding: 6px;
+}
+.iso-card-1 {
+  top: 10px;
+  left: 50px;
+  animation-delay: 0s;
+}
+.iso-card-2 {
+  top: 60px;
+  right: 30px;
+  animation-delay: -2s;
+}
+.iso-card-3 {
+  bottom: 10px;
+  left: 100px;
+  animation-delay: -4s;
+}
+@keyframes iso-float {
+  0%, 100% { transform: rotateX(-55deg) rotateZ(45deg) translateZ(20px); }
+  50% { transform: rotateX(-55deg) rotateZ(45deg) translateZ(35px); }
+}
+
+/* Pulse rings emanating from center */
+.iso-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  border: 1px solid var(--color-makina-accent);
+  transform: translate(-50%, -50%);
+  opacity: 0;
+  animation: iso-ring 4s ease-out infinite;
+}
+.iso-pulse-1 { animation-delay: 0s; }
+.iso-pulse-2 { animation-delay: 1.33s; }
+.iso-pulse-3 { animation-delay: 2.66s; }
+@keyframes iso-ring {
+  0% { width: 40px; height: 40px; opacity: 0.5; }
+  100% { width: 260px; height: 260px; opacity: 0; }
+}
+
+/* Small floating data dots */
+.iso-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--color-makina-accent);
+  animation: iso-dot-float 5s ease-in-out infinite;
+}
+.iso-dot-1 { top: 20px; left: 20px; animation-delay: 0s; }
+.iso-dot-2 { top: 40px; right: 20px; animation-delay: -1s; }
+.iso-dot-3 { bottom: 30px; left: 30px; animation-delay: -2s; }
+.iso-dot-4 { bottom: 20px; right: 50px; animation-delay: -3s; }
+.iso-dot-5 { top: 80px; left: 140px; animation-delay: -4s; }
+@keyframes iso-dot-float {
+  0%, 100% { opacity: 0.3; transform: translateY(0); }
+  50% { opacity: 0.8; transform: translateY(-8px); }
+}
+
+/* Scroll indicator */
+.animate-bounce-slow {
+  animation: bounce-slow 2.5s ease-in-out infinite;
+}
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(6px); }
+}
+.animate-scroll-dot {
+  animation: scroll-dot 2s ease-in-out infinite;
+}
+@keyframes scroll-dot {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(6px); opacity: 0; }
+}

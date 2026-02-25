@@ -54,7 +54,7 @@ export default function Navbar() {
   };
 
   const links = [
-    { href: "/", label: "Feedback" },
+    { href: "/feedback", label: "Feedback" },
     { href: "/review", label: "Review" },
     { href: "/team", label: "Team" },
   ];
@@ -87,10 +87,8 @@ export default function Navbar() {
     </span>
   );
 
-  // On the public feedback page, don't render the navbar at all.
-  // The feedback page renders its own centered logo + controls.
-  const isPublic = pathname === "/";
-  if (isPublic) return null;
+  // On the landing page, don't render the navbar — it has its own header.
+  if (pathname === "/") return null;
 
   return (
     <nav className="sticky top-0 z-40 border-b border-makina-border/30 bg-makina-bg/95 backdrop-blur-xl">
