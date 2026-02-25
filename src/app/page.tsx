@@ -7,8 +7,8 @@ import LiveFeed from "@/components/LiveFeed";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { useLoadingBar } from "@/components/LoadingBar";
 
-type CategoryId = "Product" | "UI/UX" | "App" | "Operator CLI";
-const CATEGORIES: CategoryId[] = ["Product", "UI/UX", "App", "Operator CLI"];
+type CategoryId = "Platform" | "UI/UX" | "App" | "Operator CLI";
+const CATEGORIES: CategoryId[] = ["Platform", "UI/UX", "App", "Operator CLI"];
 
 type FeedbackType = "suggestion" | "issue" | "question";
 
@@ -19,7 +19,7 @@ const SEVERITY_OPTIONS: { id: FeedbackType; label: string; description: string; 
 ];
 
 const categoryPrompts: Record<CategoryId, string> = {
-  Product: "What would you improve about the product?",
+  Platform: "What would you improve about the platform?",
   "UI/UX": "What felt confusing or could work better?",
   App: "How can we improve the app experience?",
   "Operator CLI": "What would make the CLI better?",
@@ -41,7 +41,7 @@ interface Stats {
 }
 
 export default function FeedbackPage() {
-  const [category, setCategory] = useState<CategoryId>("Product");
+  const [category, setCategory] = useState<CategoryId>("Platform");
   const [feedbackType, setFeedbackType] = useState<FeedbackType>("suggestion");
   const [quickAction, setQuickAction] = useState<string | null>(null);
   const [message, setMessage] = useState("");
@@ -187,19 +187,27 @@ export default function FeedbackPage() {
               </div>
               {/* Category pills in header */}
               <div className="flex gap-1.5">
-                {CATEGORIES.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setCategory(cat)}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
-                      category === cat
-                        ? "gradient-accent text-makina-bg"
-                        : "bg-makina-surface border border-makina-border text-makina-text/70 hover:border-makina-accent/30 hover:text-makina-text"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
+                {CATEGORIES.map((cat) => {
+                  const activeColor: Record<string, string> = {
+                    Platform: "bg-blue-500 text-white",
+                    "UI/UX": "bg-violet-500 text-white",
+                    App: "bg-emerald-500 text-white",
+                    "Operator CLI": "bg-orange-500 text-white",
+                  };
+                  return (
+                    <button
+                      key={cat}
+                      onClick={() => setCategory(cat)}
+                      className={`rounded-full px-3 py-1 text-xs font-medium transition-all ${
+                        category === cat
+                          ? activeColor[cat]
+                          : "bg-makina-surface border border-makina-border text-makina-text/70 hover:border-makina-accent/30 hover:text-makina-text"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

@@ -14,7 +14,7 @@ import {
   Terminal, MessageSquare, Filter, Inbox,
 } from "lucide-react";
 
-type CategoryId = "Product" | "UI/UX" | "App" | "Operator CLI";
+type CategoryId = "Platform" | "UI/UX" | "App" | "Operator CLI";
 type FeedbackType = "issue" | "suggestion" | "question";
 type DateFilter = "newest" | "oldest";
 type Priority = "none" | "low" | "medium" | "high";
@@ -56,10 +56,10 @@ const statusColors: Record<FeedbackStatus, string> = {
   dismissed: "bg-makina-surface text-makina-muted border-makina-border",
 };
 const categoryIcons: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Product: Box, "UI/UX": Paintbrush, UX: Paintbrush, App: Smartphone, "Operator CLI": Terminal,
+  Platform: Box, "UI/UX": Paintbrush, UX: Paintbrush, App: Smartphone, "Operator CLI": Terminal,
 };
 const categoryColorClasses: Record<string, string> = {
-  Product: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
+  Platform: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
   "UI/UX": "bg-violet-500/15 text-violet-400 border border-violet-500/20",
   UX: "bg-violet-500/15 text-violet-400 border border-violet-500/20",
   App: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20",
@@ -347,35 +347,52 @@ export default function TeamPage() {
               <>
                 <Filter size={14} className="text-makina-muted shrink-0" />
                 <div className="flex gap-1">
-                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setTypeFilter(type)}
-                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        typeFilter === type
-                          ? "bg-makina-accent text-makina-bg"
-                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                      }`}
-                    >
-                      {type === "all" ? "All types" : type}
-                    </button>
-                  ))}
+                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => {
+                    const activeColor: Record<string, string> = {
+                      all: "bg-makina-accent text-makina-bg",
+                      issue: "bg-red-500 text-white",
+                      suggestion: "bg-blue-500 text-white",
+                      question: "bg-violet-500 text-white",
+                    };
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setTypeFilter(type)}
+                        className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                          typeFilter === type
+                            ? activeColor[type]
+                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                        }`}
+                      >
+                        {type === "all" ? "All types" : type}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
                 <div className="flex gap-1">
-                  {(["all", "Product", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setCategoryFilter(cat)}
-                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        categoryFilter === cat
-                          ? "bg-makina-blue text-white"
-                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                      }`}
-                    >
-                      {cat === "all" ? "All categories" : cat}
-                    </button>
-                  ))}
+                  {(["all", "Platform", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
+                    const activeColor: Record<string, string> = {
+                      all: "bg-makina-accent text-makina-bg",
+                      Platform: "bg-blue-500 text-white",
+                      "UI/UX": "bg-violet-500 text-white",
+                      App: "bg-emerald-500 text-white",
+                      "Operator CLI": "bg-orange-500 text-white",
+                    };
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setCategoryFilter(cat)}
+                        className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                          categoryFilter === cat
+                            ? activeColor[cat]
+                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                        }`}
+                      >
+                        {cat === "all" ? "All categories" : cat}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
               </>

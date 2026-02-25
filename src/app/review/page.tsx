@@ -27,7 +27,7 @@ import {
 
 type Priority = "none" | "low" | "medium" | "high";
 type FeedbackType = "issue" | "suggestion" | "question";
-type CategoryId = "Product" | "UI/UX" | "App" | "Operator CLI";
+type CategoryId = "Platform" | "UI/UX" | "App" | "Operator CLI";
 type DateFilter = "newest" | "oldest";
 
 interface ReviewItem extends FeedbackItemData {
@@ -571,35 +571,52 @@ export default function ReviewPage() {
               <>
                 <Filter size={14} className="text-makina-muted shrink-0" />
                 <div className="flex gap-1">
-                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => (
-                    <button
-                      key={type}
-                      onClick={() => setTypeFilter(type)}
-                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        typeFilter === type
-                          ? "bg-makina-accent text-makina-bg"
-                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                      }`}
-                    >
-                      {type === "all" ? "All types" : type}
-                    </button>
-                  ))}
+                  {(["all", "issue", "suggestion", "question"] as (FeedbackType | "all")[]).map((type) => {
+                    const activeColor: Record<string, string> = {
+                      all: "bg-makina-accent text-makina-bg",
+                      issue: "bg-red-500 text-white",
+                      suggestion: "bg-blue-500 text-white",
+                      question: "bg-violet-500 text-white",
+                    };
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => setTypeFilter(type)}
+                        className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                          typeFilter === type
+                            ? activeColor[type]
+                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                        }`}
+                      >
+                        {type === "all" ? "All types" : type}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
                 <div className="flex gap-1">
-                  {(["all", "Product", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setCategoryFilter(cat)}
-                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                        categoryFilter === cat
-                          ? "bg-makina-blue text-white"
-                          : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
-                      }`}
-                    >
-                      {cat === "all" ? "All categories" : cat}
-                    </button>
-                  ))}
+                  {(["all", "Platform", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => {
+                    const activeColor: Record<string, string> = {
+                      all: "bg-makina-accent text-makina-bg",
+                      Platform: "bg-blue-500 text-white",
+                      "UI/UX": "bg-violet-500 text-white",
+                      App: "bg-emerald-500 text-white",
+                      "Operator CLI": "bg-orange-500 text-white",
+                    };
+                    return (
+                      <button
+                        key={cat}
+                        onClick={() => setCategoryFilter(cat)}
+                        className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                          categoryFilter === cat
+                            ? activeColor[cat]
+                            : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
+                        }`}
+                      >
+                        {cat === "all" ? "All categories" : cat}
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="h-6 w-[2px] bg-makina-subtle/50 rounded-full shrink-0 mx-1" />
               </>
