@@ -496,7 +496,7 @@ export default function ReviewPage() {
                 <span className="w-px h-4 bg-makina-border/60 mx-1 shrink-0" />
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-makina-accent-dim/40 border border-makina-accent/15 px-2.5 py-0.5 text-[10px] font-medium text-makina-accent shrink-0 whitespace-nowrap">
                   <span className="w-1 h-1 rounded-full bg-makina-accent/60" />
-                  {item.reviewedBy}
+                  {item.status === "addressed" ? "Addressed" : item.status === "dismissed" ? "Dismissed" : item.archived ? "Archived" : item.escalated ? "Escalated" : "Reviewed"} by {item.reviewedBy}
                 </span>
               </>
             )}
