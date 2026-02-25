@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { writeFile } from "fs/promises";
+import { resolveScreenshotDir } from "@/lib/store";
 
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -44,12 +44,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ url: blob.url }, { status: 201 });
     }
 
-    // Fallback: write to /tmp (writable in serverless) and serve via API route
-    const dir = path.join("/tmp", "screenshots");
-    await mkdir(dir, { recursive: true });
+    // Fallback: write to persistent data/screenshots/ (or /tmp) and serve via API route
+    const dir = resolveScreenshotDir();
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    await writeFile(path.join(dir, filename), buffer);
+    await writeFile(`${dir}/${filename}`, buffer);
 
     return NextResponse.json({ url: `/api/screenshots/${filename}` }, { status: 201 });
   } catch (err) {

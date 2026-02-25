@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
-import path from "path";
+import { resolveScreenshotDir } from "@/lib/store";
 
 const MIME: Record<string, string> = {
   jpg: "image/jpeg",
@@ -20,7 +20,7 @@ export async function GET(
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }
 
-  const filePath = path.join("/tmp", "screenshots", filename);
+  const filePath = `${resolveScreenshotDir()}/${filename}`;
 
   try {
     const data = await readFile(filePath);
