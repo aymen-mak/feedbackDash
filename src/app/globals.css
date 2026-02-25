@@ -266,3 +266,47 @@ html.comfort-text .text-sm {
 .btn-tactile:active {
   animation: btn-press 0.15s ease-out;
 }
+
+/* ── Global loading bar ── */
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(0%); }
+  100% { transform: translateX(100%); }
+}
+
+.loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  z-index: 9999;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.loading-bar::after {
+  content: "";
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, var(--color-makina-accent), transparent);
+  animation: loading-bar 1s ease-in-out infinite;
+}
+
+/* ── Notification toast slide-in ── */
+@keyframes toast-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes toast-out {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100%); opacity: 0; }
+}
+
+.toast-enter {
+  animation: toast-in 0.3s ease-out both;
+}
+.toast-exit {
+  animation: toast-out 0.3s ease-in both;
+}

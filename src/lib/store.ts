@@ -4,7 +4,7 @@ import path from "path";
 // ── Types ──
 export type FeedbackType = "issue" | "suggestion" | "question";
 export type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
-export type CategoryId = "Product" | "UX";
+export type CategoryId = "Product" | "UI/UX" | "App" | "Operator CLI" | "UX";
 export type Priority = "none" | "low" | "medium" | "high";
 
 export interface Reply {
@@ -392,7 +392,7 @@ export function getStats() {
   const unsatisfiedPct = ratedTotal > 0 ? 100 - satisfiedPct - neutralPct : 0;
 
   // Category stats
-  const categories: CategoryId[] = ["Product", "UX"];
+  const categories: CategoryId[] = ["Product", "UI/UX", "App", "Operator CLI"];
   const categoryStats = categories.map((cat) => {
     const items = notDismissed.filter((f) => f.category === cat);
     const openIssues = items.filter((f) => f.type === "issue" && f.status !== "addressed").length;

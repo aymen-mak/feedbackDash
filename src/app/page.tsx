@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox } from "lucide-react";
+import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox, ChevronUp, ChevronDown } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import LiveFeed from "@/components/LiveFeed";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
+import { useLoadingBar } from "@/components/LoadingBar";
 
-type CategoryId = "Product" | "UX";
-const CATEGORIES: CategoryId[] = ["Product", "UX"];
+type CategoryId = "Product" | "UI/UX" | "App" | "Operator CLI";
+const CATEGORIES: CategoryId[] = ["Product", "UI/UX", "App", "Operator CLI"];
 
 type FeedbackType = "suggestion" | "issue" | "question";
 
@@ -19,7 +20,9 @@ const SEVERITY_OPTIONS: { id: FeedbackType; label: string; description: string; 
 
 const categoryPrompts: Record<CategoryId, string> = {
   Product: "What would you improve about the product?",
-  UX: "What felt confusing or could work better?",
+  "UI/UX": "What felt confusing or could work better?",
+  App: "How can we improve the app experience?",
+  "Operator CLI": "What would make the CLI better?",
 };
 
 const QUICK_ACTIONS = [
@@ -51,7 +54,9 @@ export default function FeedbackPage() {
   const [screenshotUrl, setScreenshotUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [myFeedback, setMyFeedback] = useState<FeedbackItemData[]>([]);
+  const [hideSubmissions, setHideSubmissions] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { start: lbStart, done: lbDone } = useLoadingBar();
 
   useEffect(() => {
     let ids: string[] = [];
@@ -107,6 +112,7 @@ export default function FeedbackPage() {
     if (!message.trim() && !quickAction) return;
     setSubmitting(true);
     setError("");
+    lbStart();
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
@@ -148,6 +154,7 @@ export default function FeedbackPage() {
       setError("Could not connect to the server. Make sure you're running 'npm run dev'.");
     }
     setSubmitting(false);
+    lbDone();
   };
 
   const canSubmit = (message.trim() || quickAction) && !submitting;
@@ -430,15 +437,24 @@ export default function FeedbackPage() {
               <Inbox size={14} className="text-makina-muted" />
               <h2 className="text-xs font-semibold text-makina-muted uppercase tracking-wider">My Submissions</h2>
               <span className="text-[10px] text-makina-muted bg-makina-surface rounded-full px-1.5 py-0.5">{myFeedback.length}</span>
+              <button
+                onClick={() => setHideSubmissions(!hideSubmissions)}
+                className="ml-auto flex items-center gap-1 text-[11px] text-makina-muted hover:text-makina-text transition-colors"
+              >
+                {hideSubmissions ? <ChevronDown size={12} /> : <ChevronUp size={12} />}
+                {hideSubmissions ? "Show" : "Hide"}
+              </button>
             </div>
-            <LiveFeed
-              feedback={myFeedback}
-              category="all"
-              hideReplyInput
-              hidePublicStatus
-              hidePriority
-              onItemUpdate={handleMyItemUpdate}
-            />
+            {!hideSubmissions && (
+              <LiveFeed
+                feedback={myFeedback}
+                category="all"
+                hideReplyInput
+                hidePublicStatus
+                hidePriority
+                onItemUpdate={handleMyItemUpdate}
+              />
+            )}
           </div>
         )}
 

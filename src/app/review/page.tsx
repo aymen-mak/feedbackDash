@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
 import FeedbackCard, { type FeedbackItemData } from "@/components/FeedbackCard";
 import { AnalyticsChart } from "@/components/Charts";
 import Tooltip from "@/components/Tooltip";
+import { useLoadingBar } from "@/components/LoadingBar";
+import { useNotifications } from "@/components/Notifications";
 import {
   Filter,
   Search,
   Inbox,
-  Star,
+  Pin,
   AlertTriangle,
   Archive,
   Trash2,
@@ -20,11 +22,12 @@ import {
   RotateCcw,
   Calendar,
   XCircle,
+  RefreshCw,
 } from "lucide-react";
 
 type Priority = "none" | "low" | "medium" | "high";
 type FeedbackType = "issue" | "suggestion" | "question";
-type CategoryId = "Product" | "UX";
+type CategoryId = "Product" | "UI/UX" | "App" | "Operator CLI";
 type DateFilter = "all" | "7d" | "30d" | "oldest";
 
 interface ReviewItem extends FeedbackItemData {
@@ -34,6 +37,7 @@ interface ReviewItem extends FeedbackItemData {
   escalated: boolean;
   dismissed: boolean;
   archived: boolean;
+  archivedBy?: string;
   deletedAt: string | null;
   screenshotUrl: string | null;
   rating: number | null;
@@ -56,7 +60,7 @@ const priorityLabels: Record<Priority, string> = {
 
 const PRESET_TAGS = ["actionable", "recurring", "quick-win", "needs-context", "team-blocker"];
 
-type ViewFilter = "inbox" | "starred" | "escalated" | "archived" | "trash";
+type ViewFilter = "inbox" | "pinned" | "escalated" | "archived" | "trash";
 
 export default function ReviewPage() {
   const [items, setItems] = useState<ReviewItem[]>([]);
@@ -72,6 +76,9 @@ export default function ReviewPage() {
   const [deleteActiveId, setDeleteActiveId] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
   const [dailyMetrics, setDailyMetrics] = useState<{ date: string; submissions: number; satisfaction: number; issues: number; resolved: number }[]>([]);
+  const refreshInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { start: lbStart, done: lbDone } = useLoadingBar();
+  const { notify } = useNotifications();
 
   const TWELVE_HOURS = 12 * 60 * 60 * 1000;
 
@@ -87,6 +94,7 @@ export default function ReviewPage() {
         escalated: item.escalated ?? false,
         dismissed: item.dismissed ?? false,
         archived: item.archived ?? false,
+        archivedBy: item.archivedBy ?? undefined,
         deletedAt: item.deletedAt ?? null,
         screenshotUrl: item.screenshotUrl ?? null,
         rating: item.rating ?? null,
@@ -94,22 +102,41 @@ export default function ReviewPage() {
       };
     });
 
-  useEffect(() => {
-    Promise.all([
-      fetch("/api/feedback").then((r) => r.ok ? r.json() : []),
-      fetch("/api/feedback?view=archived").then((r) => r.ok ? r.json() : []),
-      fetch("/api/feedback?view=trash").then((r) => r.ok ? r.json() : []),
-      fetch("/api/stats").then((r) => r.ok ? r.json() : null),
-    ]).then(([active, archived, trash, st]) => {
-      setItems(enrichItems(active));
+  const fetchAll = useCallback(async (silent = false) => {
+    if (!silent) lbStart();
+    try {
+      const [active, archived, trash, st] = await Promise.all([
+        fetch("/api/feedback").then((r) => r.ok ? r.json() : []),
+        fetch("/api/feedback?view=archived").then((r) => r.ok ? r.json() : []),
+        fetch("/api/feedback?view=trash").then((r) => r.ok ? r.json() : []),
+        fetch("/api/stats").then((r) => r.ok ? r.json() : null),
+      ]);
+      const newActive = enrichItems(active);
+      // Check for new items since last fetch
+      if (!silent && items.length > 0) {
+        const newCount = newActive.filter((n: ReviewItem) => !items.find((o) => o.id === n.id)).length;
+        if (newCount > 0) notify("info", `${newCount} new feedback item(s)`);
+      }
+      setItems(newActive);
       setArchivedItems(enrichItems(archived));
       setTrashItems(enrichItems(trash));
       if (st?.dailyMetrics) setDailyMetrics(st.dailyMetrics);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    } catch { setLoading(false); }
+    if (!silent) lbDone();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
+
+  useEffect(() => {
+    fetchAll(true);
+    // Auto-refresh every 30s
+    refreshInterval.current = setInterval(() => fetchAll(true), 30000);
+    return () => { if (refreshInterval.current) clearInterval(refreshInterval.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const patchItem = async (id: string, updates: Partial<ReviewItem>) => {
+    lbStart();
     try {
       const res = await fetch(`/api/feedback/${id}`, {
         method: "PATCH",
@@ -118,33 +145,34 @@ export default function ReviewPage() {
       });
       if (res.ok) {
         const updated = await res.json();
-        // If archiving, move from active to archived
         if (updates.archived === true) {
           setItems((prev) => prev.filter((i) => i.id !== id));
           setArchivedItems((prev) => [{ ...updated, ...updates }, ...prev]);
-        }
-        // If deleting (soft), move to trash
-        else if (updates.deletedAt) {
+          notify("success", "Archived");
+        } else if (updates.deletedAt && updates.deletedAt !== null) {
           setItems((prev) => prev.filter((i) => i.id !== id));
           setArchivedItems((prev) => prev.filter((i) => i.id !== id));
           setTrashItems((prev) => [{ ...updated, ...updates }, ...prev]);
-        }
-        // If restoring from archive
-        else if (updates.archived === false) {
+          notify("warning", "Moved to deleted");
+        } else if (updates.archived === false) {
           setArchivedItems((prev) => prev.filter((i) => i.id !== id));
           setItems((prev) => [{ ...updated, ...updates }, ...prev]);
-        }
-        // If restoring from trash
-        else if (updates.deletedAt === null && !updates.archived) {
+          notify("success", "Restored from archive");
+        } else if (updates.deletedAt === null && !updates.archived) {
           setTrashItems((prev) => prev.filter((i) => i.id !== id));
           setItems((prev) => [{ ...updated, deletedAt: null }, ...prev]);
-        }
-        // Normal update
-        else {
+          notify("success", "Restored from deleted");
+        } else {
           setItems((prev) => prev.map((i) => (i.id === id ? { ...i, ...updated } : i)));
+          if (updates.status) notify("info", `Status: ${updates.status}`);
+          else if (updates.escalated === true) notify("success", "Escalated to team");
+          else if (updates.escalated === false) notify("info", "Removed from team");
+          else if (updates.dismissed === true) notify("info", "Dismissed");
+          else if (updates.dismissed === false) notify("success", "Un-dismissed");
         }
       }
     } catch { /* ignore */ }
+    lbDone();
   };
 
   const toggleStar = (id: string) => {
@@ -169,13 +197,12 @@ export default function ReviewPage() {
     }
   };
 
-  const bulkAction = async (action: "escalate" | "dismiss" | "priority" | "archive" | "delete", value?: Priority) => {
+  const bulkAction = async (action: "escalate" | "dismiss" | "archive" | "delete", value?: Priority) => {
     const ids = [...selectedItems];
     let updates: Partial<ReviewItem> = {};
     if (action === "escalate") updates = { escalated: true };
     else if (action === "dismiss") updates = { dismissed: true };
-    else if (action === "priority" && value) updates = { priority: value };
-    else if (action === "archive") updates = { archived: true };
+    else if (action === "archive") updates = { archived: true, archivedBy: "review" };
     else if (action === "delete") updates = { deletedAt: new Date().toISOString() };
 
     await Promise.all(ids.map((id) => patchItem(id, updates)));
@@ -183,12 +210,15 @@ export default function ReviewPage() {
   };
 
   const permanentlyDelete = async (id: string) => {
+    lbStart();
     try {
       const res = await fetch(`/api/feedback/${id}`, { method: "DELETE" });
       if (res.ok) {
         setTrashItems((prev) => prev.filter((i) => i.id !== id));
+        notify("warning", "Permanently deleted");
       }
     } catch { /* ignore */ }
+    lbDone();
   };
 
   const addTag = (id: string, tag: string) => {
@@ -206,19 +236,16 @@ export default function ReviewPage() {
     }
   };
 
-  // Get the list for the current view
   const getViewList = (): ReviewItem[] => {
     if (viewFilter === "archived") return archivedItems;
     if (viewFilter === "trash") return trashItems;
-    if (viewFilter === "starred") return items.filter((i) => i.starred && !i.dismissed);
+    if (viewFilter === "pinned") return items.filter((i) => i.starred && !i.dismissed);
     if (viewFilter === "escalated") return items.filter((i) => i.escalated && !i.dismissed);
-    // inbox: not dismissed
     return items.filter((i) => !i.dismissed);
   };
 
   const viewList = getViewList();
 
-  // Apply type/category/search/date filters
   const currentList = viewList.filter((i) => {
     if (typeFilter !== "all" && i.type !== typeFilter) return false;
     if (categoryFilter !== "all" && i.category !== categoryFilter) return false;
@@ -228,7 +255,6 @@ export default function ReviewPage() {
     return true;
   });
 
-  // Sort: high priority first, then by date
   const sorted = [...currentList].sort((a, b) => {
     if (dateFilter === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     const pOrder: Record<string, number> = { high: 0, medium: 1, low: 2, none: 3 };
@@ -238,27 +264,26 @@ export default function ReviewPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  // Group items for inbox view: "New feedback", "High priority", then the rest
+  // Inbox grouping: new + high priority at top, rest below — compact two-column grid
   const newItems = viewFilter === "inbox" ? sorted.filter((i) => i.status === "new" && i.priority !== "high") : [];
   const highPriorityItems = viewFilter === "inbox" ? sorted.filter((i) => i.priority === "high" && i.status !== "new") : [];
-  const remainingItems = viewFilter === "inbox"
-    ? sorted.filter((i) => !(i.status === "new" && i.priority !== "high") && !(i.priority === "high" && i.status !== "new"))
-    : sorted;
-  // Items that are both new AND high priority go into high priority section
   const newAndHighItems = viewFilter === "inbox" ? sorted.filter((i) => i.status === "new" && i.priority === "high") : [];
   const highPriorityCombined = [...newAndHighItems, ...highPriorityItems];
+  const remainingItems = viewFilter === "inbox"
+    ? sorted.filter((i) => !(i.status === "new" && i.priority !== "high") && !(i.priority === "high" && i.status !== "new") && !(i.status === "new" && i.priority === "high"))
+    : sorted;
 
   const totalInbox = items.filter((i) => !i.dismissed).length;
-  const totalStarred = items.filter((i) => i.starred && !i.dismissed).length;
+  const totalPinned = items.filter((i) => i.starred && !i.dismissed).length;
   const totalEscalated = items.filter((i) => i.escalated && !i.dismissed).length;
   const totalNew = items.filter((i) => i.status === "new" && !i.dismissed).length;
 
-  const viewTabs: { key: ViewFilter; label: string; count: number; icon: React.ReactNode }[] = [
+  const viewTabs: { key: ViewFilter; label: string; count: number; icon: React.ReactNode; separated?: boolean }[] = [
     { key: "inbox", label: "Inbox", count: totalInbox, icon: <Inbox size={14} /> },
-    { key: "starred", label: "Starred", count: totalStarred, icon: <Star size={14} /> },
     { key: "escalated", label: "Escalated", count: totalEscalated, icon: <ArrowUpRight size={14} /> },
     { key: "archived", label: "Archived", count: archivedItems.length, icon: <Archive size={14} /> },
     { key: "trash", label: "Deleted", count: trashItems.length, icon: <Trash2 size={14} /> },
+    { key: "pinned", label: "Pinned", count: totalPinned, icon: <Pin size={14} />, separated: true },
   ];
 
   const allSelected = selectedItems.size === sorted.length && sorted.length > 0;
@@ -293,13 +318,14 @@ export default function ReviewPage() {
 
           {viewFilter !== "trash" && viewFilter !== "archived" && (
             <>
-              <button
-                onClick={() => toggleStar(item.id)}
-                className={`p-1.5 rounded-md transition-colors ${item.starred ? "text-amber-400 bg-amber-400/10" : "text-makina-subtle hover:text-amber-400 hover:bg-amber-400/10"}`}
-                title={item.starred ? "Unstar" : "Star for follow-up"}
-              >
-                <Star size={14} fill={item.starred ? "currentColor" : "none"} />
-              </button>
+              <Tooltip content={item.starred ? "Unpin" : "Pin for follow-up"}>
+                <button
+                  onClick={() => toggleStar(item.id)}
+                  className={`btn-tactile p-1.5 rounded-md transition-colors ${item.starred ? "text-amber-400 bg-amber-400/10" : "text-makina-subtle hover:text-amber-400 hover:bg-amber-400/10"}`}
+                >
+                  <Pin size={14} fill={item.starred ? "currentColor" : "none"} />
+                </button>
+              </Tooltip>
               <select
                 value={item.priority}
                 onChange={(e) => patchItem(item.id, { priority: e.target.value as Priority })}
@@ -350,6 +376,17 @@ export default function ReviewPage() {
 
             {viewFilter !== "trash" && viewFilter !== "archived" && (
               <>
+                {/* Un-dismiss for dismissed items in inbox */}
+                {item.dismissed && (
+                  <Tooltip content="Un-dismiss">
+                    <button
+                      onClick={() => patchItem(item.id, { dismissed: false })}
+                      className="btn-tactile p-2 rounded-md text-xs text-makina-subtle bg-makina-surface hover:text-makina-green hover:bg-green-500/10"
+                    >
+                      <RotateCcw size={15} />
+                    </button>
+                  </Tooltip>
+                )}
                 <Tooltip content={item.escalated ? "Remove from team" : "Escalate to team"}>
                   <button
                     onClick={() => patchItem(item.id, { escalated: !item.escalated })}
@@ -360,7 +397,7 @@ export default function ReviewPage() {
                 </Tooltip>
                 <Tooltip content="Archive">
                   <button
-                    onClick={() => patchItem(item.id, { archived: true })}
+                    onClick={() => patchItem(item.id, { archived: true, archivedBy: "review" })}
                     className="btn-tactile p-2 rounded-md text-makina-subtle bg-makina-surface hover:text-makina-blue hover:bg-blue-500/10"
                   >
                     <Archive size={15} />
@@ -369,10 +406,10 @@ export default function ReviewPage() {
                 <Tooltip content="Move to deleted">
                   <button
                     onClick={() => handleDeleteClick(item.id)}
-                    className={`btn-tactile p-2 rounded-md ${
+                    className={`btn-tactile p-2 rounded-md ring-1 ring-red-500/20 ${
                       deleteActiveId === item.id
                         ? "text-white bg-makina-red scale-95"
-                        : "text-makina-subtle bg-makina-surface hover:text-makina-red hover:bg-red-500/10"
+                        : "text-makina-subtle bg-red-500/5 hover:text-makina-red hover:bg-red-500/10"
                     }`}
                   >
                     <Trash2 size={15} />
@@ -381,7 +418,7 @@ export default function ReviewPage() {
               </>
             )}
 
-            {/* Restore + permanent delete for archived/deleted views */}
+            {/* Restore + archive/permanent delete for archived/deleted views */}
             {(viewFilter === "archived" || viewFilter === "trash") && (
               <>
                 <button
@@ -395,15 +432,31 @@ export default function ReviewPage() {
                   Restore
                 </button>
                 {viewFilter === "trash" && (
-                  <button
-                    onClick={() => permanentlyDelete(item.id)}
-                    className="btn-tactile inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-red-600 hover:bg-red-500"
-                  >
-                    <XCircle size={13} />
-                    Delete forever
-                  </button>
+                  <>
+                    <button
+                      onClick={() => patchItem(item.id, { archived: true, archivedBy: "review" })}
+                      className="btn-tactile inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-makina-muted bg-blue-500/10 border border-blue-500/20 hover:text-makina-blue hover:bg-blue-500/20"
+                    >
+                      <Archive size={13} />
+                      Archive
+                    </button>
+                    <button
+                      onClick={() => permanentlyDelete(item.id)}
+                      className="btn-tactile inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-red-600 hover:bg-red-500 ring-1 ring-red-500/30"
+                    >
+                      <XCircle size={13} />
+                      Delete permanently
+                    </button>
+                  </>
                 )}
               </>
+            )}
+
+            {/* Archived by tag */}
+            {viewFilter === "archived" && item.archivedBy && (
+              <span className="text-[10px] font-medium text-makina-muted bg-makina-surface rounded-full px-2 py-0.5">
+                by {item.archivedBy}
+              </span>
             )}
           </div>
         </div>
@@ -412,7 +465,6 @@ export default function ReviewPage() {
         <div className="px-4 py-3">
           <FeedbackCard
             item={item}
-            showStatus
             showInternalStatus
             onStatusChange={(id, status) => patchItem(id, { status })}
             onItemUpdate={(updated) => setItems((prev) => prev.map((i) => (i.id === updated.id ? { ...i, ...updated } as ReviewItem : i)))}
@@ -439,7 +491,7 @@ export default function ReviewPage() {
     <PasswordGate>
       <div className="min-h-screen">
         <Navbar />
-        <main className="mx-auto max-w-6xl px-4 py-6 space-y-6">
+        <main className="mx-auto max-w-6xl px-4 py-6 space-y-4">
           {/* Header */}
           <div className="flex items-center justify-between gap-4 flex-wrap animate-fade-in-up">
             <div className="flex items-center gap-6">
@@ -462,15 +514,22 @@ export default function ReviewPage() {
                     <span className="text-xs text-makina-muted">escalated</span>
                   </div>
                 </Tooltip>
-                <Tooltip content="Items you starred for follow-up">
+                <Tooltip content="Items you pinned for follow-up">
                   <div className="flex items-center gap-2 cursor-default">
-                    <Star size={13} className="text-makina-muted" />
-                    <span className="text-sm font-semibold">{totalStarred}</span>
-                    <span className="text-xs text-makina-muted">starred</span>
+                    <Pin size={13} className="text-makina-muted" />
+                    <span className="text-sm font-semibold">{totalPinned}</span>
+                    <span className="text-xs text-makina-muted">pinned</span>
                   </div>
                 </Tooltip>
               </div>
             </div>
+            <button
+              onClick={() => fetchAll()}
+              className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-makina-surface border border-makina-border hover:text-makina-text hover:border-makina-accent/40 transition-colors"
+            >
+              <RefreshCw size={12} />
+              Refresh
+            </button>
           </div>
 
           {/* Analytics overview */}
@@ -483,6 +542,8 @@ export default function ReviewPage() {
                 key={tab.key}
                 onClick={() => { setViewFilter(tab.key); setSelectedItems(new Set()); }}
                 className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+                  tab.separated ? "ml-auto" : ""
+                } ${
                   viewFilter === tab.key
                     ? "border-makina-accent text-makina-accent"
                     : "border-transparent text-makina-muted hover:text-makina-text"
@@ -516,7 +577,7 @@ export default function ReviewPage() {
                     <button
                       key={type}
                       onClick={() => setTypeFilter(type)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         typeFilter === type
                           ? "bg-makina-accent text-makina-bg"
                           : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
@@ -528,11 +589,11 @@ export default function ReviewPage() {
                 </div>
                 <div className="h-4 w-px bg-makina-border shrink-0" />
                 <div className="flex gap-1">
-                  {(["all", "Product", "UX"] as (CategoryId | "all")[]).map((cat) => (
+                  {(["all", "Product", "UI/UX", "App", "Operator CLI"] as (CategoryId | "all")[]).map((cat) => (
                     <button
                       key={cat}
                       onClick={() => setCategoryFilter(cat)}
-                      className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                         categoryFilter === cat
                           ? "bg-makina-blue text-white"
                           : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
@@ -551,7 +612,7 @@ export default function ReviewPage() {
                 <button
                   key={val}
                   onClick={() => setDateFilter(val)}
-                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                  className={`btn-tactile rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                     dateFilter === val
                       ? "bg-makina-accent text-makina-bg"
                       : "bg-makina-card text-makina-muted border border-makina-border hover:text-makina-text"
@@ -580,21 +641,17 @@ export default function ReviewPage() {
               <div className="h-4 w-px bg-makina-accent/20" />
               {viewFilter !== "trash" && viewFilter !== "archived" && (
                 <>
-                  <button onClick={() => bulkAction("escalate")} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-accent/40 transition-colors">
+                  <button onClick={() => bulkAction("escalate")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-accent/40 transition-colors">
                     <ArrowUpRight size={12} />
                     Escalate
                   </button>
-                  <button onClick={() => bulkAction("priority", "high")} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-amber-400/40 transition-colors">
-                    <AlertTriangle size={12} />
-                    High priority
-                  </button>
-                  <button onClick={() => bulkAction("archive")} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-blue/40 transition-colors">
+                  <button onClick={() => bulkAction("archive")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-text bg-makina-card border border-makina-border hover:border-makina-blue/40 transition-colors">
                     <Archive size={12} />
                     Archive
                   </button>
                 </>
               )}
-              <button onClick={() => bulkAction("delete")} className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-makina-card border border-makina-border hover:border-makina-red/40 transition-colors">
+              <button onClick={() => bulkAction("delete")} className="btn-tactile flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium text-makina-muted bg-red-500/5 ring-1 ring-red-500/20 hover:ring-red-500/40 hover:text-makina-red transition-colors">
                 <Trash2 size={12} />
                 Delete
               </button>
@@ -609,7 +666,7 @@ export default function ReviewPage() {
             <p className="text-xs text-makina-muted">Showing {sorted.length} items</p>
             <button
               onClick={selectAll}
-              className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors border ${
+              className={`btn-tactile inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-medium transition-colors border ${
                 allSelected
                   ? "bg-makina-accent text-makina-bg border-makina-accent"
                   : "bg-makina-surface text-makina-muted border-makina-border hover:border-makina-accent/40 hover:text-makina-text"
@@ -626,39 +683,46 @@ export default function ReviewPage() {
             </button>
           </div>
 
-          {/* Feedback list */}
+          {/* Feedback list — compact layout */}
           <div className="space-y-2">
             {viewFilter === "inbox" ? (
               <>
-                {/* New feedback section */}
-                {newItems.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 pt-2 pb-1">
-                      <Inbox size={13} className="text-makina-accent" />
-                      <h3 className="text-xs font-semibold text-makina-accent uppercase tracking-wider">New feedback</h3>
-                      <span className="text-[10px] text-makina-muted bg-makina-accent-dim rounded-full px-1.5 py-0.5">{newItems.length}</span>
-                      <div className="flex-1 h-px bg-makina-border ml-2" />
-                    </div>
-                    {newItems.map((item, index) => renderFeedbackItem(item, index))}
+                {/* At-a-glance: New + High priority in side-by-side columns */}
+                {(newItems.length > 0 || highPriorityCombined.length > 0) && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {newItems.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 pb-1">
+                          <Inbox size={13} className="text-makina-accent" />
+                          <h3 className="text-xs font-semibold text-makina-accent uppercase tracking-wider">New</h3>
+                          <span className="text-[10px] text-makina-muted bg-makina-accent-dim rounded-full px-1.5 py-0.5">{newItems.length}</span>
+                        </div>
+                        {newItems.map((item, index) => renderFeedbackItem(item, index))}
+                      </div>
+                    )}
+                    {highPriorityCombined.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 pb-1">
+                          <AlertTriangle size={13} className="text-makina-red" />
+                          <h3 className="text-xs font-semibold text-makina-red uppercase tracking-wider">Urgent</h3>
+                          <span className="text-[10px] text-makina-muted bg-red-500/10 rounded-full px-1.5 py-0.5">{highPriorityCombined.length}</span>
+                        </div>
+                        {highPriorityCombined.map((item, index) => renderFeedbackItem(item, newItems.length + index))}
+                      </div>
+                    )}
                   </div>
                 )}
 
-                {/* High priority section */}
-                {highPriorityCombined.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 pt-4 pb-1">
-                      <AlertTriangle size={13} className="text-makina-red" />
-                      <h3 className="text-xs font-semibold text-makina-red uppercase tracking-wider">High priority</h3>
-                      <span className="text-[10px] text-makina-muted bg-red-500/10 rounded-full px-1.5 py-0.5">{highPriorityCombined.length}</span>
-                      <div className="flex-1 h-px bg-makina-border ml-2" />
-                    </div>
-                    {highPriorityCombined.map((item, index) => renderFeedbackItem(item, newItems.length + index))}
-                  </div>
-                )}
-
-                {/* Remaining items (no section header) */}
+                {/* Remaining items */}
                 {remainingItems.length > 0 && (
                   <div className="space-y-2">
+                    {(newItems.length > 0 || highPriorityCombined.length > 0) && (
+                      <div className="flex items-center gap-2 pt-2 pb-1">
+                        <div className="flex-1 h-px bg-makina-border" />
+                        <span className="text-[10px] text-makina-muted uppercase tracking-wider">All other</span>
+                        <div className="flex-1 h-px bg-makina-border" />
+                      </div>
+                    )}
                     {remainingItems.map((item, index) => renderFeedbackItem(item, newItems.length + highPriorityCombined.length + index))}
                   </div>
                 )}
