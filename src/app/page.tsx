@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTheme } from "@/lib/theme";
-import { ArrowRight, MessageSquare, Lightbulb, Star, Zap, Image as ImageIcon, Eye } from "lucide-react";
+import { ArrowRight, MessageSquare, Lightbulb, Sparkles, Zap, Image as ImageIcon, Eye } from "lucide-react";
 
 export default function LandingPage() {
   const { theme } = useTheme();
@@ -133,7 +133,7 @@ export default function LandingPage() {
               {
                 icon: <MessageSquare size={22} />,
                 title: "Share",
-                desc: "Pick a category, describe what\u2019s on your mind \u2014 a suggestion, an issue, or a question. Add a screenshot if it helps.",
+                desc: "Pick a category, describe what's on your mind, whether it's a suggestion, an issue, or a question. Add a screenshot if it helps.",
                 color: "text-makina-accent",
                 bg: "bg-makina-accent-dim",
                 border: "border-makina-accent/20",
@@ -149,9 +149,9 @@ export default function LandingPage() {
                 delay: "100ms",
               },
               {
-                icon: <Star size={22} />,
-                title: "See impact",
-                desc: "Upvote what matters to you, follow along as ideas turn into real improvements. Your voice drives the roadmap.",
+                icon: <Sparkles size={22} />,
+                title: "Make a difference",
+                desc: "What you share directly influences what gets prioritized. Every voice counts, every detail matters.",
                 color: "text-makina-green",
                 bg: "bg-green-500/10",
                 border: "border-green-500/20",
@@ -181,12 +181,11 @@ export default function LandingPage() {
         <div className="mx-auto max-w-5xl">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: <Lightbulb size={18} />, title: "Suggest ideas", desc: "Have a feature in mind? Tell us \u2014 the best ideas come from real users." },
-              { icon: <Zap size={18} />, title: "Quick reactions", desc: "Short on time? Use one-tap labels like \u201CLove it!\u201D or \u201CNeeds improvement\u201D." },
+              { icon: <Lightbulb size={18} />, title: "Suggest ideas", desc: "Have a feature in mind? Tell us. The best ideas come from real users." },
+              { icon: <Zap size={18} />, title: "Quick reactions", desc: "Short on time? Use one-tap labels like \"Love it!\" or \"Needs improvement\"." },
               { icon: <ImageIcon size={18} />, title: "Attach screenshots", desc: "A picture is worth a thousand words. Show us exactly what you see." },
               { icon: <MessageSquare size={18} />, title: "Report issues", desc: "Found a bug or something broken? Flag it so we can fix it fast." },
-              { icon: <Star size={18} />, title: "Upvote others", desc: "See feedback you agree with? Upvote it to help us prioritize." },
-              { icon: <Eye size={18} />, title: "Stay anonymous", desc: "Prefer not to share your name? Toggle anonymous mode \u2014 your call." },
+              { icon: <Eye size={18} />, title: "Stay anonymous", desc: "Prefer not to share your name? Toggle anonymous mode. It's your call." },
             ].map((cap, i) => (
               <div
                 key={cap.title}
@@ -222,7 +221,7 @@ export default function LandingPage() {
 
         {/* Footer */}
         <div className="mt-20 text-xs text-makina-subtle">
-          Makina Pulse &middot; Your voice, our direction
+          &copy; 2026 Makina Finance. All rights reserved.
         </div>
       </section>
     </div>
