@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Send, Check, EyeOff, MessageSquare, Zap, Users, Hash, Flame, Sparkles, BarChart3, User, Image as ImageIcon, X, Upload } from "lucide-react";
+import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import Tooltip from "@/components/Tooltip";
 
@@ -159,7 +160,9 @@ export default function FeedbackPage() {
         <div className="text-center space-y-4 animate-fade-in-up">
           <div className="space-y-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-mark.svg" alt="Makina Pulse" width={72} height={72} className="mx-auto" />
+            <Link href="/" className="inline-block">
+              <img src="/logo-mark.svg" alt="Makina Pulse" width={72} height={72} className="mx-auto hover:opacity-80 transition-opacity cursor-pointer" />
+            </Link>
             <h1 className="text-3xl font-bold tracking-tight">Makina <span className="gradient-text">Pulse</span></h1>
             <p className="text-sm text-makina-muted">Your feedback shapes what we build next</p>
           </div>
@@ -378,7 +381,7 @@ export default function FeedbackPage() {
           </div>
 
           {/* Context panel */}
-          <div className="space-y-4 lg:self-start">
+          <div className="space-y-4 lg:sticky lg:top-6">
             {/* Category breakdown */}
             <div className="rounded-xl bg-makina-card border border-makina-border p-4 space-y-3">
               <span className="text-xs font-semibold text-makina-text/60 uppercase tracking-wider">Feedback Breakdown</span>
@@ -452,7 +455,11 @@ export default function FeedbackPage() {
 
         {/* Zone 3: Trending Topics */}
         {stats && stats.trendingTopics.length > 0 && (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 animate-fade-in-up" style={{ animationDelay: "150ms" }}>
+          <div className={`grid gap-3 animate-fade-in-up ${
+            stats.trendingTopics.length === 1 ? "grid-cols-1 max-w-md" :
+            stats.trendingTopics.length === 2 ? "grid-cols-1 sm:grid-cols-2" :
+            "grid-cols-1 sm:grid-cols-3"
+          }`} style={{ animationDelay: "150ms" }}>
             {stats.trendingTopics.slice(0, 3).map((item) => (
               <div key={item.topic} className="flex items-start gap-3 rounded-lg bg-makina-card border border-makina-border p-4 hover-lift">
                 <div className="flex items-center justify-center h-8 w-8 rounded-md bg-makina-surface shrink-0">
