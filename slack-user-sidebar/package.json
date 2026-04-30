@@ -1,0 +1,16 @@
+{
+  "name": "slack-user-sidebar",
+  "version": "1.0.0",
+  "description": "Slack plugin that adds a Discord-style user list sidebar with online/offline presence",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js"
+  },
+  "dependencies": {
+    "@slack/web-api": "^7.3.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
