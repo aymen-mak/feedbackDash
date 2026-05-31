@@ -96,7 +96,7 @@ Design tokens reused: `makina-*` colors, `hover-lift`, `gradient-accent/text`,
 - [x] **Phase 2 — Collectors + refresh.** telegram/discord/reddit/github/twitter + `refreshAll()` in service. Verified `autoKey`s folded into seed. _(committed)_
 - [x] **Phase 3 — API routes.** list/create, get/patch/delete, refresh, history. Smoke-tested: list=9, history OK, refresh runs gracefully (1 live GitHub fetch succeeded in-sandbox, rest 403 as expected). _(committed)_
 - [x] **Phase 4 — Dashboard UI.** /competitors page (PasswordGate+Navbar), summary tiles, comparison chart, ranked cards, platform badges, navbar link. tsc clean, route serves 200. _(committed)_
-- [ ] **Phase 5 — Detail + editing.** detail modal, manual override editor, per-platform history chart, add-competitor.
+- [x] **Phase 5 — Detail + editing.** detail modal w/ per-platform history chart, manual-override editor (profile + every platform field + enable-auto), add + delete. CRUD verified live (create/patch/history/delete). _(committed)_
 - [ ] **Phase 6 — Scheduling + docs + verify.** vercel.json cron, README, `npm run build` clean, dev smoke test.
 
 Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
@@ -108,18 +108,17 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 | 2 Collectors | ✅ DONE |
 | 3 API | ✅ DONE |
 | 4 Dashboard UI | ✅ DONE |
-| 5 Detail + editing | ⬜ TODO |
+| 5 Detail + editing | ✅ DONE |
 | 6 Schedule + docs + verify | ⬜ TODO |
 
 ---
 
 ## Resume pointer
 
-**Next action:** Start Phase 5 — Detail + editing. Create
-`src/components/competitors/{CompetitorDetail,CompetitorEditor,HistoryChart}.tsx`,
-wire `onSelect` from the page to open the detail modal (per-platform history
-chart + manual override editor + add/delete competitor). A dev server may
-already be running on :3100 (`/tmp/comp-dev.log`).
+**Next action:** Start Phase 6 — Scheduling + docs + verify. Add `vercel.json`
+(cron → `/api/competitors/refresh`), write `docs/competitor-dashboard/README.md`
+(setup/deploy/usage/env), and run a full `npm run build` to confirm a clean
+production build. Optionally capture a screenshot of `/competitors`.
 
 Recharts + TS note: Tooltip/LabelList `formatter` params are typed loosely
 (`RenderableText` = string|number|boolean|null|undefined). Don't over-annotate
