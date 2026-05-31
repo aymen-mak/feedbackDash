@@ -12,7 +12,7 @@ import {
   makeMetric,
   emptyOnchain,
 } from "./types";
-import { competitorSeed } from "./seed";
+import { competitorSeed, SEED_DATE } from "./seed";
 import { COLLECTORS, fetchDefillama } from "./collectors";
 
 export interface OnchainRefresh {
@@ -174,14 +174,68 @@ function seedSnapshots(competitors: Competitor[]): Snapshot[] {
   return snaps;
 }
 
-let seeded = false;
+let bootstrapped = false;
 async function ensureSeeded() {
-  if (seeded) return;
+  if (bootstrapped) return;
   const seed = competitorSeed();
   const snaps = seedSnapshots(seed);
   if (hasPostgres()) await pgSeedCompetitorsIfEmpty(seed, snaps);
   else fileSeedIfEmpty(seed, snaps);
-  seeded = true;
+  await migrate(seed);
+  bootstrapped = true;
+}
+
+/**
+ * Heal already-seeded stores so older rows pick up new identifiers without
+ * losing collected values. Idempotent & safe to run on every cold start:
+ *  - removes the obsolete self/reference row (Makina),
+ *  - backfills `defillamaSlug` and per-platform `autoKey` from the seed,
+ *  - adds platforms present in the seed but missing on the stored row,
+ *  - ensures the `onchain` key exists.
+ */
+async function migrate(seed: Competitor[]) {
+  const all = hasPostgres() ? await pgListCompetitors() : fileListCompetitors();
+  const seedById = new Map(seed.map((s) => [s.id, s]));
+  for (const c of all) {
+    if (c.isSelf || c.id === "makina") {
+      if (hasPostgres()) await pgDeleteCompetitor(c.id);
+      else fileDeleteCompetitor(c.id);
+      continue;
+    }
+    const s = seedById.get(c.id);
+    if (!s) continue;
+    let changed = false;
+    if (!c.defillamaSlug && s.defillamaSlug) {
+      c.defillamaSlug = s.defillamaSlug;
+      changed = true;
+    }
+    if (c.onchain === undefined) {
+      c.onchain = null;
+      changed = true;
+    }
+    for (const sp of s.platforms) {
+      const cp = c.platforms.find((p) => p.platform === sp.platform);
+      if (!cp) {
+        c.platforms.push(sp);
+        changed = true;
+        continue;
+      }
+      if (!cp.autoKey && sp.autoKey) {
+        cp.autoKey = sp.autoKey;
+        changed = true;
+      }
+      // Scrub stale hardcoded seed counts (never freshly collected or edited).
+      if (cp.value != null && cp.source === "manual" && cp.lastUpdated === SEED_DATE) {
+        cp.value = null;
+        cp.lastUpdated = null;
+        changed = true;
+      }
+    }
+    if (changed) {
+      if (hasPostgres()) await pgUpsertCompetitor(c);
+      else fileUpsertCompetitor(c);
+    }
+  }
 }
 
 // ── Reads ──
