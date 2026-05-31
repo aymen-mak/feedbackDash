@@ -146,6 +146,26 @@ async function readerText(targetUrl: string): Promise<string | null> {
   }
 }
 
+// Free search-snippet workaround: DuckDuckGo's HTML endpoint (no key, no JS,
+// scrape-tolerant) surfaces "N followers" in result snippets for JS-gated
+// pages like X and LinkedIn. We grep the closest number to a `near` keyword.
+async function ddgFollowers(query: string, near = "followers"): Promise<number | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
+      { headers: { Accept: "text/html" } },
+      11000
+    );
+    if (!res.ok) return null;
+    const text = (await res.text()).replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ");
+    const re = new RegExp(`([\\d][\\d.,]*\\s*[KMB]?)\\s*${near}`, "i");
+    const m = text.match(re);
+    return m ? parseHumanNumber(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
 // Public web bearer X's own site ships to logged-out visitors. Used only to
 // mint a guest token + read public follower counts (same as an anonymous tab).
 const X_WEB_BEARER =
@@ -252,7 +272,7 @@ async function collectTwitter(handle: string): Promise<CollectorResult> {
     if (v != null) return { value: v, error: null };
   }
 
-  // 4) Reader-proxy last resort.
+  // 4) Reader-proxy of the profile.
   const text = await readerText(`https://x.com/${encodeURIComponent(h)}`);
   if (text) {
     const m =
@@ -262,18 +282,36 @@ async function collectTwitter(handle: string): Promise<CollectorResult> {
       if (v != null) return { value: v, error: null };
     }
   }
-  return { value: null, error: "X: no free source returned a count (set X_BEARER_TOKEN or enter manually)" };
+
+  // 5) Search-snippet workaround.
+  const sv = (await ddgFollowers(`${h} x.com followers`)) ?? (await ddgFollowers(`@${h} twitter followers`));
+  if (sv != null) return { value: sv, error: null };
+
+  return { value: null, error: "X: every source rate-limited/blocked — will retry next cycle" };
 }
 
-// ── LinkedIn: best-effort follower scrape of the public company page ──
+// ── LinkedIn company followers — auto via reader proxy + search snippet.
+// (LinkedIn auth-walls scraping, so the snippet workaround is the real win.) ──
 async function collectLinkedin(slug: string): Promise<CollectorResult> {
   const s = slug.replace(/^https?:\/\/(www\.)?linkedin\.com\/company\//, "").replace(/\/$/, "");
+
+  // 1) Reader proxy of the public company page.
   const text = await readerText(`https://www.linkedin.com/company/${encodeURIComponent(s)}`);
-  if (!text) return { value: null, error: "LinkedIn: page not reachable (enter manually)" };
-  const m = text.match(/([\d.,]+\s*[KMB]?)\s*followers/i);
-  if (!m) return { value: null, error: "LinkedIn: follower count not found (enter manually)" };
-  const value = parseHumanNumber(m[1]);
-  return value != null ? { value, error: null } : { value: null, error: "LinkedIn: unparseable count" };
+  if (text) {
+    const m = text.match(/([\d.,]+\s*[KMB]?)\s*followers/i);
+    if (m) {
+      const v = parseHumanNumber(m[1]);
+      if (v != null) return { value: v, error: null };
+    }
+  }
+
+  // 2) Search-snippet workaround — "<company> | LinkedIn ... N followers".
+  const sv =
+    (await ddgFollowers(`${s} site:linkedin.com/company followers`)) ??
+    (await ddgFollowers(`${s} linkedin company followers`));
+  if (sv != null) return { value: sv, error: null };
+
+  return { value: null, error: "LinkedIn: page walled & snippet missed — will retry next cycle" };
 }
 
 /** Platform → collector. Platforms without an entry are manual-only. */
@@ -381,7 +419,9 @@ export async function fetchDefillama(slug: string): Promise<DefillamaFetch> {
         c1 = round2(((last.totalLiquidityUSD - p1.totalLiquidityUSD) / p1.totalLiquidityUSD) * 100);
       if (p7 && p7.totalLiquidityUSD > 0)
         c7 = round2(((last.totalLiquidityUSD - p7.totalLiquidityUSD) / p7.totalLiquidityUSD) * 100);
-      history = arr.slice(-30).map((p) => ({
+      // One-time backfill: up to 90 days of daily TVL so the sparkline is
+      // populated on the very first refresh (not just going forward).
+      history = arr.slice(-90).map((p) => ({
         t: new Date(p.date * 1000).toISOString().slice(0, 10),
         v: Math.round(p.totalLiquidityUSD),
       }));
