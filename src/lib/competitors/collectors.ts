@@ -115,10 +115,14 @@ async function collectReddit(sub: string): Promise<CollectorResult> {
 // ── GitHub: public account follower count (rough community proxy) ──
 async function collectGithub(slug: string): Promise<CollectorResult> {
   const name = slug.replace(/^https?:\/\/github\.com\//, "").replace(/\/$/, "");
+  const headers: Record<string, string> = { Accept: "application/vnd.github+json" };
+  // Optional token raises the rate limit from 60/hr to 5000/hr.
+  if (process.env.GITHUB_TOKEN) headers.Authorization = `Bearer ${process.env.GITHUB_TOKEN}`;
   try {
     const res = await fetchWithTimeout(`https://api.github.com/users/${encodeURIComponent(name)}`, {
-      headers: { Accept: "application/vnd.github+json" },
+      headers,
     });
+    if (res.status === 403) return { value: null, error: "GitHub rate-limited (set GITHUB_TOKEN)" };
     if (!res.ok) return { value: null, error: `GitHub HTTP ${res.status}` };
     const data = (await res.json()) as { followers?: number };
     const v = data?.followers;
@@ -142,17 +146,123 @@ async function readerText(targetUrl: string): Promise<string | null> {
   }
 }
 
-// ── X / Twitter: best-effort follower scrape (no free API) ──
+// Public web bearer X's own site ships to logged-out visitors. Used only to
+// mint a guest token + read public follower counts (same as an anonymous tab).
+const X_WEB_BEARER =
+  "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
+let xGuestCache: { token: string; at: number } | null = null;
+
+async function xGuestToken(): Promise<string | null> {
+  if (xGuestCache && Date.now() - xGuestCache.at < 2 * 3_600_000) return xGuestCache.token;
+  try {
+    const res = await fetchWithTimeout(
+      "https://api.x.com/1.1/guest/activate.json",
+      { method: "POST", headers: { Authorization: `Bearer ${X_WEB_BEARER}` } },
+      8000
+    );
+    if (!res.ok) return null;
+    const d = (await res.json()) as { guest_token?: string };
+    if (d?.guest_token) {
+      xGuestCache = { token: d.guest_token, at: Date.now() };
+      return d.guest_token;
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+async function xGraphqlFollowers(handle: string, guest: string): Promise<number | null> {
+  const variables = encodeURIComponent(JSON.stringify({ screen_name: handle, withSafetyModeUserFields: false }));
+  const features = encodeURIComponent(
+    JSON.stringify({
+      hidden_profile_subscriptions_enabled: true,
+      rweb_tipjar_consumption_enabled: true,
+      responsive_web_graphql_exclude_directive_enabled: true,
+      verified_phone_label_enabled: false,
+      subscriptions_verification_info_is_identity_verified_enabled: true,
+      subscriptions_verification_info_verified_since_enabled: true,
+      highlights_tweets_tab_ui_enabled: true,
+      responsive_web_twitter_article_notes_tab_enabled: true,
+      creator_subscriptions_tweet_preview_api_enabled: true,
+      responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+      responsive_web_graphql_timeline_navigation_enabled: true,
+    })
+  );
+  // UserByScreenName query id drifts over time; failure is non-fatal (returns null).
+  const qid = "Yka-W8dz7RaEuQNkroPkYw";
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.x.com/graphql/${qid}/UserByScreenName?variables=${variables}&features=${features}`,
+      { headers: { Authorization: `Bearer ${X_WEB_BEARER}`, "x-guest-token": guest } },
+      9000
+    );
+    if (!res.ok) return null;
+    const d = (await res.json()) as {
+      data?: { user?: { result?: { legacy?: { followers_count?: number } } } };
+    };
+    const v = d?.data?.user?.result?.legacy?.followers_count;
+    return typeof v === "number" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+// ── X / Twitter follower count — layered so it works for free on a real
+// network (this is what an anonymous browser tab does). ──
 async function collectTwitter(handle: string): Promise<CollectorResult> {
   const h = handle.replace(/^@/, "").replace(/^https?:\/\/(x|twitter)\.com\//, "").replace(/\/$/, "");
+
+  // 1) Official X API v2 (most reliable) when X_BEARER_TOKEN is configured.
+  const bearer = process.env.X_BEARER_TOKEN;
+  if (bearer) {
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.twitter.com/2/users/by/username/${encodeURIComponent(h)}?user.fields=public_metrics`,
+        { headers: { Authorization: `Bearer ${bearer}` } }
+      );
+      if (res.ok) {
+        const d = (await res.json()) as { data?: { public_metrics?: { followers_count?: number } } };
+        const v = d?.data?.public_metrics?.followers_count;
+        if (typeof v === "number") return { value: v, error: null };
+      }
+    } catch {
+      /* fall through to free methods */
+    }
+  }
+
+  // 2) Free, no-auth: the Follow-button widget JSON used by embeds.
+  try {
+    const res = await fetchWithTimeout(
+      `https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=${encodeURIComponent(h)}`
+    );
+    if (res.ok) {
+      const arr = (await res.json()) as Array<{ followers_count?: number }>;
+      const v = Array.isArray(arr) ? arr[0]?.followers_count : undefined;
+      if (typeof v === "number") return { value: v, error: null };
+    }
+  } catch {
+    /* fall through */
+  }
+
+  // 3) Free, no-auth: guest token + GraphQL (what a logged-out x.com tab does).
+  const guest = await xGuestToken();
+  if (guest) {
+    const v = await xGraphqlFollowers(h, guest);
+    if (v != null) return { value: v, error: null };
+  }
+
+  // 4) Reader-proxy last resort.
   const text = await readerText(`https://x.com/${encodeURIComponent(h)}`);
-  if (!text) return { value: null, error: "X: profile not reachable (enter manually)" };
-  // Look for "<n> Followers" or "Followers <n>" in the rendered text.
-  const m =
-    text.match(/([\d.,]+\s*[KMB]?)\s*Followers/i) || text.match(/Followers[:\s]*([\d.,]+\s*[KMB]?)/i);
-  if (!m) return { value: null, error: "X: follower count not found (enter manually)" };
-  const value = parseHumanNumber(m[1]);
-  return value != null ? { value, error: null } : { value: null, error: "X: unparseable count" };
+  if (text) {
+    const m =
+      text.match(/([\d.,]+\s*[KMB]?)\s*Followers/i) || text.match(/Followers[:\s]*([\d.,]+\s*[KMB]?)/i);
+    if (m) {
+      const v = parseHumanNumber(m[1]);
+      if (v != null) return { value: v, error: null };
+    }
+  }
+  return { value: null, error: "X: no free source returned a count (set X_BEARER_TOKEN or enter manually)" };
 }
 
 // ── LinkedIn: best-effort follower scrape of the public company page ──

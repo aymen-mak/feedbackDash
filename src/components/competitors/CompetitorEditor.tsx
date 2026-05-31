@@ -47,6 +47,7 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
   const [tvl, setTvl] = useState(initial?.tvl ?? "");
   const [token, setToken] = useState(initial?.token ?? "");
   const [website, setWebsite] = useState(initial?.website ?? "");
+  const [defillamaSlug, setDefillamaSlug] = useState(initial?.defillamaSlug ?? "");
   const [remark, setRemark] = useState(initial?.remark ?? "");
   const [strength, setStrength] = useState(initial?.communityStrength ?? 0);
   const [platforms, setPlatforms] = useState<PlatformMetric[]>(
@@ -89,6 +90,7 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
       tvl: tvl.trim() || null,
       token: token.trim() || null,
       website: website.trim() || null,
+      defillamaSlug: defillamaSlug.trim() || null,
       remark,
       communityStrength: strength,
       platforms: outPlatforms,
@@ -161,6 +163,17 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
             <div className="col-span-2">
               <label className={labelCls}>Website</label>
               <input className={inputCls} value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="https://…" />
+            </div>
+            <div className="col-span-2">
+              <label className={labelCls}>
+                DefiLlama slug <span className="lowercase text-makina-subtle">— enables TVL / fees / revenue (e.g. lombard)</span>
+              </label>
+              <input
+                className={inputCls}
+                value={defillamaSlug}
+                onChange={(e) => setDefillamaSlug(e.target.value)}
+                placeholder="slug from api.llama.fi/protocol/<slug>"
+              />
             </div>
             <div className="col-span-2">
               <label className={labelCls}>

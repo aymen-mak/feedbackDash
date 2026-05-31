@@ -74,23 +74,6 @@ function manual(v: Partial<PlatformMetric> & { platform: PlatformMetric["platfor
 export function competitorSeed(): Competitor[] {
   return [
     build({
-      id: "makina",
-      name: "Makina",
-      isSelf: true,
-      segment: "Vault infra / curated strategies",
-      website: "https://makina.finance",
-      remark:
-        "Us — the reference row. Fill in our own community numbers here to benchmark against the competitive set.",
-      communityStrength: 0,
-      platforms: [
-        manual({ platform: "twitter", presence: "unknown" }),
-        manual({ platform: "linkedin", presence: "unknown" }),
-        manual({ platform: "discord", presence: "unknown" }),
-        manual({ platform: "telegram", presence: "unknown" }),
-      ],
-    }),
-
-    build({
       id: "lombard",
       defillamaSlug: "lombard",
       name: "Lombard",
