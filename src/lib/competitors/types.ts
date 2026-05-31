@@ -46,8 +46,8 @@ export const PLATFORM_METRIC_UNIT: Record<Platform, string> = {
 
 /** Whether a platform supports free auto-collection (see collectors.ts). */
 export const PLATFORM_AUTO_SUPPORTED: Record<Platform, boolean> = {
-  twitter: false, // no free follower API — best-effort only, defaults to manual
-  linkedin: false, // auth-walled, no public API
+  twitter: true, // best-effort web scrape via reader proxy (no free API)
+  linkedin: true, // best-effort web scrape of the public company page
   discord: true, // invite endpoint with_counts
   telegram: true, // public channel page scrape
   reddit: true, // about.json
@@ -58,8 +58,8 @@ export const PLATFORM_AUTO_SUPPORTED: Record<Platform, boolean> = {
 
 /** Hint shown in the editor for what to put in `autoKey` per platform. */
 export const PLATFORM_AUTOKEY_HINT: Record<Platform, string> = {
-  twitter: "handle (best-effort; usually manual)",
-  linkedin: "manual only",
+  twitter: "handle without @ (best-effort web scrape)",
+  linkedin: "company slug (best-effort web scrape)",
   discord: "invite code (the part after discord.gg/)",
   telegram: "channel username (no @)",
   reddit: "subreddit (no r/)",
@@ -112,6 +112,40 @@ export interface PlatformMetric {
   lastError: string | null;
 }
 
+/** On-chain metrics sourced from DefiLlama (free API). */
+export interface OnchainMetrics {
+  tvl: number | null;
+  tvlChange1d: number | null; // percent
+  tvlChange7d: number | null; // percent
+  mcap: number | null;
+  fees24h: number | null;
+  fees7d: number | null;
+  fees30d: number | null;
+  revenue24h: number | null;
+  revenue30d: number | null;
+  /** Recent daily TVL points for the sparkline (capped, oldest→newest). */
+  tvlSeries: { t: string; v: number }[];
+  lastUpdated: string | null;
+  lastError: string | null;
+}
+
+export function emptyOnchain(): OnchainMetrics {
+  return {
+    tvl: null,
+    tvlChange1d: null,
+    tvlChange7d: null,
+    mcap: null,
+    fees24h: null,
+    fees7d: null,
+    fees30d: null,
+    revenue24h: null,
+    revenue30d: null,
+    tvlSeries: [],
+    lastUpdated: null,
+    lastError: null,
+  };
+}
+
 export interface Competitor {
   id: string;
   name: string;
@@ -122,6 +156,10 @@ export interface Competitor {
   tvl: string | null;
   token: string | null;
   website: string | null;
+  /** DefiLlama protocol slug for on-chain metrics; null = none / not listed. */
+  defillamaSlug: string | null;
+  /** On-chain metrics (DefiLlama); null until first fetch. */
+  onchain: OnchainMetrics | null;
   /** Overall qualitative remark (the analyst's read). */
   remark: string;
   /** Community-strength score 0–100 (curated). */
@@ -176,6 +214,7 @@ export interface CompetitorUpdate {
   tvl?: string | null;
   token?: string | null;
   website?: string | null;
+  defillamaSlug?: string | null;
   remark?: string;
   communityStrength?: number;
   platforms?: PlatformMetric[];

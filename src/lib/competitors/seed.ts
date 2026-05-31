@@ -29,12 +29,21 @@ interface SeedInput {
   tvl?: string | null;
   token?: string | null;
   website?: string | null;
+  defillamaSlug?: string | null;
   remark: string;
   communityStrength: number;
   platforms: PlatformMetric[];
 }
 
 function build(input: SeedInput): Competitor {
+  // Derive best-effort auto keys for X / LinkedIn from their handles, so the
+  // scrape collectors run on deploy without per-row config.
+  const platforms = input.platforms.map((p) => {
+    if (p.autoKey) return p;
+    if (p.platform === "twitter" && p.handle) return { ...p, autoKey: p.handle.replace(/^@/, "") };
+    if (p.platform === "linkedin" && p.handle) return { ...p, autoKey: p.handle };
+    return p;
+  });
   return {
     id: input.id,
     name: input.name,
@@ -43,9 +52,11 @@ function build(input: SeedInput): Competitor {
     tvl: input.tvl ?? null,
     token: input.token ?? null,
     website: input.website ?? null,
+    defillamaSlug: input.defillamaSlug ?? null,
+    onchain: null,
     remark: input.remark,
     communityStrength: input.communityStrength,
-    platforms: input.platforms,
+    platforms,
     createdAt: SEED_DATE,
     updatedAt: SEED_DATE,
   };
@@ -81,6 +92,7 @@ export function competitorSeed(): Competitor[] {
 
     build({
       id: "lombard",
+      defillamaSlug: "lombard",
       name: "Lombard",
       segment: "Bitcoin LST (LBTC)",
       tvl: "$700M+",
@@ -101,6 +113,7 @@ export function competitorSeed(): Competitor[] {
 
     build({
       id: "superform",
+      defillamaSlug: "superform",
       name: "Superform",
       segment: "Yield / user-owned neobank",
       token: "$UP",
@@ -120,6 +133,7 @@ export function competitorSeed(): Competitor[] {
 
     build({
       id: "mellow",
+      defillamaSlug: "mellow-protocol",
       name: "Mellow",
       segment: "Restaking / vault infra",
       tvl: "~$145M",
@@ -139,6 +153,7 @@ export function competitorSeed(): Competitor[] {
 
     build({
       id: "midas",
+      defillamaSlug: "midas-rwa",
       name: "Midas",
       segment: "RWA tokenization (mTBILL, mBASIS)",
       website: "https://midas.app",
@@ -156,6 +171,7 @@ export function competitorSeed(): Competitor[] {
 
     build({
       id: "upshift",
+      defillamaSlug: "upshift",
       name: "Upshift",
       segment: "Vault-as-a-Service (by August Digital)",
       website: "https://upshift.finance",
@@ -173,6 +189,7 @@ export function competitorSeed(): Competitor[] {
 
     build({
       id: "lagoon",
+      defillamaSlug: "lagoon",
       name: "Lagoon",
       segment: "Institutional vault infra (Hopper Labs)",
       tvl: "~$139M",
@@ -191,6 +208,7 @@ export function competitorSeed(): Competitor[] {
 
     build({
       id: "flux",
+      defillamaSlug: "flux-finance",
       name: "Flux Finance",
       segment: "RWA lending (Ondo DAO)",
       website: "https://fluxfinance.com",
@@ -209,6 +227,7 @@ export function competitorSeed(): Competitor[] {
 
     build({
       id: "veda",
+      defillamaSlug: "veda",
       name: "Veda",
       segment: "Yield vault infra (BoringVault)",
       website: "https://veda.tech",
