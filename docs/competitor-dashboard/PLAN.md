@@ -94,7 +94,7 @@ Design tokens reused: `makina-*` colors, `hover-lift`, `gradient-accent/text`,
 - [x] **Phase 0 — Plan & scaffolding.** This PLAN.md. _(committed)_
 - [x] **Phase 1 — Data layer.** types, seed, file store, pg backend, service facade (no collectors yet). _(committed)_
 - [x] **Phase 2 — Collectors + refresh.** telegram/discord/reddit/github/twitter + `refreshAll()` in service. Verified `autoKey`s folded into seed. _(committed)_
-- [ ] **Phase 3 — API routes.** list/create, get/patch/delete, refresh, history.
+- [x] **Phase 3 — API routes.** list/create, get/patch/delete, refresh, history. Smoke-tested: list=9, history OK, refresh runs gracefully (1 live GitHub fetch succeeded in-sandbox, rest 403 as expected). _(committed)_
 - [ ] **Phase 4 — Dashboard UI.** /competitors page, cards, platform badges, comparison chart, navbar link.
 - [ ] **Phase 5 — Detail + editing.** detail modal, manual override editor, per-platform history chart, add-competitor.
 - [ ] **Phase 6 — Scheduling + docs + verify.** vercel.json cron, README, `npm run build` clean, dev smoke test.
@@ -106,7 +106,7 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 | 0 Plan | ✅ DONE |
 | 1 Data layer | ✅ DONE |
 | 2 Collectors | ✅ DONE |
-| 3 API | ⬜ TODO |
+| 3 API | ✅ DONE |
 | 4 Dashboard UI | ⬜ TODO |
 | 5 Detail + editing | ⬜ TODO |
 | 6 Schedule + docs + verify | ⬜ TODO |
@@ -115,9 +115,10 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 
 ## Resume pointer
 
-**Next action:** Start Phase 3 — API routes under `src/app/api/competitors/`
-(`route.ts` list/create, `[id]/route.ts` get/patch/delete, `refresh/route.ts`,
-`history/route.ts`).
+**Next action:** Start Phase 4 — Dashboard UI. Create `src/app/competitors/page.tsx`
+(PasswordGate + Navbar), `src/components/competitors/{CompetitorComparisonChart,
+CompetitorCard,PlatformBadge}.tsx`, and add a "Competitors" link to `Navbar.tsx`.
+A dev server may already be running on :3100 (`/tmp/comp-dev.log`) for smoke tests.
 
 **Env caveat (important):** this build sandbox returns HTTP 403 for x.com,
 discord.com, t.me and linkedin to automated fetches, so live auto-collection

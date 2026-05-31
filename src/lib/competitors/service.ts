@@ -4,8 +4,10 @@ import {
   type CompetitorUpdate,
   type PlatformMetric,
   type Platform,
+  type Presence,
   type Snapshot,
   type RefreshResult,
+  PLATFORMS,
   makeMetric,
 } from "./types";
 import { competitorSeed } from "./seed";
@@ -60,6 +62,43 @@ function defaultPlatforms(): PlatformMetric[] {
   return (["twitter", "linkedin", "discord", "telegram"] as Platform[]).map((platform) =>
     makeMetric({ platform, presence: "unknown" })
   );
+}
+
+const PRESENCES: Presence[] = ["active", "inactive", "none", "external", "unknown"];
+
+/** Coerce untrusted client input into well-formed PlatformMetric[]. */
+export function sanitizePlatforms(input: unknown): PlatformMetric[] {
+  if (!Array.isArray(input)) return [];
+  const out: PlatformMetric[] = [];
+  const seen = new Set<Platform>();
+  for (const raw of input) {
+    if (!raw || typeof raw !== "object") continue;
+    const r = raw as Record<string, unknown>;
+    const platform = r.platform as Platform;
+    if (!PLATFORMS.includes(platform) || seen.has(platform)) continue;
+    seen.add(platform);
+    const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
+    out.push(
+      makeMetric({
+        platform,
+        handle: str(r.handle),
+        url: str(r.url),
+        autoKey: str(r.autoKey),
+        value:
+          typeof r.value === "number" && Number.isFinite(r.value)
+            ? Math.max(0, Math.round(r.value))
+            : null,
+        presence: PRESENCES.includes(r.presence as Presence)
+          ? (r.presence as Presence)
+          : "unknown",
+        source: r.source === "auto" ? "auto" : "manual",
+        note: str(r.note),
+        lastUpdated: str(r.lastUpdated),
+        lastError: str(r.lastError),
+      })
+    );
+  }
+  return out;
 }
 
 /** Derive initial snapshots from any seeded non-null platform values. */
@@ -158,6 +197,7 @@ export async function createCompetitor(input: {
   const clash = hasPostgres() ? await pgGetCompetitor(id) : fileGetCompetitor(id);
   if (clash) id = `${id}-${genId("x").slice(-4)}`;
 
+  const platforms = input.platforms ? sanitizePlatforms(input.platforms) : [];
   const c: Competitor = {
     id,
     name: input.name.trim() || "Untitled",
@@ -168,8 +208,7 @@ export async function createCompetitor(input: {
     website: input.website ?? null,
     remark: input.remark ?? "",
     communityStrength: clampScore(input.communityStrength ?? 0),
-    platforms:
-      input.platforms && input.platforms.length ? input.platforms : defaultPlatforms(),
+    platforms: platforms.length ? platforms : defaultPlatforms(),
     createdAt: now,
     updatedAt: now,
   };
@@ -187,6 +226,7 @@ export async function patchCompetitor(
   if (!existing) return null;
   const oldPlatforms = existing.platforms;
   const now = new Date().toISOString();
+  const incomingPlatforms = update.platforms ? sanitizePlatforms(update.platforms) : undefined;
 
   const merged: Competitor = {
     ...existing,
@@ -200,13 +240,13 @@ export async function patchCompetitor(
       update.communityStrength !== undefined
         ? clampScore(update.communityStrength)
         : existing.communityStrength,
-    platforms: update.platforms ?? existing.platforms,
+    platforms: incomingPlatforms ?? existing.platforms,
     updatedAt: now,
   };
 
   // Stamp lastUpdated on platforms whose value changed in this edit.
-  if (update.platforms) {
-    merged.platforms = update.platforms.map((p) => {
+  if (incomingPlatforms) {
+    merged.platforms = incomingPlatforms.map((p) => {
       const old = oldPlatforms.find((o) => o.platform === p.platform);
       const valueChanged = (old?.value ?? null) !== (p.value ?? null);
       return {
