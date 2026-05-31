@@ -92,7 +92,7 @@ Design tokens reused: `makina-*` colors, `hover-lift`, `gradient-accent/text`,
 ## Build phases (commit + push after each)
 
 - [x] **Phase 0 — Plan & scaffolding.** This PLAN.md. _(committed)_
-- [ ] **Phase 1 — Data layer.** types, seed, file store, pg backend, service facade (no collectors yet).
+- [x] **Phase 1 — Data layer.** types, seed, file store, pg backend, service facade (no collectors yet). _(committed)_
 - [ ] **Phase 2 — Collectors + refresh.** telegram/discord/reddit/github/twitter + snapshot-on-change in service.
 - [ ] **Phase 3 — API routes.** list/create, get/patch/delete, refresh, history.
 - [ ] **Phase 4 — Dashboard UI.** /competitors page, cards, platform badges, comparison chart, navbar link.
@@ -104,7 +104,7 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 | Phase | Status |
 |-------|--------|
 | 0 Plan | ✅ DONE |
-| 1 Data layer | ⬜ TODO |
+| 1 Data layer | ✅ DONE |
 | 2 Collectors | ⬜ TODO |
 | 3 API | ⬜ TODO |
 | 4 Dashboard UI | ⬜ TODO |
@@ -115,6 +115,6 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 
 ## Resume pointer
 
-**Next action:** Start Phase 1 — create `src/lib/competitors/{types,seed,store,db,service}.ts`.
+**Next action:** Start Phase 2 — create `src/lib/competitors/collectors.ts` (telegram/discord/reddit/github/twitter fetchers) and add `refreshAll()` to `service.ts`. A background research agent was dispatched to verify exact handles/invite codes; fold verified `autoKey`s into `seed.ts` when it returns.
 
 _(Update this section + the table at the end of every phase before committing.)_
