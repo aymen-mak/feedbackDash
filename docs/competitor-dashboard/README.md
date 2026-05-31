@@ -34,8 +34,8 @@ project.
 | Discord  | ✅ | invite endpoint `with_counts` | invite code (the part after `discord.gg/`) |
 | Reddit   | ✅ | `r/<sub>/about.json` | subreddit (no `r/`) |
 | GitHub   | ✅ | public users API → follower count | org/user slug |
-| X / Twitter | ⚠️ scrape | best-effort via a reader proxy (no free follower API) | handle without `@` |
-| LinkedIn | ⚠️ scrape | best-effort scrape of the public company page | company slug |
+| X / Twitter | ✅ | Follow-button syndication JSON → guest-token GraphQL → reader → search snippet (optional `X_BEARER_TOKEN` for exactness) | handle without `@` |
+| LinkedIn | ✅ | reader proxy + DuckDuckGo search-snippet workaround | company slug |
 | YouTube  | ❌ manual | needs an API key | — |
 | **On-chain** — TVL, 24h/7d Δ, fees, revenue, mcap | ✅ | DefiLlama `/protocol/{slug}` + `/summary/fees/{slug}` (free) | DefiLlama slug (set on the competitor) |
 
@@ -48,9 +48,8 @@ Pre-wired in the seed: DefiLlama slugs for all 8 (`veda`, `mellow-protocol`,
 invites (Midas, Mellow, Superform, Lombard); Telegram (Mellow, Midas); GitHub
 (6 orgs); and X/LinkedIn auto-keys derived from each handle.
 
-> **DAU / active users:** intentionally **not** included — DefiLlama has no free
-> active-users endpoint and there's no reliable free source, so rather than show a
-> fake number it's omitted. Add it as a manual "Other" metric if you have a source.
+> **DAU / active users:** omitted — there is no free source for it (DefiLlama has no
+> active-users endpoint), so rather than invent a number it's left out.
 
 ### On-chain & monitoring UX
 
@@ -62,6 +61,8 @@ invites (Midas, Mellow, Superform, Lombard); Telegram (Mellow, Midas); GitHub
   fetch), `N/A` (manual, unknown), or `⚠` (last fetch errored).
 - **Freshness/health dot** per row/card: green &lt;24h, blue &lt;7d, amber stale,
   red error, grey no-data.
+- **TVL sparkline** backfills up to 90 days from DefiLlama on the first refresh,
+  then appends a point per refresh.
 - **Live auto-refresh** toggle re-reads data every 60s so cron updates surface on
   their own; **Refresh now** triggers collection immediately.
 

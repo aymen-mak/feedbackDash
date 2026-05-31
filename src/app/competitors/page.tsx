@@ -236,9 +236,9 @@ function CompetitorsInner() {
               ))}
             </div>
             <p className="mt-2 text-[10px] text-makina-subtle">
-              Fetched OK / attempted per source (hover a chip for the failure reason). Most failures clear once
-              deployed with network egress; X/LinkedIn need <code className="text-makina-muted">X_BEARER_TOKEN</code> /
-              manual entry.
+              Fetched OK / attempted per source. Everything is collected automatically — DefiLlama, Discord,
+              Telegram, GitHub, plus X &amp; LinkedIn via syndication + search-snippet workarounds — on the cron or
+              “Refresh now” (needs a deploy with network egress).
             </p>
           </div>
         )}
