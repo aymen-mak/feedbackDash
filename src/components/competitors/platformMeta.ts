@@ -1,4 +1,16 @@
-import { type Platform, type Presence } from "@/lib/competitors/types";
+import { type Platform, type Presence, type Competitor } from "@/lib/competitors/types";
+
+// Platforms that represent a human audience (GitHub = devs, on-chain = capital
+// are excluded). Their sum is a concrete, data-driven "community reach" — the
+// informative replacement for the old arbitrary 0–100 strength score.
+const AUDIENCE_PLATFORMS: Platform[] = ["twitter", "discord", "telegram", "linkedin"];
+
+export function audience(c: Competitor): number {
+  return c.platforms.reduce(
+    (sum, p) => sum + (AUDIENCE_PLATFORMS.includes(p.platform) && p.value != null ? p.value : 0),
+    0
+  );
+}
 
 // Brand colours + short labels for each platform (no brand-icon imports, which
 // lucide has been deprecating — colour + label is stable and on-theme).

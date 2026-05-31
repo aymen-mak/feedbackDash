@@ -5,7 +5,7 @@ import { ExternalLink, ChevronDown, BarChart3 } from "lucide-react";
 import { type Competitor, type Platform } from "@/lib/competitors/types";
 import PlatformBadge from "./PlatformBadge";
 import OnchainRow from "./OnchainRow";
-import { freshness, HEALTH_COLOR } from "./platformMeta";
+import { freshness, HEALTH_COLOR, audience, formatCount } from "./platformMeta";
 
 const PLATFORM_ORDER: Platform[] = [
   "twitter",
@@ -18,13 +18,6 @@ const PLATFORM_ORDER: Platform[] = [
   "other",
 ];
 
-function strengthColor(score: number): string {
-  if (score >= 70) return "#22c55e";
-  if (score >= 40) return "#5b9cf6";
-  if (score >= 20) return "#f59e0b";
-  return "#ef4444";
-}
-
 interface Props {
   competitor: Competitor;
   /** Per-platform change vs. previous snapshot, keyed by platform. */
@@ -32,9 +25,12 @@ interface Props {
   /** Open the detail/edit view. */
   onSelect?: (id: string) => void;
   index?: number;
+  /** Largest community reach in the set, for the relative bar. */
+  maxAudience?: number;
 }
 
-export default function CompetitorCard({ competitor: c, trends, onSelect, index = 0 }: Props) {
+export default function CompetitorCard({ competitor: c, trends, onSelect, index = 0, maxAudience = 1 }: Props) {
+  const aud = audience(c);
   const [expanded, setExpanded] = useState(false);
   const platforms = [...c.platforms].sort(
     (a, b) => PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform)
@@ -91,23 +87,19 @@ export default function CompetitorCard({ competitor: c, trends, onSelect, index 
         </div>
       )}
 
-      {/* Community strength */}
+      {/* Community reach = X + Discord + Telegram + LinkedIn */}
       <div className="mt-3">
         <div className="mb-1 flex items-center justify-between">
           <span className="text-[10px] font-medium uppercase tracking-wider text-makina-muted">
-            Community strength
+            Community reach
           </span>
-          <span className="text-[11px] font-bold text-makina-text">
-            {c.isSelf ? "—" : `${c.communityStrength}/100`}
-          </span>
+          <span className="text-[11px] font-bold text-makina-text">{aud > 0 ? formatCount(aud) : "—"}</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-makina-surface">
-          {!c.isSelf && (
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${c.communityStrength}%`, backgroundColor: strengthColor(c.communityStrength) }}
-            />
-          )}
+          <div
+            className="h-full rounded-full bg-makina-accent transition-all"
+            style={{ width: `${Math.min(100, (aud / maxAudience) * 100)}%` }}
+          />
         </div>
       </div>
 

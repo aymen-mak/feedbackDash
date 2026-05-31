@@ -3,12 +3,12 @@
 import { useState, useMemo } from "react";
 import { ArrowUp, ArrowDown } from "lucide-react";
 import { type Competitor, type Platform, type PlatformMetric } from "@/lib/competitors/types";
-import { formatCount, formatUsd, signedPct, freshness, HEALTH_COLOR } from "./platformMeta";
+import { formatCount, formatUsd, signedPct, freshness, HEALTH_COLOR, audience } from "./platformMeta";
 import Sparkline from "./Sparkline";
 
 type SortKey =
   | "name"
-  | "strength"
+  | "audience"
   | "tvl"
   | "fees"
   | "rev"
@@ -33,7 +33,7 @@ function lastUpdatedOf(c: Competitor): string | null {
 
 const ACCESSORS: Record<SortKey, (c: Competitor) => number | string> = {
   name: (c) => c.name.toLowerCase(),
-  strength: (c) => c.communityStrength,
+  audience: (c) => audience(c),
   tvl: (c) => c.onchain?.tvl ?? -1,
   fees: (c) => c.onchain?.fees24h ?? -1,
   rev: (c) => c.onchain?.revenue24h ?? -1,
@@ -44,10 +44,6 @@ const ACCESSORS: Record<SortKey, (c: Competitor) => number | string> = {
   github: (c) => valOf(c, "github") ?? -1,
   updated: (c) => new Date(lastUpdatedOf(c) ?? 0).getTime(),
 };
-
-function strengthColor(s: number): string {
-  return s >= 70 ? "#22c55e" : s >= 40 ? "#5b9cf6" : s >= 20 ? "#f59e0b" : "#ef4444";
-}
 
 function SocialCell({ m, trend }: { m?: PlatformMetric; trend?: number }) {
   if (!m) return <td className="px-2 py-2.5 text-right text-makina-subtle">—</td>;
@@ -104,6 +100,8 @@ export default function MonitoringTable({ competitors, trends, onSelect }: Props
     });
   }, [competitors, sortKey, dir]);
 
+  const maxAud = useMemo(() => Math.max(1, ...competitors.map(audience)), [competitors]);
+
   const toggle = (k: SortKey) => {
     if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
@@ -132,7 +130,7 @@ export default function MonitoringTable({ competitors, trends, onSelect }: Props
         <thead>
           <tr className="border-b border-makina-border">
             <Th k="name" label="Protocol" />
-            <Th k="strength" label="Strength" />
+            <Th k="audience" label="Community reach" />
             <Th k="tvl" label="TVL" right />
             <Th k="fees" label="Fees 24h" right />
             <Th k="rev" label="Rev 24h" right />
@@ -168,19 +166,22 @@ export default function MonitoringTable({ competitors, trends, onSelect }: Props
                 </td>
 
                 <td className="px-2 py-2.5">
-                  {c.isSelf ? (
-                    <span className="text-makina-subtle">—</span>
-                  ) : (
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-1.5 w-12 overflow-hidden rounded-full bg-makina-surface">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${c.communityStrength}%`, backgroundColor: strengthColor(c.communityStrength) }}
-                        />
+                  {(() => {
+                    const a = audience(c);
+                    return (
+                      <div className="flex items-center gap-1.5" title="X + Discord + Telegram + LinkedIn">
+                        <div className="h-1.5 w-12 overflow-hidden rounded-full bg-makina-surface">
+                          <div
+                            className="h-full rounded-full bg-makina-accent"
+                            style={{ width: `${Math.min(100, (a / maxAud) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-[11px] tabular-nums text-makina-muted">
+                          {a > 0 ? formatCount(a) : "—"}
+                        </span>
                       </div>
-                      <span className="text-[11px] tabular-nums text-makina-muted">{c.communityStrength}</span>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </td>
 
                 <td className="px-2 py-2.5 text-right">
