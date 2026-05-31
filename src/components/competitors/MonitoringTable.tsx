@@ -13,12 +13,13 @@ type SortKey =
   | "fees"
   | "rev"
   | "twitter"
+  | "linkedin"
   | "discord"
   | "telegram"
   | "github"
   | "updated";
 
-const SOCIAL_COLS: Platform[] = ["twitter", "discord", "telegram", "github"];
+const SOCIAL_COLS: Platform[] = ["twitter", "linkedin", "discord", "telegram", "github"];
 
 const metricOf = (c: Competitor, p: Platform) => c.platforms.find((x) => x.platform === p);
 const valOf = (c: Competitor, p: Platform) => metricOf(c, p)?.value ?? null;
@@ -37,6 +38,7 @@ const ACCESSORS: Record<SortKey, (c: Competitor) => number | string> = {
   fees: (c) => c.onchain?.fees24h ?? -1,
   rev: (c) => c.onchain?.revenue24h ?? -1,
   twitter: (c) => valOf(c, "twitter") ?? -1,
+  linkedin: (c) => valOf(c, "linkedin") ?? -1,
   discord: (c) => valOf(c, "discord") ?? -1,
   telegram: (c) => valOf(c, "telegram") ?? -1,
   github: (c) => valOf(c, "github") ?? -1,
@@ -126,7 +128,7 @@ export default function MonitoringTable({ competitors, trends, onSelect }: Props
 
   return (
     <div className="overflow-x-auto rounded-xl border border-makina-border bg-makina-card animate-fade-in-up">
-      <table className="w-full min-w-[880px] border-collapse text-sm">
+      <table className="w-full min-w-[980px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-makina-border">
             <Th k="name" label="Protocol" />
@@ -135,6 +137,7 @@ export default function MonitoringTable({ competitors, trends, onSelect }: Props
             <Th k="fees" label="Fees 24h" right />
             <Th k="rev" label="Rev 24h" right />
             <Th k="twitter" label="X" right />
+            <Th k="linkedin" label="LinkedIn" right />
             <Th k="discord" label="Discord" right />
             <Th k="telegram" label="Telegram" right />
             <Th k="github" label="GitHub" right />

@@ -9,7 +9,7 @@ import { type Competitor, type PlatformMetric, makeMetric } from "./types";
 // X/Twitter handles are filled for display but kept manual (no free API);
 // anything still manual is one paste away from auto in the editor.
 
-const SEED_DATE = "2026-05-31T00:00:00.000Z";
+export const SEED_DATE = "2026-05-31T00:00:00.000Z";
 
 function xUrl(handle: string | null): string | null {
   return handle ? `https://x.com/${handle.replace(/^@/, "")}` : null;
@@ -62,12 +62,15 @@ function build(input: SeedInput): Competitor {
   };
 }
 
-// Mark a seeded value as manually-sourced as of the analysis date.
+// Seed IDENTIFIERS only (handles, slugs, presence, notes) — never seed follower
+// COUNTS. Hardcoded counts go stale fast and read as "false data"; real values
+// are collected live. Any value passed below is intentionally forced to null.
 function manual(v: Partial<PlatformMetric> & { platform: PlatformMetric["platform"] }): PlatformMetric {
   return makeMetric({
     ...v,
+    value: null,
     source: "manual",
-    lastUpdated: v.value != null ? SEED_DATE : null,
+    lastUpdated: null,
   });
 }
 
@@ -164,7 +167,7 @@ export function competitorSeed(): Competitor[] {
       platforms: [
         manual({ platform: "twitter", handle: "@upshift_fi", url: xUrl("@upshift_fi"), presence: "active", note: "~2,779 posts; fairly active poster. Exact follower count N/A." }),
         manual({ platform: "linkedin", handle: "upshiftfinance", url: liUrl("upshiftfinance"), presence: "active" }),
-        manual({ platform: "discord", presence: "active", note: "Invite unverified (discord.gg/upshift seen on listings, ~2.5k) — paste the official code to enable auto-collection." }),
+        manual({ platform: "discord", handle: "discord.gg/upshift", url: "https://discord.gg/upshift", autoKey: "upshift", presence: "active", note: "discord.gg/upshift (~2.5k)." }),
         manual({ platform: "telegram", presence: "active" }),
         manual({ platform: "other", handle: "Points program", presence: "active", note: "Season 1 & 2 with multipliers." }),
       ],
