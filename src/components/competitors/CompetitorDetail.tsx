@@ -12,7 +12,8 @@ import {
 import PlatformBadge from "./PlatformBadge";
 import HistoryChart from "./HistoryChart";
 import CompetitorEditor from "./CompetitorEditor";
-import { PLATFORM_META, timeAgo } from "./platformMeta";
+import Sparkline from "./Sparkline";
+import { PLATFORM_META, timeAgo, formatUsd, signedPct } from "./platformMeta";
 
 const PLATFORM_ORDER: Platform[] = [
   "twitter",
@@ -122,6 +123,69 @@ export default function CompetitorDetail({ competitor, snapshots, onClose, onCha
         <div className="flex-1 space-y-4 overflow-y-auto p-5">
           {current.remark && (
             <p className="text-xs leading-relaxed text-makina-muted">{current.remark}</p>
+          )}
+
+          {/* On-chain (DefiLlama) */}
+          {(current.defillamaSlug || current.onchain?.tvl != null) && (
+            <div className="rounded-lg border border-makina-border bg-makina-surface/30 p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-makina-muted">
+                  On-chain · DefiLlama
+                </span>
+                <span className="text-[10px] text-makina-subtle">
+                  {current.onchain?.lastUpdated ? timeAgo(current.onchain.lastUpdated) : "awaiting refresh"}
+                </span>
+              </div>
+              {current.onchain?.tvl != null ? (
+                <>
+                  <div className="mt-2 flex items-end justify-between gap-3">
+                    <div>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-bold text-makina-text">{formatUsd(current.onchain.tvl)}</span>
+                        <span className="text-[11px] text-makina-muted">TVL</span>
+                      </div>
+                      <div className="mt-0.5 flex gap-3 text-[11px]">
+                        {current.onchain.tvlChange1d != null && (
+                          <span className={current.onchain.tvlChange1d >= 0 ? "text-makina-green" : "text-makina-red"}>
+                            24h {signedPct(current.onchain.tvlChange1d)}
+                          </span>
+                        )}
+                        {current.onchain.tvlChange7d != null && (
+                          <span className={current.onchain.tvlChange7d >= 0 ? "text-makina-green" : "text-makina-red"}>
+                            7d {signedPct(current.onchain.tvlChange7d)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {current.onchain.tvlSeries.length >= 2 && (
+                      <Sparkline data={current.onchain.tvlSeries.map((p) => p.v)} width={140} height={40} />
+                    )}
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-makina-muted sm:grid-cols-3">
+                    {current.onchain.mcap != null && (
+                      <span>Mcap <b className="font-semibold text-makina-text/80">{formatUsd(current.onchain.mcap)}</b></span>
+                    )}
+                    {current.onchain.fees24h != null && (
+                      <span>Fees 24h <b className="font-semibold text-makina-text/80">{formatUsd(current.onchain.fees24h)}</b></span>
+                    )}
+                    {current.onchain.fees30d != null && (
+                      <span>Fees 30d <b className="font-semibold text-makina-text/80">{formatUsd(current.onchain.fees30d)}</b></span>
+                    )}
+                    {current.onchain.revenue24h != null && (
+                      <span>Rev 24h <b className="font-semibold text-makina-text/80">{formatUsd(current.onchain.revenue24h)}</b></span>
+                    )}
+                    {current.onchain.revenue30d != null && (
+                      <span>Rev 30d <b className="font-semibold text-makina-text/80">{formatUsd(current.onchain.revenue30d)}</b></span>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="mt-2 text-[11px] text-makina-subtle">
+                  No on-chain data yet — slug <code className="text-makina-muted">{current.defillamaSlug}</code> populates on the next refresh.
+                  {current.onchain?.lastError ? ` (${current.onchain.lastError})` : ""}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Platform overview */}

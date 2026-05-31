@@ -145,21 +145,27 @@ Verified-from-research (reliable identifiers, not counts): DefiLlama slugs `veda
   best-effort X + LinkedIn scrapers via reader proxy; `refreshAll` returns
   `{results, onchain}` and maintains `onchain.tvlSeries`; seed slugs + auto-keys;
   routes thread `defillamaSlug`. tsc clean. _(committing)_
-- [ ] **Phase 8 — Monitoring UI.** Show on-chain (TVL + Δ colored, fees, revenue,
-  mcap, TVL sparkline) on cards + detail; add TVL/fees to comparison chart;
-  **differentiate N/A states** (none-by-design vs dormant vs external vs
-  awaiting-fetch vs error) with distinct glyphs/colors; per-row **freshness/health**
-  chip (fresh/stale/error from lastUpdated+lastError); **sortable monitoring
-  table** view; **live auto-refresh** toggle; on-chain summary tiles.
+- [x] **Phase 8 — Monitoring UI.** On-chain display (TVL + Δ colored, fees, revenue,
+  mcap, TVL sparkline) on cards + detail; comparison chart now covers TVL/fees/mcap +
+  socials; **differentiated state badges** (none / dormant / external / syncing / N/A /
+  error — distinct glyphs+colors); per-row **freshness/health** chip; **sortable
+  monitoring table** (default view) + cards toggle; **live auto-refresh** toggle;
+  Total-TVL tile. Build clean; runtime verified (graceful, no errors). _(committing)_
 
 | Phase | Status |
 |-------|--------|
 | 7 On-chain backend | ✅ DONE |
-| 8 Monitoring UI | 🔵 IN PROGRESS |
+| 8 Monitoring UI | ✅ DONE |
 
-**Next action:** Phase 8 — add `formatUsd`/`signedPct` helpers + a `Sparkline`
-component; build on-chain display + differentiated state badges + a sortable
-monitoring table + freshness chips + auto-refresh toggle.
+**v2 status: ✅ COMPLETE.** Build clean, refresh handles socials + DefiLlama
+(34 collectors) gracefully. Numbers populate from a deploy with egress (cron /
+Refresh). DAU is intentionally omitted — DefiLlama has no free DAU endpoint;
+documented in README.
+
+**Resume note:** if extending, the comparison chart + table read on-chain from
+`competitor.onchain` (filled by `fetchDefillama` in `refreshAll`); social X/LinkedIn
+use best-effort reader-proxy scrapers (may need a paid source if the proxy is
+unreliable in prod).
 
 Recharts + TS note: Tooltip/LabelList `formatter` params are loosely typed
 (`RenderableText`). Don't over-annotate — narrow with `typeof v === "number"`.

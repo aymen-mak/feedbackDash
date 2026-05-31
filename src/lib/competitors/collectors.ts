@@ -242,7 +242,8 @@ export async function fetchDefillama(slug: string): Promise<DefillamaFetch> {
       {},
       12000
     );
-    if (!res.ok) return blankDefillama(`DefiLlama HTTP ${res.status} (bad slug?)`);
+    if (!res.ok)
+      return blankDefillama(`DefiLlama HTTP ${res.status}${res.status === 404 ? " (unknown slug)" : ""}`);
     const data = (await res.json()) as {
       tvl?: { date: number; totalLiquidityUSD: number }[];
       mcap?: number;

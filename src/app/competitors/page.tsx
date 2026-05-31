@@ -1,15 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw, Trophy, Users, TrendingUp, Radio, Plus, Download } from "lucide-react";
+import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
 import CompetitorComparisonChart from "@/components/competitors/CompetitorComparisonChart";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
+import MonitoringTable from "@/components/competitors/MonitoringTable";
 import CompetitorDetail from "@/components/competitors/CompetitorDetail";
 import CompetitorEditor from "@/components/competitors/CompetitorEditor";
 import { competitorsToCsv, downloadCsv } from "@/components/competitors/exportCsv";
-import { formatCount, timeAgo } from "@/components/competitors/platformMeta";
+import { formatCount, formatUsd, timeAgo } from "@/components/competitors/platformMeta";
 import { type Competitor, type Snapshot, type Platform } from "@/lib/competitors/types";
 
 function CompetitorsInner() {
@@ -20,6 +21,8 @@ function CompetitorsInner() {
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [view, setView] = useState<"table" | "cards">("table");
+  const [autoRefresh, setAutoRefresh] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -38,6 +41,13 @@ function CompetitorsInner() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Live mode: re-read data every 60s so cron-updated values surface on their own.
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const id = setInterval(() => load(), 60_000);
+    return () => clearInterval(id);
+  }, [autoRefresh, load]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -78,22 +88,22 @@ function CompetitorsInner() {
 
   const peers = competitors.filter((c) => !c.isSelf);
   const strongest = [...peers].sort((a, b) => b.communityStrength - a.communityStrength)[0];
-  const withCommunity = peers.filter((c) => c.communityStrength >= 40).length;
-  const totalX = peers.reduce((sum, c) => {
-    const t = c.platforms.find((p) => p.platform === "twitter");
-    return sum + (t?.value ?? 0);
-  }, 0);
+  const totalX = peers.reduce(
+    (sum, c) => sum + (c.platforms.find((p) => p.platform === "twitter")?.value ?? 0),
+    0
+  );
+  const totalTvl = peers.reduce((sum, c) => sum + (c.onchain?.tvl ?? 0), 0);
   const lastUpdated = competitors
-    .flatMap((c) => c.platforms.map((p) => p.lastUpdated))
+    .flatMap((c) => [...c.platforms.map((p) => p.lastUpdated), c.onchain?.lastUpdated])
     .filter(Boolean)
     .sort()
     .pop() as string | undefined;
 
   const stats = [
     { icon: Users, label: "Competitors tracked", value: String(peers.length) },
+    { icon: Database, label: "Total TVL tracked", value: totalTvl > 0 ? formatUsd(totalTvl) : "—" },
     { icon: Trophy, label: "Strongest community", value: strongest?.name ?? "—" },
-    { icon: Radio, label: "With real community", value: `${withCommunity}/${peers.length}` },
-    { icon: TrendingUp, label: "Combined X reach", value: formatCount(totalX) },
+    { icon: TrendingUp, label: "Combined X reach", value: totalX > 0 ? formatCount(totalX) : "—" },
   ];
 
   return (
@@ -176,21 +186,56 @@ function CompetitorsInner() {
               ))}
             </div>
 
+            {/* View controls */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="inline-flex rounded-lg border border-makina-border bg-makina-surface p-0.5">
+                {(["table", "cards"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setView(v)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-all ${
+                      view === v ? "bg-makina-card text-makina-text shadow-sm" : "text-makina-muted hover:text-makina-text"
+                    }`}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+              <button
+                onClick={() => setAutoRefresh((v) => !v)}
+                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  autoRefresh
+                    ? "border-makina-green/40 bg-makina-green/5 text-makina-green"
+                    : "border-makina-border text-makina-muted hover:text-makina-text"
+                }`}
+                title="Re-read data every 60s to surface cron updates"
+              >
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${autoRefresh ? "bg-makina-green animate-pulse-live" : "bg-makina-subtle"}`}
+                />
+                {autoRefresh ? "Live" : "Auto-refresh off"}
+              </button>
+            </div>
+
             {/* Comparison chart */}
             <CompetitorComparisonChart competitors={competitors} />
 
-            {/* Ranked cards */}
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {ranked.map((c, i) => (
-                <CompetitorCard
-                  key={c.id}
-                  competitor={c}
-                  trends={trends[c.id]}
-                  index={i}
-                  onSelect={setSelectedId}
-                />
-              ))}
-            </div>
+            {/* Monitoring view */}
+            {view === "table" ? (
+              <MonitoringTable competitors={competitors} trends={trends} onSelect={setSelectedId} />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {ranked.map((c, i) => (
+                  <CompetitorCard
+                    key={c.id}
+                    competitor={c}
+                    trends={trends[c.id]}
+                    index={i}
+                    onSelect={setSelectedId}
+                  />
+                ))}
+              </div>
+            )}
           </>
         )}
       </main>

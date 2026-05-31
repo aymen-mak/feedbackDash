@@ -1,0 +1,227 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { ArrowUp, ArrowDown } from "lucide-react";
+import { type Competitor, type Platform, type PlatformMetric } from "@/lib/competitors/types";
+import { formatCount, formatUsd, signedPct, freshness, HEALTH_COLOR } from "./platformMeta";
+import Sparkline from "./Sparkline";
+
+type SortKey =
+  | "name"
+  | "strength"
+  | "tvl"
+  | "fees"
+  | "rev"
+  | "twitter"
+  | "discord"
+  | "telegram"
+  | "github"
+  | "updated";
+
+const SOCIAL_COLS: Platform[] = ["twitter", "discord", "telegram", "github"];
+
+const metricOf = (c: Competitor, p: Platform) => c.platforms.find((x) => x.platform === p);
+const valOf = (c: Competitor, p: Platform) => metricOf(c, p)?.value ?? null;
+function lastUpdatedOf(c: Competitor): string | null {
+  return (
+    ([...c.platforms.map((p) => p.lastUpdated), c.onchain?.lastUpdated].filter(Boolean) as string[])
+      .sort()
+      .pop() ?? null
+  );
+}
+
+const ACCESSORS: Record<SortKey, (c: Competitor) => number | string> = {
+  name: (c) => c.name.toLowerCase(),
+  strength: (c) => c.communityStrength,
+  tvl: (c) => c.onchain?.tvl ?? -1,
+  fees: (c) => c.onchain?.fees24h ?? -1,
+  rev: (c) => c.onchain?.revenue24h ?? -1,
+  twitter: (c) => valOf(c, "twitter") ?? -1,
+  discord: (c) => valOf(c, "discord") ?? -1,
+  telegram: (c) => valOf(c, "telegram") ?? -1,
+  github: (c) => valOf(c, "github") ?? -1,
+  updated: (c) => new Date(lastUpdatedOf(c) ?? 0).getTime(),
+};
+
+function strengthColor(s: number): string {
+  return s >= 70 ? "#22c55e" : s >= 40 ? "#5b9cf6" : s >= 20 ? "#f59e0b" : "#ef4444";
+}
+
+function SocialCell({ m, trend }: { m?: PlatformMetric; trend?: number }) {
+  if (!m) return <td className="px-2 py-2.5 text-right text-makina-subtle">—</td>;
+  if (m.value != null) {
+    return (
+      <td className="px-2 py-2.5 text-right">
+        <span className="inline-flex items-center justify-end gap-1">
+          <span className="font-medium tabular-nums text-makina-text/90">{formatCount(m.value)}</span>
+          <span className={`h-1 w-1 rounded-full ${m.source === "auto" ? "bg-makina-green" : "bg-makina-muted"}`} />
+        </span>
+        {typeof trend === "number" && trend !== 0 && (
+          <div className={`text-[9px] tabular-nums ${trend > 0 ? "text-makina-green" : "text-makina-red"}`}>
+            {trend > 0 ? "▲" : "▼"}
+            {formatCount(Math.abs(trend))}
+          </div>
+        )}
+      </td>
+    );
+  }
+  let glyph = "—";
+  let cls = "text-makina-subtle";
+  if (m.lastError) (glyph = "⚠"), (cls = "text-makina-red");
+  else if (m.presence === "inactive") (glyph = "dormant"), (cls = "text-amber-500");
+  else if (m.presence === "external") (glyph = "ext"), (cls = "text-violet-400");
+  else if (m.presence === "none") (glyph = "—"), (cls = "text-makina-subtle");
+  else if (m.autoKey) (glyph = "sync"), (cls = "text-makina-accent/80");
+  else (glyph = "N/A"), (cls = "text-makina-muted");
+  return (
+    <td className={`px-2 py-2.5 text-right text-[11px] ${cls}`} title={m.lastError || m.presence}>
+      {glyph}
+    </td>
+  );
+}
+
+interface Props {
+  competitors: Competitor[];
+  trends?: Record<string, Partial<Record<Platform, number>>>;
+  onSelect: (id: string) => void;
+}
+
+export default function MonitoringTable({ competitors, trends, onSelect }: Props) {
+  const [sortKey, setSortKey] = useState<SortKey>("tvl");
+  const [dir, setDir] = useState<"asc" | "desc">("desc");
+
+  const sorted = useMemo(() => {
+    const acc = ACCESSORS[sortKey];
+    return [...competitors].sort((a, b) => {
+      if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1; // self pinned to top
+      const av = acc(a);
+      const bv = acc(b);
+      const cmp =
+        typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv));
+      return dir === "asc" ? cmp : -cmp;
+    });
+  }, [competitors, sortKey, dir]);
+
+  const toggle = (k: SortKey) => {
+    if (sortKey === k) setDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
+      setSortKey(k);
+      setDir(k === "name" ? "asc" : "desc");
+    }
+  };
+
+  const Th = ({ k, label, right }: { k: SortKey; label: string; right?: boolean }) => (
+    <th className={`px-2 py-2 ${right ? "text-right" : "text-left"}`}>
+      <button
+        onClick={() => toggle(k)}
+        className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+          sortKey === k ? "text-makina-text" : "text-makina-muted hover:text-makina-text"
+        } ${right ? "flex-row-reverse" : ""}`}
+      >
+        {label}
+        {sortKey === k && (dir === "asc" ? <ArrowUp size={10} /> : <ArrowDown size={10} />)}
+      </button>
+    </th>
+  );
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-makina-border bg-makina-card animate-fade-in-up">
+      <table className="w-full min-w-[880px] border-collapse text-sm">
+        <thead>
+          <tr className="border-b border-makina-border">
+            <Th k="name" label="Protocol" />
+            <Th k="strength" label="Strength" />
+            <Th k="tvl" label="TVL" right />
+            <Th k="fees" label="Fees 24h" right />
+            <Th k="rev" label="Rev 24h" right />
+            <Th k="twitter" label="X" right />
+            <Th k="discord" label="Discord" right />
+            <Th k="telegram" label="Telegram" right />
+            <Th k="github" label="GitHub" right />
+            <Th k="updated" label="Updated" />
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map((c) => {
+            const f = freshness(lastUpdatedOf(c));
+            const oc = c.onchain;
+            return (
+              <tr
+                key={c.id}
+                onClick={() => onSelect(c.id)}
+                className="cursor-pointer border-b border-makina-border/50 transition-colors hover:bg-makina-surface/50"
+              >
+                <td className="px-2 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-makina-text">{c.name}</span>
+                    {c.isSelf && (
+                      <span className="rounded-full bg-makina-accent-dim px-1 py-0.5 text-[8px] font-bold uppercase text-makina-accent">
+                        You
+                      </span>
+                    )}
+                    {c.token && <span className="text-[10px] font-medium text-makina-accent">{c.token}</span>}
+                  </div>
+                  <div className="text-[10px] text-makina-subtle">{c.segment}</div>
+                </td>
+
+                <td className="px-2 py-2.5">
+                  {c.isSelf ? (
+                    <span className="text-makina-subtle">—</span>
+                  ) : (
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-1.5 w-12 overflow-hidden rounded-full bg-makina-surface">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${c.communityStrength}%`, backgroundColor: strengthColor(c.communityStrength) }}
+                        />
+                      </div>
+                      <span className="text-[11px] tabular-nums text-makina-muted">{c.communityStrength}</span>
+                    </div>
+                  )}
+                </td>
+
+                <td className="px-2 py-2.5 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    {(oc?.tvlSeries?.length ?? 0) >= 2 && (
+                      <Sparkline data={oc!.tvlSeries.map((p) => p.v)} width={48} height={16} />
+                    )}
+                    <div>
+                      <div className="font-semibold tabular-nums text-makina-text">
+                        {oc?.tvl != null ? formatUsd(oc.tvl) : "—"}
+                      </div>
+                      {oc?.tvlChange1d != null && (
+                        <div
+                          className={`text-[10px] tabular-nums ${oc.tvlChange1d >= 0 ? "text-makina-green" : "text-makina-red"}`}
+                        >
+                          {signedPct(oc.tvlChange1d)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+
+                <td className="px-2 py-2.5 text-right tabular-nums text-makina-text/80">
+                  {oc?.fees24h != null ? formatUsd(oc.fees24h) : <span className="text-makina-subtle">—</span>}
+                </td>
+                <td className="px-2 py-2.5 text-right tabular-nums text-makina-text/80">
+                  {oc?.revenue24h != null ? formatUsd(oc.revenue24h) : <span className="text-makina-subtle">—</span>}
+                </td>
+
+                {SOCIAL_COLS.map((p) => (
+                  <SocialCell key={p} m={metricOf(c, p)} trend={trends?.[c.id]?.[p]} />
+                ))}
+
+                <td className="px-2 py-2.5">
+                  <span className="inline-flex items-center gap-1.5 text-[10px] text-makina-muted">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: HEALTH_COLOR[f.health] }} />
+                    {f.label}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
