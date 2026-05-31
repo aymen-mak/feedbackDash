@@ -1,5 +1,5 @@
 import { type PlatformMetric, PLATFORM_LABELS } from "@/lib/competitors/types";
-import { PLATFORM_META, formatCount, presenceShort, isAbsent } from "./platformMeta";
+import { PLATFORM_META, formatCount } from "./platformMeta";
 
 interface Props {
   metric: PlatformMetric;
@@ -7,49 +7,69 @@ interface Props {
   trend?: number | null;
 }
 
+// Distinct visual states so a "no presence" never looks like "awaiting data".
+function emptyState(m: PlatformMetric): { text: string; cls: string; pulse?: boolean } {
+  if (m.lastError) return { text: "error", cls: "border-makina-red/40 text-makina-red bg-makina-red/5" };
+  switch (m.presence) {
+    case "none":
+      return { text: "—", cls: "border-dashed border-makina-border/50 text-makina-subtle bg-transparent" };
+    case "inactive":
+      return { text: "dormant", cls: "border-amber-500/30 text-amber-500 bg-amber-500/5" };
+    case "external":
+      return { text: "external", cls: "border-violet-500/30 text-violet-400 bg-violet-500/5" };
+    default:
+      // active / unknown with no number
+      if (m.autoKey)
+        return { text: "syncing", cls: "border-dotted border-makina-accent/40 text-makina-accent/80 bg-makina-accent-dim", pulse: true };
+      return { text: "N/A", cls: "border-makina-border text-makina-muted bg-makina-surface" };
+  }
+}
+
 export default function PlatformBadge({ metric, trend }: Props) {
   const meta = PLATFORM_META[metric.platform];
   const hasValue = metric.value != null;
-  const absent = !hasValue && isAbsent(metric.presence);
-  const display = hasValue ? formatCount(metric.value) : presenceShort(metric.presence);
+  const state = hasValue ? null : emptyState(metric);
 
   const titleParts: string[] = [PLATFORM_LABELS[metric.platform]];
   if (metric.handle) titleParts.push(metric.handle);
   if (hasValue) titleParts.push(`${metric.value!.toLocaleString()} · ${metric.source}`);
+  else if (state) titleParts.push(state.text === "—" ? "no presence" : state.text);
   if (metric.note) titleParts.push(metric.note);
   if (metric.lastError) titleParts.push(`⚠ ${metric.lastError}`);
 
   return (
     <span
       title={titleParts.join(" — ")}
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] transition-colors ${
-        absent
-          ? "border-makina-border/60 bg-transparent opacity-55"
-          : "border-makina-border bg-makina-surface"
+      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] ${
+        hasValue ? "border-makina-border bg-makina-surface" : state!.cls
       }`}
     >
-      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: meta.color }} />
+      <span
+        className="h-2 w-2 shrink-0 rounded-full"
+        style={{ backgroundColor: meta.color, opacity: hasValue ? 1 : 0.55 }}
+      />
       <span className="font-medium text-makina-text/70">{meta.short}</span>
-      <span className={`font-semibold ${hasValue ? "text-makina-text" : "text-makina-muted"}`}>
-        {display}
-      </span>
-      {hasValue && (
-        <span
-          className={`h-1.5 w-1.5 rounded-full ${
-            metric.source === "auto" ? "bg-makina-green" : "bg-makina-muted"
-          }`}
-          title={metric.source === "auto" ? "Auto-collected" : "Manual entry"}
-        />
-      )}
-      {hasValue && typeof trend === "number" && trend !== 0 && (
-        <span
-          className={`text-[10px] font-medium ${trend > 0 ? "text-makina-green" : "text-makina-red"}`}
-        >
-          {trend > 0 ? "▲" : "▼"}
-          {formatCount(Math.abs(trend))}
+
+      {hasValue ? (
+        <>
+          <span className="font-semibold text-makina-text">{formatCount(metric.value)}</span>
+          <span
+            className={`h-1.5 w-1.5 rounded-full ${metric.source === "auto" ? "bg-makina-green" : "bg-makina-muted"}`}
+            title={metric.source === "auto" ? "Auto-collected" : "Manual entry"}
+          />
+          {typeof trend === "number" && trend !== 0 && (
+            <span className={`text-[10px] font-medium ${trend > 0 ? "text-makina-green" : "text-makina-red"}`}>
+              {trend > 0 ? "▲" : "▼"}
+              {formatCount(Math.abs(trend))}
+            </span>
+          )}
+        </>
+      ) : (
+        <span className="inline-flex items-center gap-1 font-medium">
+          {state!.text}
+          {state!.pulse && <span className="h-1 w-1 rounded-full bg-makina-accent animate-pulse-live" />}
         </span>
       )}
-      {!hasValue && metric.lastError && <span className="text-[10px] text-makina-red">⚠</span>}
     </span>
   );
 }

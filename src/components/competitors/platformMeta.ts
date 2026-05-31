@@ -40,6 +40,48 @@ export function isAbsent(presence: Presence): boolean {
   return presence === "none" || presence === "inactive" || presence === "external";
 }
 
+const USD_COMPACT = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+/** 700000000 → "$700M", 1500000000 → "$1.5B", 53 → "$53". */
+export function formatUsd(v: number | null | undefined): string {
+  return v == null ? "N/A" : USD_COMPACT.format(v);
+}
+
+/** Signed percentage, e.g. "+3.2%", "-1.0%", "" when null. */
+export function signedPct(v: number | null | undefined): string {
+  if (v == null) return "";
+  return `${v > 0 ? "+" : ""}${v.toFixed(1)}%`;
+}
+
+export type Health = "fresh" | "recent" | "stale" | "error" | "none";
+
+export const HEALTH_COLOR: Record<Health, string> = {
+  fresh: "#22c55e",
+  recent: "#5b9cf6",
+  stale: "#f59e0b",
+  error: "#ef4444",
+  none: "#64748b",
+};
+
+/** Monitoring freshness/health from a last-updated timestamp + optional error. */
+export function freshness(
+  lastUpdated: string | null | undefined,
+  lastError?: string | null
+): { health: Health; label: string } {
+  if (lastError) return { health: "error", label: "error" };
+  if (!lastUpdated) return { health: "none", label: "no data" };
+  const ageH = (Date.now() - new Date(lastUpdated).getTime()) / 3_600_000;
+  if (Number.isNaN(ageH)) return { health: "none", label: "no data" };
+  if (ageH < 24) return { health: "fresh", label: timeAgo(lastUpdated) };
+  if (ageH < 24 * 7) return { health: "recent", label: timeAgo(lastUpdated) };
+  return { health: "stale", label: timeAgo(lastUpdated) };
+}
+
 /** Compact relative time, e.g. "3h ago", "2d ago", "just now". */
 export function timeAgo(iso: string | null | undefined): string {
   if (!iso) return "never";

@@ -4,7 +4,8 @@ import { useState } from "react";
 import { ExternalLink, ChevronDown, BarChart3 } from "lucide-react";
 import { type Competitor, type Platform } from "@/lib/competitors/types";
 import PlatformBadge from "./PlatformBadge";
-import { timeAgo } from "./platformMeta";
+import OnchainRow from "./OnchainRow";
+import { freshness, HEALTH_COLOR } from "./platformMeta";
 
 const PLATFORM_ORDER: Platform[] = [
   "twitter",
@@ -38,8 +39,7 @@ export default function CompetitorCard({ competitor: c, trends, onSelect, index 
   const platforms = [...c.platforms].sort(
     (a, b) => PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform)
   );
-  const lastUpdated = c.platforms
-    .map((p) => p.lastUpdated)
+  const lastUpdated = [...c.platforms.map((p) => p.lastUpdated), c.onchain?.lastUpdated]
     .filter(Boolean)
     .sort()
     .pop() as string | undefined;
@@ -118,6 +118,9 @@ export default function CompetitorCard({ competitor: c, trends, onSelect, index 
         ))}
       </div>
 
+      {/* On-chain (DefiLlama) */}
+      <OnchainRow c={c} />
+
       {/* Remark */}
       {c.remark && (
         <div className="mt-3">
@@ -138,7 +141,15 @@ export default function CompetitorCard({ competitor: c, trends, onSelect, index 
 
       {/* Footer */}
       <div className="mt-auto flex items-center justify-between pt-3">
-        <span className="text-[10px] text-makina-subtle">Updated {timeAgo(lastUpdated)}</span>
+        {(() => {
+          const f = freshness(lastUpdated);
+          return (
+            <span className="inline-flex items-center gap-1.5 text-[10px] text-makina-subtle">
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: HEALTH_COLOR[f.health] }} />
+              {f.label}
+            </span>
+          );
+        })()}
         {onSelect && (
           <button
             onClick={() => onSelect(c.id)}
