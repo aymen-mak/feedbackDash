@@ -88,24 +88,20 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Desktop nav links */}
-        <div className="hidden md:flex items-center gap-1">
-          {links.map((link) => {
-            const isActive = pathname === link.href;
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-                  isActive
-                    ? "text-makina-accent bg-makina-accent-dim"
-                    : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
+        {/* Navigation */}
+        <div className="flex items-center gap-6 text-sm font-medium">
+          <Link href="/" className="hover:text-makina-accent transition">
+            Feedback
+          </Link>
+          <Link href="/dashboard" className="hover:text-makina-accent transition">
+            Dashboard
+          </Link>
+          <Link href="/review" className="hover:text-makina-accent transition">
+            Review
+          </Link>
+          <Link href="/competitors" className="hover:text-makina-accent transition">
+            Competitors
+          </Link>
         </div>
 
         {/* Theme Switch */}

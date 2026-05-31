@@ -1,0 +1,154 @@
+"use client";
+
+import { useState } from "react";
+import { ExternalLink, ChevronDown, BarChart3 } from "lucide-react";
+import { type Competitor, type Platform } from "@/lib/competitors/types";
+import PlatformBadge from "./PlatformBadge";
+import { timeAgo } from "./platformMeta";
+
+const PLATFORM_ORDER: Platform[] = [
+  "twitter",
+  "discord",
+  "telegram",
+  "linkedin",
+  "github",
+  "reddit",
+  "youtube",
+  "other",
+];
+
+function strengthColor(score: number): string {
+  if (score >= 70) return "#22c55e";
+  if (score >= 40) return "#5b9cf6";
+  if (score >= 20) return "#f59e0b";
+  return "#ef4444";
+}
+
+interface Props {
+  competitor: Competitor;
+  /** Per-platform change vs. previous snapshot, keyed by platform. */
+  trends?: Partial<Record<Platform, number>>;
+  /** Open the detail/edit view. */
+  onSelect?: (id: string) => void;
+  index?: number;
+}
+
+export default function CompetitorCard({ competitor: c, trends, onSelect, index = 0 }: Props) {
+  const [expanded, setExpanded] = useState(false);
+  const platforms = [...c.platforms].sort(
+    (a, b) => PLATFORM_ORDER.indexOf(a.platform) - PLATFORM_ORDER.indexOf(b.platform)
+  );
+  const lastUpdated = c.platforms
+    .map((p) => p.lastUpdated)
+    .filter(Boolean)
+    .sort()
+    .pop() as string | undefined;
+
+  return (
+    <div
+      className="flex flex-col rounded-xl border border-makina-border bg-makina-card p-4 hover-lift animate-fade-in-up"
+      style={{ animationDelay: `${Math.min(index * 40, 320)}ms` }}
+    >
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-sm font-bold text-makina-text">{c.name}</h3>
+            {c.isSelf && (
+              <span className="rounded-full bg-makina-accent-dim px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-makina-accent">
+                You
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 truncate text-[11px] text-makina-muted">{c.segment}</p>
+        </div>
+        {c.website && (
+          <a
+            href={c.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 text-makina-subtle transition-colors hover:text-makina-accent"
+            title={c.website}
+          >
+            <ExternalLink size={14} />
+          </a>
+        )}
+      </div>
+
+      {/* Meta chips */}
+      {(c.tvl || c.token) && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {c.tvl && (
+            <span className="rounded-md bg-makina-surface px-1.5 py-0.5 text-[10px] text-makina-muted">
+              TVL {c.tvl}
+            </span>
+          )}
+          {c.token && (
+            <span className="rounded-md bg-makina-surface px-1.5 py-0.5 text-[10px] font-medium text-makina-accent">
+              {c.token}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Community strength */}
+      <div className="mt-3">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[10px] font-medium uppercase tracking-wider text-makina-muted">
+            Community strength
+          </span>
+          <span className="text-[11px] font-bold text-makina-text">
+            {c.isSelf ? "—" : `${c.communityStrength}/100`}
+          </span>
+        </div>
+        <div className="h-1.5 overflow-hidden rounded-full bg-makina-surface">
+          {!c.isSelf && (
+            <div
+              className="h-full rounded-full transition-all"
+              style={{ width: `${c.communityStrength}%`, backgroundColor: strengthColor(c.communityStrength) }}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Platform badges */}
+      <div className="mt-3 flex flex-wrap gap-1.5">
+        {platforms.map((p) => (
+          <PlatformBadge key={p.platform} metric={p} trend={trends?.[p.platform]} />
+        ))}
+      </div>
+
+      {/* Remark */}
+      {c.remark && (
+        <div className="mt-3">
+          <p className={`text-[11px] leading-relaxed text-makina-muted ${expanded ? "" : "line-clamp-3"}`}>
+            {c.remark}
+          </p>
+          {c.remark.length > 150 && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-1 inline-flex items-center gap-0.5 text-[10px] font-medium text-makina-accent hover:underline"
+            >
+              {expanded ? "Show less" : "Read more"}
+              <ChevronDown size={11} className={expanded ? "rotate-180 transition-transform" : "transition-transform"} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="mt-auto flex items-center justify-between pt-3">
+        <span className="text-[10px] text-makina-subtle">Updated {timeAgo(lastUpdated)}</span>
+        {onSelect && (
+          <button
+            onClick={() => onSelect(c.id)}
+            className="inline-flex items-center gap-1 rounded-md border border-makina-border bg-makina-surface px-2 py-1 text-[10px] font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text"
+          >
+            <BarChart3 size={11} />
+            History & edit
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
