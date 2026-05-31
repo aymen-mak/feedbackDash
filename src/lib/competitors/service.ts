@@ -7,11 +7,65 @@ import {
   type Presence,
   type Snapshot,
   type RefreshResult,
+  type OnchainMetrics,
   PLATFORMS,
   makeMetric,
+  emptyOnchain,
 } from "./types";
 import { competitorSeed } from "./seed";
-import { COLLECTORS } from "./collectors";
+import { COLLECTORS, fetchDefillama } from "./collectors";
+
+export interface OnchainRefresh {
+  competitorId: string;
+  competitorName: string;
+  slug: string;
+  ok: boolean;
+  tvl: number | null;
+  error: string | null;
+}
+
+export interface RefreshSummary {
+  results: RefreshResult[];
+  onchain: OnchainRefresh[];
+}
+
+const TVL_SERIES_CAP = 90;
+
+/** Merge a DefiLlama fetch into a competitor's onchain block (in place). */
+function applyDefillama(
+  c: Competitor,
+  res: Awaited<ReturnType<typeof fetchDefillama>>,
+  now: string,
+  today: string
+): OnchainMetrics {
+  const oc = c.onchain ?? emptyOnchain();
+  if (!res.ok) {
+    oc.lastError = res.error;
+    return oc;
+  }
+  oc.tvl = res.tvl;
+  oc.tvlChange1d = res.tvlChange1d;
+  oc.tvlChange7d = res.tvlChange7d;
+  oc.mcap = res.mcap;
+  oc.fees24h = res.fees24h;
+  oc.fees7d = res.fees7d;
+  oc.fees30d = res.fees30d;
+  oc.revenue24h = res.revenue24h;
+  oc.revenue30d = res.revenue30d;
+  oc.lastUpdated = now;
+  oc.lastError = res.error; // may carry a soft note like "no TVL history"
+
+  // Seed the sparkline from history on first fetch, else append today's point.
+  if (oc.tvlSeries.length === 0 && res.history.length) {
+    oc.tvlSeries = res.history.slice(-TVL_SERIES_CAP);
+  } else if (res.tvl != null) {
+    const last = oc.tvlSeries[oc.tvlSeries.length - 1];
+    if (!last || last.t !== today) oc.tvlSeries.push({ t: today, v: res.tvl });
+    else last.v = res.tvl;
+    if (oc.tvlSeries.length > TVL_SERIES_CAP) oc.tvlSeries = oc.tvlSeries.slice(-TVL_SERIES_CAP);
+  }
+  return oc;
+}
 import {
   fileSeedIfEmpty,
   fileListCompetitors,
@@ -187,6 +241,7 @@ export async function createCompetitor(input: {
   tvl?: string | null;
   token?: string | null;
   website?: string | null;
+  defillamaSlug?: string | null;
   remark?: string;
   communityStrength?: number;
   platforms?: PlatformMetric[];
@@ -206,6 +261,8 @@ export async function createCompetitor(input: {
     tvl: input.tvl ?? null,
     token: input.token ?? null,
     website: input.website ?? null,
+    defillamaSlug: input.defillamaSlug ?? null,
+    onchain: null,
     remark: input.remark ?? "",
     communityStrength: clampScore(input.communityStrength ?? 0),
     platforms: platforms.length ? platforms : defaultPlatforms(),
@@ -235,6 +292,7 @@ export async function patchCompetitor(
     tvl: update.tvl !== undefined ? update.tvl : existing.tvl,
     token: update.token !== undefined ? update.token : existing.token,
     website: update.website !== undefined ? update.website : existing.website,
+    defillamaSlug: update.defillamaSlug !== undefined ? update.defillamaSlug : existing.defillamaSlug,
     remark: update.remark ?? existing.remark,
     communityStrength:
       update.communityStrength !== undefined
@@ -277,31 +335,35 @@ export async function removeCompetitor(id: string): Promise<boolean> {
  * the time series grows. Failure-tolerant: on error the previous value is kept
  * and `lastError` is recorded. Returns a per-platform summary of the run.
  */
-export async function refreshAll(): Promise<RefreshResult[]> {
+export async function refreshAll(): Promise<RefreshSummary> {
   await ensureSeeded();
   const competitors = hasPostgres() ? await pgListCompetitors() : fileListCompetitors();
   const now = new Date().toISOString();
+  const today = now.slice(0, 10);
 
-  // Gather every auto-enabled (competitor, platform) pair. `p` is a live
+  // Social tasks: every auto-enabled (competitor, platform). `p` is a live
   // reference into `c.platforms`, so writing to it updates the competitor.
-  const tasks: { c: Competitor; p: PlatformMetric }[] = [];
+  const socialTasks: { c: Competitor; p: PlatformMetric }[] = [];
   for (const c of competitors) {
     for (const p of c.platforms) {
-      if (p.autoKey && COLLECTORS[p.platform]) tasks.push({ c, p });
+      if (p.autoKey && COLLECTORS[p.platform]) socialTasks.push({ c, p });
     }
   }
+  const llamaTasks = competitors.filter((c) => c.defillamaSlug);
 
-  // Collectors never throw (they catch internally), so run them all in
-  // parallel — wall time is bounded by the slowest single request.
-  const settled = await Promise.all(
-    tasks.map(async (t) => ({ t, res: await COLLECTORS[t.p.platform]!(t.p.autoKey!) }))
-  );
+  // Collectors never throw — run everything in parallel; wall time is bounded
+  // by the slowest single request.
+  const [socialSettled, llamaSettled] = await Promise.all([
+    Promise.all(socialTasks.map(async (t) => ({ t, res: await COLLECTORS[t.p.platform]!(t.p.autoKey!) }))),
+    Promise.all(llamaTasks.map(async (c) => ({ c, res: await fetchDefillama(c.defillamaSlug!) }))),
+  ]);
 
   const results: RefreshResult[] = [];
+  const onchain: OnchainRefresh[] = [];
   const newSnaps: Snapshot[] = [];
   const touched = new Map<string, Competitor>();
 
-  for (const { t, res } of settled) {
+  for (const { t, res } of socialSettled) {
     const { c, p } = t;
     const previous = p.value;
     touched.set(c.id, c);
@@ -320,11 +382,17 @@ export async function refreshAll(): Promise<RefreshResult[]> {
     results.push({ competitorId: c.id, competitorName: c.name, platform: p.platform, ok: true, value: res.value, previous, error: null });
   }
 
+  for (const { c, res } of llamaSettled) {
+    touched.set(c.id, c);
+    c.onchain = applyDefillama(c, res, now, today);
+    onchain.push({ competitorId: c.id, competitorName: c.name, slug: c.defillamaSlug!, ok: res.ok, tvl: res.tvl, error: res.error });
+  }
+
   for (const c of touched.values()) {
     c.updatedAt = now;
     await persist(c);
   }
   await addSnapshots(newSnaps);
 
-  return results;
+  return { results, onchain };
 }

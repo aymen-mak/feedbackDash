@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       tvl: body.tvl ?? null,
       token: body.token ?? null,
       website: body.website ?? null,
+      defillamaSlug: body.defillamaSlug ?? null,
       remark: typeof body.remark === "string" ? body.remark : undefined,
       communityStrength:
         typeof body.communityStrength === "number" ? body.communityStrength : undefined,

@@ -37,6 +37,7 @@ export async function PATCH(
     if ("tvl" in body) update.tvl = (body.tvl as string | null) ?? null;
     if ("token" in body) update.token = (body.token as string | null) ?? null;
     if ("website" in body) update.website = (body.website as string | null) ?? null;
+    if ("defillamaSlug" in body) update.defillamaSlug = (body.defillamaSlug as string | null) ?? null;
     if (typeof body.remark === "string") update.remark = body.remark;
     if (typeof body.communityStrength === "number")
       update.communityStrength = body.communityStrength;

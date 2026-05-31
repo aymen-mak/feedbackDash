@@ -115,19 +115,54 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 
 ## Resume pointer
 
-**Status: ✅ ALL PHASES COMPLETE.** The feature is built, verified (clean
-`npm run build` + live API/CRUD smoke tests), and pushed. To run it for real,
-deploy to Vercel and attach a Postgres/Neon DB for persistence (see
-[`README.md`](./README.md)). Auto-collection populates on the first
-refresh/cron in an environment with outbound egress.
+**v1 status: ✅ COMPLETE & pushed** (PR #8). Build clean, API/CRUD verified.
 
-Possible future enhancements (not required): screenshot/visual QA in a browser,
-X follower auto-collection via a paid API, GitHub stars (not just followers),
-sentiment/engagement-quality metrics, CSV export.
+---
 
-Recharts + TS note: Tooltip/LabelList `formatter` params are typed loosely
-(`RenderableText` = string|number|boolean|null|undefined). Don't over-annotate
-— let contextual typing infer and narrow with `typeof v === "number"`.
+## v2 — On-chain data + monitoring UX (in progress)
+
+User asks: more refined + more useful data; differentiate the look-alike "dashes"
+(N/A states); tailor toward **active-monitoring UI/UX**; pull on-chain data
+(TVL/fees/revenue/mcap) from **DefiLlama** (free); make social numbers **accurate**
+via free scraping.
+
+**Hard environment finding (confirmed 3 ways):** this build sandbox firewalls
+*every* external host except github.com — `api.llama.fi`, discord, t.me, x.com,
+linkedin all return 403 ("host not in allowlist"); the research agents' WebFetch
+is also blocked (Cloudflare 403 on everything incl. example.com); and the headless
+chromium binary download is blocked. So **no accurate live social/on-chain number
+can be fetched from here by any means.** Accuracy is delivered **at runtime on the
+deploy** (Vercel egress) via the collectors + cron. Do NOT bake unverified
+WebSearch-snippet numbers into the seed — keep analyst figures (dated, source=manual)
+and let the deploy's refresh replace them with live auto values.
+
+Verified-from-research (reliable identifiers, not counts): DefiLlama slugs `veda`,
+`mellow-protocol`, `lagoon`, `midas-rwa`, `upshift`, `superform`, `flux-finance`,
+`lombard`.
+
+- [x] **Phase 7 — On-chain backend.** `OnchainMetrics` type; `fetchDefillama` (TVL +
+  %1d/%7d from history + mcap + fees + revenue + 30d TVL sparkline series);
+  best-effort X + LinkedIn scrapers via reader proxy; `refreshAll` returns
+  `{results, onchain}` and maintains `onchain.tvlSeries`; seed slugs + auto-keys;
+  routes thread `defillamaSlug`. tsc clean. _(committing)_
+- [ ] **Phase 8 — Monitoring UI.** Show on-chain (TVL + Δ colored, fees, revenue,
+  mcap, TVL sparkline) on cards + detail; add TVL/fees to comparison chart;
+  **differentiate N/A states** (none-by-design vs dormant vs external vs
+  awaiting-fetch vs error) with distinct glyphs/colors; per-row **freshness/health**
+  chip (fresh/stale/error from lastUpdated+lastError); **sortable monitoring
+  table** view; **live auto-refresh** toggle; on-chain summary tiles.
+
+| Phase | Status |
+|-------|--------|
+| 7 On-chain backend | ✅ DONE |
+| 8 Monitoring UI | 🔵 IN PROGRESS |
+
+**Next action:** Phase 8 — add `formatUsd`/`signedPct` helpers + a `Sparkline`
+component; build on-chain display + differentiated state badges + a sortable
+monitoring table + freshness chips + auto-refresh toggle.
+
+Recharts + TS note: Tooltip/LabelList `formatter` params are loosely typed
+(`RenderableText`). Don't over-annotate — narrow with `typeof v === "number"`.
 
 **Env caveat (important):** this build sandbox returns HTTP 403 for x.com,
 discord.com, t.me and linkedin to automated fetches, so live auto-collection

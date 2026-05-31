@@ -6,14 +6,15 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 async function run() {
-  const results = await refreshAll();
-  const ok = results.filter((r) => r.ok).length;
+  const { results, onchain } = await refreshAll();
+  const socialOk = results.filter((r) => r.ok).length;
+  const onchainOk = onchain.filter((o) => o.ok).length;
   return {
-    ran: results.length,
-    ok,
-    failed: results.length - ok,
     at: new Date().toISOString(),
+    social: { ran: results.length, ok: socialOk, failed: results.length - socialOk },
+    onchain: { ran: onchain.length, ok: onchainOk, failed: onchain.length - onchainOk },
     results,
+    onchainResults: onchain,
   };
 }
 
