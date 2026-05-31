@@ -97,7 +97,7 @@ Design tokens reused: `makina-*` colors, `hover-lift`, `gradient-accent/text`,
 - [x] **Phase 3 — API routes.** list/create, get/patch/delete, refresh, history. Smoke-tested: list=9, history OK, refresh runs gracefully (1 live GitHub fetch succeeded in-sandbox, rest 403 as expected). _(committed)_
 - [x] **Phase 4 — Dashboard UI.** /competitors page (PasswordGate+Navbar), summary tiles, comparison chart, ranked cards, platform badges, navbar link. tsc clean, route serves 200. _(committed)_
 - [x] **Phase 5 — Detail + editing.** detail modal w/ per-platform history chart, manual-override editor (profile + every platform field + enable-auto), add + delete. CRUD verified live (create/patch/history/delete). _(committed)_
-- [ ] **Phase 6 — Scheduling + docs + verify.** vercel.json cron, README, `npm run build` clean, dev smoke test.
+- [x] **Phase 6 — Scheduling + docs + verify.** vercel.json daily cron, operator README, parallelized `refreshAll`, clean `npm run build`, prod server serves `/competitors` + API (200, 9 competitors). _(committed)_
 
 Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 
@@ -109,16 +109,21 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 | 3 API | ✅ DONE |
 | 4 Dashboard UI | ✅ DONE |
 | 5 Detail + editing | ✅ DONE |
-| 6 Schedule + docs + verify | ⬜ TODO |
+| 6 Schedule + docs + verify | ✅ DONE |
 
 ---
 
 ## Resume pointer
 
-**Next action:** Start Phase 6 — Scheduling + docs + verify. Add `vercel.json`
-(cron → `/api/competitors/refresh`), write `docs/competitor-dashboard/README.md`
-(setup/deploy/usage/env), and run a full `npm run build` to confirm a clean
-production build. Optionally capture a screenshot of `/competitors`.
+**Status: ✅ ALL PHASES COMPLETE.** The feature is built, verified (clean
+`npm run build` + live API/CRUD smoke tests), and pushed. To run it for real,
+deploy to Vercel and attach a Postgres/Neon DB for persistence (see
+[`README.md`](./README.md)). Auto-collection populates on the first
+refresh/cron in an environment with outbound egress.
+
+Possible future enhancements (not required): screenshot/visual QA in a browser,
+X follower auto-collection via a paid API, GitHub stars (not just followers),
+sentiment/engagement-quality metrics, CSV export.
 
 Recharts + TS note: Tooltip/LabelList `formatter` params are typed loosely
 (`RenderableText` = string|number|boolean|null|undefined). Don't over-annotate
