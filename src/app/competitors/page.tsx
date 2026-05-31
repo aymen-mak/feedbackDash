@@ -10,8 +10,30 @@ import MonitoringTable from "@/components/competitors/MonitoringTable";
 import CompetitorDetail from "@/components/competitors/CompetitorDetail";
 import CompetitorEditor from "@/components/competitors/CompetitorEditor";
 import { competitorsToCsv, downloadCsv } from "@/components/competitors/exportCsv";
-import { formatCount, formatUsd, timeAgo } from "@/components/competitors/platformMeta";
+import { formatCount, formatUsd, timeAgo, PLATFORM_META } from "@/components/competitors/platformMeta";
 import { type Competitor, type Snapshot, type Platform } from "@/lib/competitors/types";
+
+interface RefreshResponse {
+  at: string;
+  results: { competitorName: string; platform: string; ok: boolean; error: string | null }[];
+  onchainResults: { competitorName: string; slug: string; ok: boolean; error: string | null }[];
+}
+
+function SourceChip({ label, ok, total, err }: { label: string; ok: number; total: number; err: string | null }) {
+  const tone = total === 0 ? "#64748b" : ok === total ? "#22c55e" : ok === 0 ? "#ef4444" : "#f59e0b";
+  return (
+    <span
+      title={err ?? `${ok}/${total} fetched OK`}
+      className="inline-flex items-center gap-1.5 rounded-md border border-makina-border bg-makina-surface px-2 py-1 text-[11px]"
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tone }} />
+      <span className="font-medium text-makina-text/80">{label}</span>
+      <span className="tabular-nums text-makina-muted">
+        {ok}/{total}
+      </span>
+    </span>
+  );
+}
 
 function CompetitorsInner() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
@@ -23,6 +45,7 @@ function CompetitorsInner() {
   const [adding, setAdding] = useState(false);
   const [view, setView] = useState<"table" | "cards">("table");
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [sources, setSources] = useState<RefreshResponse | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -53,7 +76,9 @@ function CompetitorsInner() {
     setRefreshing(true);
     setError("");
     try {
-      await fetch("/api/competitors/refresh", { method: "POST" });
+      const res = await fetch("/api/competitors/refresh", { method: "POST" });
+      const data = (await res.json().catch(() => null)) as RefreshResponse | null;
+      if (data) setSources(data);
       await load();
     } catch {
       setError("Refresh failed.");
@@ -75,6 +100,23 @@ function CompetitorsInner() {
     }
     return out;
   }, [snapshots]);
+
+  // Per-source health from the last refresh — explains exactly what populated.
+  const sourceHealth = useMemo(() => {
+    if (!sources) return null;
+    const groups: Record<string, { ok: number; total: number; err: string | null }> = {};
+    for (const r of sources.results ?? []) {
+      const g = (groups[r.platform] ??= { ok: 0, total: 0, err: null });
+      g.total++;
+      if (r.ok) g.ok++;
+      else if (!g.err) g.err = r.error;
+    }
+    const oc = sources.onchainResults ?? [];
+    return {
+      groups,
+      onchain: { ok: oc.filter((o) => o.ok).length, total: oc.length, err: oc.find((o) => !o.ok)?.error ?? null },
+    };
+  }, [sources]);
 
   // Ranked: self first (reference), then by community strength.
   const ranked = useMemo(
@@ -160,6 +202,44 @@ function CompetitorsInner() {
         {error && (
           <div className="rounded-md border border-makina-red/20 bg-makina-red/10 px-4 py-2 text-sm text-makina-red">
             {error}
+          </div>
+        )}
+
+        {sourceHealth && (
+          <div className="rounded-xl border border-makina-border bg-makina-card p-4 animate-fade-in-up">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-makina-muted">
+                Data sources · last refresh
+              </span>
+              <button
+                onClick={() => setSources(null)}
+                className="text-[11px] text-makina-subtle transition-colors hover:text-makina-text"
+              >
+                dismiss
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <SourceChip
+                label="TVL/Fees (DefiLlama)"
+                ok={sourceHealth.onchain.ok}
+                total={sourceHealth.onchain.total}
+                err={sourceHealth.onchain.err}
+              />
+              {Object.entries(sourceHealth.groups).map(([p, g]) => (
+                <SourceChip
+                  key={p}
+                  label={PLATFORM_META[p as Platform]?.short ?? p}
+                  ok={g.ok}
+                  total={g.total}
+                  err={g.err}
+                />
+              ))}
+            </div>
+            <p className="mt-2 text-[10px] text-makina-subtle">
+              Fetched OK / attempted per source (hover a chip for the failure reason). Most failures clear once
+              deployed with network egress; X/LinkedIn need <code className="text-makina-muted">X_BEARER_TOKEN</code> /
+              manual entry.
+            </p>
           </div>
         )}
 
