@@ -5,9 +5,11 @@ import {
   type PlatformMetric,
   type Platform,
   type Snapshot,
+  type RefreshResult,
   makeMetric,
 } from "./types";
 import { competitorSeed } from "./seed";
+import { COLLECTORS } from "./collectors";
 import {
   fileSeedIfEmpty,
   fileListCompetitors,
@@ -225,4 +227,77 @@ export async function patchCompetitor(
 export async function removeCompetitor(id: string): Promise<boolean> {
   await ensureSeeded();
   return hasPostgres() ? pgDeleteCompetitor(id) : Promise.resolve(fileDeleteCompetitor(id));
+}
+
+// ── Auto-collection ──
+
+/**
+ * Run every available collector for every platform that has an `autoKey`,
+ * update the stored value, and append a snapshot for each successful fetch so
+ * the time series grows. Failure-tolerant: on error the previous value is kept
+ * and `lastError` is recorded. Returns a per-platform summary of the run.
+ */
+export async function refreshAll(): Promise<RefreshResult[]> {
+  await ensureSeeded();
+  const competitors = hasPostgres() ? await pgListCompetitors() : fileListCompetitors();
+  const results: RefreshResult[] = [];
+  const now = new Date().toISOString();
+
+  for (const c of competitors) {
+    let touched = false;
+    const newSnaps: Snapshot[] = [];
+
+    for (const p of c.platforms) {
+      const collector = p.autoKey ? COLLECTORS[p.platform] : undefined;
+      if (!collector || !p.autoKey) continue;
+
+      const previous = p.value;
+      const { value, error } = await collector(p.autoKey);
+      touched = true;
+
+      if (error || value == null) {
+        p.lastError = error ?? "no value returned";
+        results.push({
+          competitorId: c.id,
+          competitorName: c.name,
+          platform: p.platform,
+          ok: false,
+          value: null,
+          previous,
+          error: p.lastError,
+        });
+        continue;
+      }
+
+      p.value = value;
+      p.source = "auto";
+      p.lastUpdated = now;
+      p.lastError = null;
+      newSnaps.push({
+        id: genId("snap"),
+        competitorId: c.id,
+        platform: p.platform,
+        value,
+        source: "auto",
+        capturedAt: now,
+      });
+      results.push({
+        competitorId: c.id,
+        competitorName: c.name,
+        platform: p.platform,
+        ok: true,
+        value,
+        previous,
+        error: null,
+      });
+    }
+
+    if (touched) {
+      c.updatedAt = now;
+      await persist(c);
+      await addSnapshots(newSnaps);
+    }
+  }
+
+  return results;
 }
