@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -11,6 +11,7 @@ import {
   LabelList,
   ResponsiveContainer,
 } from "recharts";
+import { useChartColors } from "./useChartColors";
 import {
   type Competitor,
   type Platform,
@@ -26,27 +27,6 @@ interface Datum {
   value: number;
   isSelf: boolean;
   source: MetricSource;
-}
-
-function useChartColors() {
-  const [colors, setColors] = useState({ tick: "#64748b", tooltipBg: "#131c2e", tooltipBorder: "#1c2b42", tooltipText: "#edf2f7", cursor: "#2d3d56" });
-  useEffect(() => {
-    const update = () => {
-      const s = getComputedStyle(document.documentElement);
-      setColors({
-        tick: s.getPropertyValue("--chart-tick").trim() || "#64748b",
-        tooltipBg: s.getPropertyValue("--chart-tooltip-bg").trim() || "#131c2e",
-        tooltipBorder: s.getPropertyValue("--chart-tooltip-border").trim() || "#1c2b42",
-        tooltipText: s.getPropertyValue("--chart-tooltip-text").trim() || "#edf2f7",
-        cursor: s.getPropertyValue("--chart-cursor").trim() || "#2d3d56",
-      });
-    };
-    update();
-    const observer = new MutationObserver(update);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] });
-    return () => observer.disconnect();
-  }, []);
-  return colors;
 }
 
 interface Props {

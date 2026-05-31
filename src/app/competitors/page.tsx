@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw, Trophy, Users, TrendingUp, Radio } from "lucide-react";
+import { RefreshCw, Trophy, Users, TrendingUp, Radio, Plus } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
 import CompetitorComparisonChart from "@/components/competitors/CompetitorComparisonChart";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
+import CompetitorDetail from "@/components/competitors/CompetitorDetail";
+import CompetitorEditor from "@/components/competitors/CompetitorEditor";
 import { formatCount, timeAgo } from "@/components/competitors/platformMeta";
 import { type Competitor, type Snapshot, type Platform } from "@/lib/competitors/types";
 
@@ -15,6 +17,8 @@ function CompetitorsInner() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -109,14 +113,23 @@ function CompetitorsInner() {
               {timeAgo(lastUpdated)}
             </p>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-lg gradient-accent px-4 py-2 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 disabled:opacity-50 btn-tactile"
-          >
-            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            {refreshing ? "Refreshing…" : "Refresh now"}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text btn-tactile"
+            >
+              <Plus size={14} />
+              Add
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="inline-flex items-center gap-2 rounded-lg gradient-accent px-4 py-2 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 disabled:opacity-50 btn-tactile"
+            >
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Refreshing…" : "Refresh now"}
+            </button>
+          </div>
         </div>
 
         {error && (
@@ -154,12 +167,41 @@ function CompetitorsInner() {
             {/* Ranked cards */}
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {ranked.map((c, i) => (
-                <CompetitorCard key={c.id} competitor={c} trends={trends[c.id]} index={i} />
+                <CompetitorCard
+                  key={c.id}
+                  competitor={c}
+                  trends={trends[c.id]}
+                  index={i}
+                  onSelect={setSelectedId}
+                />
               ))}
             </div>
           </>
         )}
       </main>
+
+      {selectedId && (() => {
+        const selected = competitors.find((c) => c.id === selectedId);
+        if (!selected) return null;
+        return (
+          <CompetitorDetail
+            competitor={selected}
+            snapshots={snapshots.filter((s) => s.competitorId === selected.id)}
+            onClose={() => setSelectedId(null)}
+            onChanged={load}
+          />
+        );
+      })()}
+
+      {adding && (
+        <CompetitorEditor
+          onClose={() => setAdding(false)}
+          onSaved={() => {
+            setAdding(false);
+            load();
+          }}
+        />
+      )}
     </div>
   );
 }
