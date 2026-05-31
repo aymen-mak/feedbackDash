@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw, Trophy, Users, TrendingUp, Radio, Plus } from "lucide-react";
+import { RefreshCw, Trophy, Users, TrendingUp, Radio, Plus, Download } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
 import CompetitorComparisonChart from "@/components/competitors/CompetitorComparisonChart";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
 import CompetitorDetail from "@/components/competitors/CompetitorDetail";
 import CompetitorEditor from "@/components/competitors/CompetitorEditor";
+import { competitorsToCsv, downloadCsv } from "@/components/competitors/exportCsv";
 import { formatCount, timeAgo } from "@/components/competitors/platformMeta";
 import { type Competitor, type Snapshot, type Platform } from "@/lib/competitors/types";
 
@@ -114,6 +115,20 @@ function CompetitorsInner() {
             </p>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() =>
+                downloadCsv(
+                  `competitor-community-${new Date().toISOString().slice(0, 10)}.csv`,
+                  competitorsToCsv(competitors)
+                )
+              }
+              disabled={competitors.length === 0}
+              className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text disabled:opacity-50 btn-tactile"
+              title="Export the current table as CSV"
+            >
+              <Download size={14} />
+              Export
+            </button>
             <button
               onClick={() => setAdding(true)}
               className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text btn-tactile"
