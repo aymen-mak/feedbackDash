@@ -34,17 +34,41 @@ project.
 | Discord  | ✅ | invite endpoint `with_counts` | invite code (the part after `discord.gg/`) |
 | Reddit   | ✅ | `r/<sub>/about.json` | subreddit (no `r/`) |
 | GitHub   | ✅ | public users API → follower count | org/user slug |
-| X / Twitter | ⚠️ manual | no free follower API | (handle is for display; enter the count manually) |
-| LinkedIn | ❌ manual | auth-walled | — |
+| X / Twitter | ⚠️ scrape | best-effort via a reader proxy (no free follower API) | handle without `@` |
+| LinkedIn | ⚠️ scrape | best-effort scrape of the public company page | company slug |
 | YouTube  | ❌ manual | needs an API key | — |
+| **On-chain** — TVL, 24h/7d Δ, fees, revenue, mcap | ✅ | DefiLlama `/protocol/{slug}` + `/summary/fees/{slug}` (free) | DefiLlama slug (set on the competitor) |
 
 Enabling auto for a platform = open a competitor → **Edit** → set its **Auto key**
 → Save. The next refresh will populate it. Auto failures are non-fatal: the
 previous value is kept and a ⚠ error is shown on the badge.
 
-Verified auto keys pre-wired in the seed: Discord (Midas, Mellow, Superform,
-Lombard), Telegram (Mellow, Midas), GitHub (Veda, Mellow, Lagoon, Superform,
-Flux, Lombard).
+Pre-wired in the seed: DefiLlama slugs for all 8 (`veda`, `mellow-protocol`,
+`lagoon`, `midas-rwa`, `upshift`, `superform`, `flux-finance`, `lombard`); Discord
+invites (Midas, Mellow, Superform, Lombard); Telegram (Mellow, Midas); GitHub
+(6 orgs); and X/LinkedIn auto-keys derived from each handle.
+
+> **DAU / active users:** intentionally **not** included — DefiLlama has no free
+> active-users endpoint and there's no reliable free source, so rather than show a
+> fake number it's omitted. Add it as a manual "Other" metric if you have a source.
+
+### On-chain & monitoring UX
+
+- The default view is a **sortable monitoring table** (click any column header):
+  Protocol · Strength · TVL (+Δ, sparkline) · Fees 24h · Rev 24h · X · Discord ·
+  Telegram · GitHub · freshness. A **cards** view is available via the toggle.
+- **Differentiated states** — a metric with no number is never an ambiguous dash:
+  `—` (no presence), `dormant`, `external`, `syncing` (auto-enabled, awaiting first
+  fetch), `N/A` (manual, unknown), or `⚠` (last fetch errored).
+- **Freshness/health dot** per row/card: green &lt;24h, blue &lt;7d, amber stale,
+  red error, grey no-data.
+- **Live auto-refresh** toggle re-reads data every 60s so cron updates surface on
+  their own; **Refresh now** triggers collection immediately.
+
+> **Why numbers may read "—/syncing" on first load:** values populate from a deploy
+> with outbound network (Vercel) on the first cron run or "Refresh now". The build
+> sandbox firewalls all external hosts except GitHub, so live numbers can't be
+> seeded there.
 
 ---
 
