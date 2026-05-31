@@ -95,7 +95,7 @@ Design tokens reused: `makina-*` colors, `hover-lift`, `gradient-accent/text`,
 - [x] **Phase 1 — Data layer.** types, seed, file store, pg backend, service facade (no collectors yet). _(committed)_
 - [x] **Phase 2 — Collectors + refresh.** telegram/discord/reddit/github/twitter + `refreshAll()` in service. Verified `autoKey`s folded into seed. _(committed)_
 - [x] **Phase 3 — API routes.** list/create, get/patch/delete, refresh, history. Smoke-tested: list=9, history OK, refresh runs gracefully (1 live GitHub fetch succeeded in-sandbox, rest 403 as expected). _(committed)_
-- [ ] **Phase 4 — Dashboard UI.** /competitors page, cards, platform badges, comparison chart, navbar link.
+- [x] **Phase 4 — Dashboard UI.** /competitors page (PasswordGate+Navbar), summary tiles, comparison chart, ranked cards, platform badges, navbar link. tsc clean, route serves 200. _(committed)_
 - [ ] **Phase 5 — Detail + editing.** detail modal, manual override editor, per-platform history chart, add-competitor.
 - [ ] **Phase 6 — Scheduling + docs + verify.** vercel.json cron, README, `npm run build` clean, dev smoke test.
 
@@ -107,7 +107,7 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 | 1 Data layer | ✅ DONE |
 | 2 Collectors | ✅ DONE |
 | 3 API | ✅ DONE |
-| 4 Dashboard UI | ⬜ TODO |
+| 4 Dashboard UI | ✅ DONE |
 | 5 Detail + editing | ⬜ TODO |
 | 6 Schedule + docs + verify | ⬜ TODO |
 
@@ -115,10 +115,15 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 
 ## Resume pointer
 
-**Next action:** Start Phase 4 — Dashboard UI. Create `src/app/competitors/page.tsx`
-(PasswordGate + Navbar), `src/components/competitors/{CompetitorComparisonChart,
-CompetitorCard,PlatformBadge}.tsx`, and add a "Competitors" link to `Navbar.tsx`.
-A dev server may already be running on :3100 (`/tmp/comp-dev.log`) for smoke tests.
+**Next action:** Start Phase 5 — Detail + editing. Create
+`src/components/competitors/{CompetitorDetail,CompetitorEditor,HistoryChart}.tsx`,
+wire `onSelect` from the page to open the detail modal (per-platform history
+chart + manual override editor + add/delete competitor). A dev server may
+already be running on :3100 (`/tmp/comp-dev.log`).
+
+Recharts + TS note: Tooltip/LabelList `formatter` params are typed loosely
+(`RenderableText` = string|number|boolean|null|undefined). Don't over-annotate
+— let contextual typing infer and narrow with `typeof v === "number"`.
 
 **Env caveat (important):** this build sandbox returns HTTP 403 for x.com,
 discord.com, t.me and linkedin to automated fetches, so live auto-collection

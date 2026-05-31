@@ -41,6 +41,9 @@ export default function Navbar() {
           <Link href="/review" className="hover:text-makina-accent transition">
             Review
           </Link>
+          <Link href="/competitors" className="hover:text-makina-accent transition">
+            Competitors
+          </Link>
         </div>
 
         {/* Theme Switch */}
