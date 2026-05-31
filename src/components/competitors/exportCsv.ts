@@ -1,5 +1,5 @@
 import { type Competitor, type Platform, PLATFORM_LABELS } from "@/lib/competitors/types";
-import { presenceShort } from "./platformMeta";
+import { presenceShort, audience } from "./platformMeta";
 
 const COLS: Platform[] = [
   "twitter",
@@ -24,7 +24,7 @@ export function competitorsToCsv(competitors: Competitor[]): string {
     "Segment",
     "TVL",
     "Token",
-    "Community strength",
+    "Community reach",
     ...COLS.map((p) => PLATFORM_LABELS[p]),
     "Website",
     "Remark",
@@ -35,7 +35,7 @@ export function competitorsToCsv(competitors: Competitor[]): string {
       c.segment,
       c.tvl,
       c.token,
-      c.isSelf ? "" : c.communityStrength,
+      audience(c),
     ];
     for (const p of COLS) {
       const m = c.platforms.find((x) => x.platform === p);

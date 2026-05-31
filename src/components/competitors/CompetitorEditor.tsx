@@ -49,7 +49,6 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
   const [website, setWebsite] = useState(initial?.website ?? "");
   const [defillamaSlug, setDefillamaSlug] = useState(initial?.defillamaSlug ?? "");
   const [remark, setRemark] = useState(initial?.remark ?? "");
-  const [strength, setStrength] = useState(initial?.communityStrength ?? 0);
   const [platforms, setPlatforms] = useState<PlatformMetric[]>(
     initial ? initial.platforms.map((p) => ({ ...p })) : defaultPlatforms()
   );
@@ -92,7 +91,6 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
       website: website.trim() || null,
       defillamaSlug: defillamaSlug.trim() || null,
       remark,
-      communityStrength: strength,
       platforms: outPlatforms,
     };
 
@@ -173,19 +171,6 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
                 value={defillamaSlug}
                 onChange={(e) => setDefillamaSlug(e.target.value)}
                 placeholder="slug from api.llama.fi/protocol/<slug>"
-              />
-            </div>
-            <div className="col-span-2">
-              <label className={labelCls}>
-                Community strength — <span className="text-makina-accent">{strength}/100</span>
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={strength}
-                onChange={(e) => setStrength(Number(e.target.value))}
-                className="w-full accent-makina-accent"
               />
             </div>
             <div className="col-span-2">

@@ -10,7 +10,7 @@ import MonitoringTable from "@/components/competitors/MonitoringTable";
 import CompetitorDetail from "@/components/competitors/CompetitorDetail";
 import CompetitorEditor from "@/components/competitors/CompetitorEditor";
 import { competitorsToCsv, downloadCsv } from "@/components/competitors/exportCsv";
-import { formatCount, formatUsd, timeAgo, PLATFORM_META } from "@/components/competitors/platformMeta";
+import { formatCount, formatUsd, timeAgo, PLATFORM_META, audience } from "@/components/competitors/platformMeta";
 import { type Competitor, type Snapshot, type Platform } from "@/lib/competitors/types";
 
 interface RefreshResponse {
@@ -120,16 +120,13 @@ function CompetitorsInner() {
 
   // Ranked: self first (reference), then by community strength.
   const ranked = useMemo(
-    () =>
-      [...competitors].sort((a, b) => {
-        if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1;
-        return b.communityStrength - a.communityStrength;
-      }),
+    () => [...competitors].sort((a, b) => audience(b) - audience(a)),
     [competitors]
   );
 
   const peers = competitors.filter((c) => !c.isSelf);
-  const strongest = [...peers].sort((a, b) => b.communityStrength - a.communityStrength)[0];
+  const strongest = [...peers].sort((a, b) => audience(b) - audience(a))[0];
+  const maxAudience = Math.max(1, ...competitors.map(audience));
   const totalX = peers.reduce(
     (sum, c) => sum + (c.platforms.find((p) => p.platform === "twitter")?.value ?? 0),
     0
@@ -144,7 +141,7 @@ function CompetitorsInner() {
   const stats = [
     { icon: Users, label: "Competitors tracked", value: String(peers.length) },
     { icon: Database, label: "Total TVL tracked", value: totalTvl > 0 ? formatUsd(totalTvl) : "—" },
-    { icon: Trophy, label: "Strongest community", value: strongest?.name ?? "—" },
+    { icon: Trophy, label: "Largest community", value: strongest?.name ?? "—" },
     { icon: TrendingUp, label: "Combined X reach", value: totalX > 0 ? formatCount(totalX) : "—" },
   ];
 
@@ -312,6 +309,7 @@ function CompetitorsInner() {
                     trends={trends[c.id]}
                     index={i}
                     onSelect={setSelectedId}
+                    maxAudience={maxAudience}
                   />
                 ))}
               </div>

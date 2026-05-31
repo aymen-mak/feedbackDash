@@ -13,7 +13,7 @@ import PlatformBadge from "./PlatformBadge";
 import HistoryChart from "./HistoryChart";
 import CompetitorEditor from "./CompetitorEditor";
 import Sparkline from "./Sparkline";
-import { PLATFORM_META, timeAgo, formatUsd, signedPct } from "./platformMeta";
+import { PLATFORM_META, timeAgo, formatUsd, signedPct, audience, formatCount } from "./platformMeta";
 
 const PLATFORM_ORDER: Platform[] = [
   "twitter",
@@ -107,9 +107,12 @@ export default function CompetitorDetail({ competitor, snapshots, onClose, onCha
             <div className="mt-2 flex flex-wrap gap-1.5">
               {current.tvl && <span className="rounded-md bg-makina-surface px-1.5 py-0.5 text-[10px] text-makina-muted">TVL {current.tvl}</span>}
               {current.token && <span className="rounded-md bg-makina-surface px-1.5 py-0.5 text-[10px] font-medium text-makina-accent">{current.token}</span>}
-              {!current.isSelf && (
-                <span className="rounded-md bg-makina-surface px-1.5 py-0.5 text-[10px] text-makina-muted">
-                  Strength {current.communityStrength}/100
+              {audience(current) > 0 && (
+                <span
+                  className="rounded-md bg-makina-surface px-1.5 py-0.5 text-[10px] text-makina-muted"
+                  title="X + Discord + Telegram + LinkedIn"
+                >
+                  Reach {formatCount(audience(current))}
                 </span>
               )}
             </div>

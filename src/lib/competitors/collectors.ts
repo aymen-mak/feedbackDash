@@ -138,7 +138,7 @@ async function collectGithub(slug: string): Promise<CollectorResult> {
 // r.jina.ai renders the target and returns text we can grep for a count. ──
 async function readerText(targetUrl: string): Promise<string | null> {
   try {
-    const res = await fetchWithTimeout(`https://r.jina.ai/${targetUrl}`, {}, 15000);
+    const res = await fetchWithTimeout(`https://r.jina.ai/${targetUrl}`, {}, 8000);
     if (!res.ok) return null;
     return await res.text();
   } catch {
@@ -154,13 +154,62 @@ async function ddgFollowers(query: string, near = "followers"): Promise<number |
     const res = await fetchWithTimeout(
       `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`,
       { headers: { Accept: "text/html" } },
-      11000
+      8000
     );
     if (!res.ok) return null;
     const text = (await res.text()).replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ");
     const re = new RegExp(`([\\d][\\d.,]*\\s*[KMB]?)\\s*${near}`, "i");
     const m = text.match(re);
     return m ? parseHumanNumber(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Bing tends to surface "N Followers" in result snippets and is more
+// scrape-tolerant than Google from server IPs.
+async function bingFollowers(query: string): Promise<number | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
+      { headers: { Accept: "text/html" } },
+      8000
+    );
+    if (!res.ok) return null;
+    const text = (await res.text()).replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/gi, " ");
+    const m = text.match(/([\d][\d.,]*\s*[KMB]?)\s*Followers/i);
+    return m ? parseHumanNumber(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+// Nitter instances render X profiles server-side (no login/JS) and print the
+// exact follower count. Public instances rotate, so we try a list and take the
+// first that answers. This is the most reliable FREE source for exact counts.
+const NITTER_HOSTS = [
+  "xcancel.com",
+  "nitter.poast.org",
+  "nitter.privacydev.net",
+  "lightbrd.com",
+  "nitter.net",
+];
+
+async function nitterFollowers(handle: string): Promise<number | null> {
+  // Query all instances in parallel; first one to yield a count wins (~7s cap
+  // regardless of how many instances are down).
+  const attempts = NITTER_HOSTS.map(async (host) => {
+    const res = await fetchWithTimeout(`https://${host}/${encodeURIComponent(handle)}`, {}, 7000);
+    if (!res.ok) throw new Error(`nitter ${host} ${res.status}`);
+    const html = await res.text();
+    // <li class="followers">…<span class="profile-stat-num">12,345</span></li>
+    const m = html.match(/followers"[\s\S]*?profile-stat-num"\s*>\s*([\d.,]+)/i);
+    const v = m ? parseHumanNumber(m[1]) : null;
+    if (v == null) throw new Error(`nitter ${host} no count`);
+    return v;
+  });
+  try {
+    return await Promise.any(attempts);
   } catch {
     return null;
   }
@@ -214,7 +263,14 @@ async function xGraphqlFollowers(handle: string, guest: string): Promise<number 
   try {
     const res = await fetchWithTimeout(
       `https://api.x.com/graphql/${qid}/UserByScreenName?variables=${variables}&features=${features}`,
-      { headers: { Authorization: `Bearer ${X_WEB_BEARER}`, "x-guest-token": guest } },
+      {
+        headers: {
+          Authorization: `Bearer ${X_WEB_BEARER}`,
+          "x-guest-token": guest,
+          "x-twitter-active-user": "yes",
+          "x-twitter-client-language": "en",
+        },
+      },
       9000
     );
     if (!res.ok) return null;
@@ -251,7 +307,18 @@ async function collectTwitter(handle: string): Promise<CollectorResult> {
     }
   }
 
-  // 2) Free, no-auth: the Follow-button widget JSON used by embeds.
+  // 2) Free, exact: Nitter instances (server-rendered, no login/JS).
+  const nv = await nitterFollowers(h);
+  if (nv != null) return { value: nv, error: null };
+
+  // 3) Free: guest token + GraphQL (what a logged-out x.com tab does).
+  const guest = await xGuestToken();
+  if (guest) {
+    const v = await xGraphqlFollowers(h, guest);
+    if (v != null) return { value: v, error: null };
+  }
+
+  // 4) Free: Follow-button widget JSON used by embeds.
   try {
     const res = await fetchWithTimeout(
       `https://cdn.syndication.twimg.com/widgets/followbutton/info.json?screen_names=${encodeURIComponent(h)}`
@@ -265,14 +332,7 @@ async function collectTwitter(handle: string): Promise<CollectorResult> {
     /* fall through */
   }
 
-  // 3) Free, no-auth: guest token + GraphQL (what a logged-out x.com tab does).
-  const guest = await xGuestToken();
-  if (guest) {
-    const v = await xGraphqlFollowers(h, guest);
-    if (v != null) return { value: v, error: null };
-  }
-
-  // 4) Reader-proxy of the profile.
+  // 5) Reader-proxy of the profile.
   const text = await readerText(`https://x.com/${encodeURIComponent(h)}`);
   if (text) {
     const m =
@@ -283,8 +343,11 @@ async function collectTwitter(handle: string): Promise<CollectorResult> {
     }
   }
 
-  // 5) Search-snippet workaround.
-  const sv = (await ddgFollowers(`${h} x.com followers`)) ?? (await ddgFollowers(`@${h} twitter followers`));
+  // 6) Search-engine snippets (DuckDuckGo, then Bing).
+  const sv =
+    (await ddgFollowers(`${h} x.com followers`)) ??
+    (await ddgFollowers(`@${h} twitter followers`)) ??
+    (await bingFollowers(`${h} x.com followers`));
   if (sv != null) return { value: sv, error: null };
 
   return { value: null, error: "X: every source rate-limited/blocked — will retry next cycle" };
