@@ -1,15 +1,24 @@
 import { type Competitor, type PlatformMetric, makeMetric } from "./types";
 
-// Initial competitor set — encoded from Aymen's manual community analysis
-// (2026-05-31). Unknown / unverified values are `null` (rendered as "N/A").
-// `autoKey` is only pre-filled where the identifier is confidently known;
-// everything else is one paste away from auto-collection in the editor.
+// Initial competitor set — community values encoded from Aymen's manual
+// analysis (2026-05-31); platform identifiers (handles / invite codes / org
+// slugs) verified by a research pass. Unknown / unverified = `null` ("N/A").
+//
+// `autoKey` is pre-filled ONLY where the identifier was verified from a
+// primary source, so production refreshes auto-collect those out of the box.
+// X/Twitter handles are filled for display but kept manual (no free API);
+// anything still manual is one paste away from auto in the editor.
 
 const SEED_DATE = "2026-05-31T00:00:00.000Z";
 
 function xUrl(handle: string | null): string | null {
-  if (!handle) return null;
-  return `https://x.com/${handle.replace(/^@/, "")}`;
+  return handle ? `https://x.com/${handle.replace(/^@/, "")}` : null;
+}
+function liUrl(slug: string): string {
+  return `https://www.linkedin.com/company/${slug}`;
+}
+function ghUrl(slug: string): string {
+  return `https://github.com/${slug}`;
 }
 
 interface SeedInput {
@@ -82,9 +91,10 @@ export function competitorSeed(): Competitor[] {
       communityStrength: 92,
       platforms: [
         manual({ platform: "twitter", handle: "@Lombard_Finance", url: xUrl("@Lombard_Finance"), value: 70000, presence: "active", note: "70k+ per their own 1-year recap; likely higher post-token." }),
-        manual({ platform: "linkedin", handle: "lombardfinance", url: "https://www.linkedin.com/company/lombardfinance", presence: "active" }),
-        manual({ platform: "discord", value: 35000, presence: "active" }),
-        manual({ platform: "telegram", presence: "active" }),
+        manual({ platform: "linkedin", handle: "lombardfinance", url: liUrl("lombardfinance"), presence: "active" }),
+        manual({ platform: "discord", handle: "discord.gg/2HG7G69twc", url: "https://discord.com/invite/2HG7G69twc", autoKey: "2HG7G69twc", value: 35000, presence: "active" }),
+        manual({ platform: "telegram", presence: "active", note: "Support/dev contact rather than a public-subscriber broadcast channel." }),
+        manual({ platform: "github", handle: "lombard-finance", url: ghUrl("lombard-finance"), autoKey: "lombard-finance", presence: "active" }),
         manual({ platform: "other", handle: "Programs", presence: "active", note: "Ambassador Program · Kaito Yapper leaderboard · 6,000+ event attendees." }),
       ],
     }),
@@ -100,10 +110,11 @@ export function competitorSeed(): Competitor[] {
       communityStrength: 80,
       platforms: [
         manual({ platform: "twitter", handle: "@superformxyz", url: xUrl("@superformxyz"), value: 125700, presence: "active" }),
-        manual({ platform: "linkedin", presence: "unknown", note: "Superform Labs; not a major channel." }),
-        manual({ platform: "discord", value: 47600, presence: "active", note: "Guild leveling system, levels 1–60." }),
-        manual({ platform: "telegram", presence: "active" }),
-        manual({ platform: "other", handle: "Mirror / Guild.xyz / Facebook", presence: "active" }),
+        manual({ platform: "linkedin", handle: "superformxyz", url: liUrl("superformxyz"), presence: "active" }),
+        manual({ platform: "discord", handle: "discord.gg/superform", url: "https://discord.gg/superform", autoKey: "superform", value: 47600, presence: "active", note: "Guild leveling system, levels 1–60." }),
+        manual({ platform: "telegram", presence: "none", note: "Official socials are X + Discord + Mirror only — no Telegram." }),
+        manual({ platform: "github", handle: "superform-xyz", url: ghUrl("superform-xyz"), autoKey: "superform-xyz", presence: "active" }),
+        manual({ platform: "other", handle: "Mirror / Guild.xyz", presence: "active" }),
       ],
     }),
 
@@ -118,10 +129,10 @@ export function competitorSeed(): Competitor[] {
       communityStrength: 46,
       platforms: [
         manual({ platform: "twitter", handle: "@Mellowprotocol", url: xUrl("@Mellowprotocol"), value: 45400, presence: "active", note: "~45.4k per TwitterScore." }),
-        manual({ platform: "linkedin", presence: "none", note: "No prominent company page found." }),
-        manual({ platform: "discord", presence: "active" }),
-        manual({ platform: "telegram", presence: "active" }),
-        manual({ platform: "github", presence: "active" }),
+        manual({ platform: "linkedin", handle: "mellow-protocol", url: liUrl("mellow-protocol"), presence: "active" }),
+        manual({ platform: "discord", handle: "discord.gg/mellow", url: "https://discord.gg/mellow", autoKey: "mellow", presence: "active", note: "~17k members." }),
+        manual({ platform: "telegram", handle: "t.me/mellowprotocol", url: "https://t.me/mellowprotocol", autoKey: "mellowprotocol", presence: "active" }),
+        manual({ platform: "github", handle: "mellow-finance", url: ghUrl("mellow-finance"), autoKey: "mellow-finance", presence: "active" }),
         manual({ platform: "other", handle: "Medium", presence: "active" }),
       ],
     }),
@@ -136,9 +147,9 @@ export function competitorSeed(): Competitor[] {
       communityStrength: 34,
       platforms: [
         manual({ platform: "twitter", handle: "@MidasRWA", url: xUrl("@MidasRWA"), presence: "active", note: "~1,333 posts; exact follower count N/A." }),
-        manual({ platform: "linkedin", handle: "midasrwa", url: "https://www.linkedin.com/company/midasrwa", presence: "active" }),
-        manual({ platform: "discord", handle: "discord.gg/midasrwa", url: "https://discord.gg/midasrwa", autoKey: "midasrwa", presence: "active", note: "Role tiers — Early Joiner, Holder." }),
-        manual({ platform: "telegram", presence: "active" }),
+        manual({ platform: "linkedin", handle: "midasrwa", url: liUrl("midasrwa"), presence: "active" }),
+        manual({ platform: "discord", handle: "discord.gg/midasrwa", url: "https://discord.gg/midasrwa", autoKey: "midasrwa", presence: "active", note: "Role tiers — Early Joiner, Holder. Launched Dec 2024." }),
+        manual({ platform: "telegram", handle: "t.me/midasrwa", url: "https://t.me/midasrwa", autoKey: "midasrwa", presence: "active", note: "Official announcements channel." }),
         manual({ platform: "other", handle: "YouTube", presence: "active", note: "Tutorials / updates." }),
       ],
     }),
@@ -153,8 +164,8 @@ export function competitorSeed(): Competitor[] {
       communityStrength: 24,
       platforms: [
         manual({ platform: "twitter", handle: "@upshift_fi", url: xUrl("@upshift_fi"), presence: "active", note: "~2,779 posts; fairly active poster. Exact follower count N/A." }),
-        manual({ platform: "linkedin", presence: "external", note: "August Digital is the corporate entity." }),
-        manual({ platform: "discord", presence: "active" }),
+        manual({ platform: "linkedin", handle: "upshiftfinance", url: liUrl("upshiftfinance"), presence: "active" }),
+        manual({ platform: "discord", presence: "active", note: "Invite unverified (discord.gg/upshift seen on listings, ~2.5k) — paste the official code to enable auto-collection." }),
         manual({ platform: "telegram", presence: "active" }),
         manual({ platform: "other", handle: "Points program", presence: "active", note: "Season 1 & 2 with multipliers." }),
       ],
@@ -171,10 +182,10 @@ export function competitorSeed(): Competitor[] {
       communityStrength: 12,
       platforms: [
         manual({ platform: "twitter", handle: "@lagoon_finance", url: xUrl("@lagoon_finance"), presence: "active", note: "~669 posts; small account, exact follower count N/A." }),
-        manual({ platform: "linkedin", presence: "active", note: "Company page exists, small." }),
+        manual({ platform: "linkedin", handle: "lagoon-finance", url: liUrl("lagoon-finance"), presence: "active", note: "Company page exists, small." }),
         manual({ platform: "discord", presence: "none" }),
         manual({ platform: "telegram", presence: "none" }),
-        manual({ platform: "github", presence: "active", note: "Very active — this is where they live." }),
+        manual({ platform: "github", handle: "hopperlabsxyz", url: ghUrl("hopperlabsxyz"), autoKey: "hopperlabsxyz", presence: "active", note: "Very active — this is where they live (Hopper Labs org)." }),
       ],
     }),
 
@@ -191,6 +202,7 @@ export function competitorSeed(): Competitor[] {
         manual({ platform: "linkedin", presence: "external", note: "Rolls up under Ondo." }),
         manual({ platform: "discord", presence: "external", note: "Via Ondo DAO Discord, not its own." }),
         manual({ platform: "telegram", presence: "inactive", note: "Legacy." }),
+        manual({ platform: "github", handle: "flux-finance", url: ghUrl("flux-finance"), autoKey: "flux-finance", presence: "active", note: "Compound-v2 fork; contracts repo." }),
         manual({ platform: "other", handle: "Blog", url: "https://blog.fluxfinance.com", presence: "inactive" }),
       ],
     }),
@@ -198,16 +210,17 @@ export function competitorSeed(): Competitor[] {
     build({
       id: "veda",
       name: "Veda",
-      segment: "Yield vault infra",
+      segment: "Yield vault infra (BoringVault)",
       website: "https://veda.tech",
       remark:
         "No active community. Presence comes only from the team's personal accounts on X & LinkedIn (e.g. Kate Irwin, Sunand Raghupathi). They basically don't invest in retail perception / community. Follower/engagement ratio on the brand account suggests inflated/bought numbers — a façade count, not an active base.",
       communityStrength: 7,
       platforms: [
-        manual({ platform: "twitter", value: 33300, presence: "active", note: "33.3k followers but follower/engagement ratio indicates inflated/bought numbers — a façade." }),
-        manual({ platform: "linkedin", value: 1000, presence: "active", note: "Used for protocol update announcements + exec quotes." }),
+        manual({ platform: "twitter", handle: "@veda_labs", url: xUrl("@veda_labs"), value: 33300, presence: "active", note: "33.3k followers but follower/engagement ratio indicates inflated/bought numbers — a façade." }),
+        manual({ platform: "linkedin", value: 1000, presence: "active", note: "Protocol update announcements + exec quotes. Page slug unconfirmed (candidate: company/veda-tech)." }),
         manual({ platform: "discord", presence: "inactive", note: "Server sunsetted Feb 2026." }),
         manual({ platform: "telegram", presence: "inactive", note: "Channel sunsetted (date N/A)." }),
+        manual({ platform: "github", handle: "Veda-Labs", url: ghUrl("Veda-Labs"), autoKey: "Veda-Labs", presence: "active", note: "Tech = BoringVault." }),
       ],
     }),
   ];

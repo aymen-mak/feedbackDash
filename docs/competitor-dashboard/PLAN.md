@@ -93,7 +93,7 @@ Design tokens reused: `makina-*` colors, `hover-lift`, `gradient-accent/text`,
 
 - [x] **Phase 0 — Plan & scaffolding.** This PLAN.md. _(committed)_
 - [x] **Phase 1 — Data layer.** types, seed, file store, pg backend, service facade (no collectors yet). _(committed)_
-- [ ] **Phase 2 — Collectors + refresh.** telegram/discord/reddit/github/twitter + snapshot-on-change in service.
+- [x] **Phase 2 — Collectors + refresh.** telegram/discord/reddit/github/twitter + `refreshAll()` in service. Verified `autoKey`s folded into seed. _(committed)_
 - [ ] **Phase 3 — API routes.** list/create, get/patch/delete, refresh, history.
 - [ ] **Phase 4 — Dashboard UI.** /competitors page, cards, platform badges, comparison chart, navbar link.
 - [ ] **Phase 5 — Detail + editing.** detail modal, manual override editor, per-platform history chart, add-competitor.
@@ -105,7 +105,7 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 |-------|--------|
 | 0 Plan | ✅ DONE |
 | 1 Data layer | ✅ DONE |
-| 2 Collectors | ⬜ TODO |
+| 2 Collectors | ✅ DONE |
 | 3 API | ⬜ TODO |
 | 4 Dashboard UI | ⬜ TODO |
 | 5 Detail + editing | ⬜ TODO |
@@ -115,6 +115,15 @@ Status legend: ⬜ TODO · 🔵 IN PROGRESS · ✅ DONE
 
 ## Resume pointer
 
-**Next action:** Start Phase 2 — create `src/lib/competitors/collectors.ts` (telegram/discord/reddit/github/twitter fetchers) and add `refreshAll()` to `service.ts`. A background research agent was dispatched to verify exact handles/invite codes; fold verified `autoKey`s into `seed.ts` when it returns.
+**Next action:** Start Phase 3 — API routes under `src/app/api/competitors/`
+(`route.ts` list/create, `[id]/route.ts` get/patch/delete, `refresh/route.ts`,
+`history/route.ts`).
+
+**Env caveat (important):** this build sandbox returns HTTP 403 for x.com,
+discord.com, t.me and linkedin to automated fetches, so live auto-collection
+cannot be exercised here — it relies on real outbound egress (Vercel). GitHub's
+API is the most reliable. Verified `autoKey`s wired: Discord (Midas, Mellow,
+Superform, Lombard), Telegram (Mellow, Midas), GitHub (Veda, Mellow, Lagoon,
+Superform, Flux, Lombard). Upshift Discord left manual (invite unverified).
 
 _(Update this section + the table at the end of every phase before committing.)_
