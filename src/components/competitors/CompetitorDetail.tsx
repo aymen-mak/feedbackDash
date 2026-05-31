@@ -12,7 +12,7 @@ import {
 import PlatformBadge from "./PlatformBadge";
 import HistoryChart from "./HistoryChart";
 import CompetitorEditor from "./CompetitorEditor";
-import { PLATFORM_META, formatCount, timeAgo } from "./platformMeta";
+import { PLATFORM_META, timeAgo } from "./platformMeta";
 
 const PLATFORM_ORDER: Platform[] = [
   "twitter",

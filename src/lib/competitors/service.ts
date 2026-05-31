@@ -280,64 +280,51 @@ export async function removeCompetitor(id: string): Promise<boolean> {
 export async function refreshAll(): Promise<RefreshResult[]> {
   await ensureSeeded();
   const competitors = hasPostgres() ? await pgListCompetitors() : fileListCompetitors();
-  const results: RefreshResult[] = [];
   const now = new Date().toISOString();
 
+  // Gather every auto-enabled (competitor, platform) pair. `p` is a live
+  // reference into `c.platforms`, so writing to it updates the competitor.
+  const tasks: { c: Competitor; p: PlatformMetric }[] = [];
   for (const c of competitors) {
-    let touched = false;
-    const newSnaps: Snapshot[] = [];
-
     for (const p of c.platforms) {
-      const collector = p.autoKey ? COLLECTORS[p.platform] : undefined;
-      if (!collector || !p.autoKey) continue;
-
-      const previous = p.value;
-      const { value, error } = await collector(p.autoKey);
-      touched = true;
-
-      if (error || value == null) {
-        p.lastError = error ?? "no value returned";
-        results.push({
-          competitorId: c.id,
-          competitorName: c.name,
-          platform: p.platform,
-          ok: false,
-          value: null,
-          previous,
-          error: p.lastError,
-        });
-        continue;
-      }
-
-      p.value = value;
-      p.source = "auto";
-      p.lastUpdated = now;
-      p.lastError = null;
-      newSnaps.push({
-        id: genId("snap"),
-        competitorId: c.id,
-        platform: p.platform,
-        value,
-        source: "auto",
-        capturedAt: now,
-      });
-      results.push({
-        competitorId: c.id,
-        competitorName: c.name,
-        platform: p.platform,
-        ok: true,
-        value,
-        previous,
-        error: null,
-      });
-    }
-
-    if (touched) {
-      c.updatedAt = now;
-      await persist(c);
-      await addSnapshots(newSnaps);
+      if (p.autoKey && COLLECTORS[p.platform]) tasks.push({ c, p });
     }
   }
+
+  // Collectors never throw (they catch internally), so run them all in
+  // parallel — wall time is bounded by the slowest single request.
+  const settled = await Promise.all(
+    tasks.map(async (t) => ({ t, res: await COLLECTORS[t.p.platform]!(t.p.autoKey!) }))
+  );
+
+  const results: RefreshResult[] = [];
+  const newSnaps: Snapshot[] = [];
+  const touched = new Map<string, Competitor>();
+
+  for (const { t, res } of settled) {
+    const { c, p } = t;
+    const previous = p.value;
+    touched.set(c.id, c);
+
+    if (res.error || res.value == null) {
+      p.lastError = res.error ?? "no value returned";
+      results.push({ competitorId: c.id, competitorName: c.name, platform: p.platform, ok: false, value: null, previous, error: p.lastError });
+      continue;
+    }
+
+    p.value = res.value;
+    p.source = "auto";
+    p.lastUpdated = now;
+    p.lastError = null;
+    newSnaps.push({ id: genId("snap"), competitorId: c.id, platform: p.platform, value: res.value, source: "auto", capturedAt: now });
+    results.push({ competitorId: c.id, competitorName: c.name, platform: p.platform, ok: true, value: res.value, previous, error: null });
+  }
+
+  for (const c of touched.values()) {
+    c.updatedAt = now;
+    await persist(c);
+  }
+  await addSnapshots(newSnaps);
 
   return results;
 }
