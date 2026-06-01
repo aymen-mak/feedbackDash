@@ -34,16 +34,22 @@ async function fetchWithTimeout(
 /** Parse "12 345", "1,234", "12.3K", "1.2M" → integer. */
 export function parseHumanNumber(raw: string): number | null {
   const cleaned = raw.replace(/[  ]/g, " ").trim();
-  const m = cleaned.match(/([\d][\d.,\s]*)\s*([KkMmBb])?/);
-  if (!m) return null;
-  const numStr = m[1].replace(/[,\s]/g, "");
-  let n = parseFloat(numStr);
-  if (Number.isNaN(n)) return null;
-  const suffix = (m[2] || "").toLowerCase();
-  if (suffix === "k") n *= 1e3;
-  else if (suffix === "m") n *= 1e6;
-  else if (suffix === "b") n *= 1e9;
-  return Math.round(n);
+  // Abbreviated form: 12.3K / 1.2M / 4B (letter glued to the number) — never
+  // a letter that merely starts a following word like "members".
+  const abbr = cleaned.match(/(\d+(?:\.\d+)?)\s?([KkMmBb])\b/);
+  if (abbr) {
+    let n = parseFloat(abbr[1]);
+    const s = abbr[2].toLowerCase();
+    if (s === "k") n *= 1e3;
+    else if (s === "m") n *= 1e6;
+    else if (s === "b") n *= 1e9;
+    return Math.round(n);
+  }
+  // Full form: space/comma-grouped digits — take the first run.
+  const full = cleaned.match(/\d[\d.,\s]*\d|\d/);
+  if (!full) return null;
+  const n = parseFloat(full[0].replace(/[,\s]/g, ""));
+  return Number.isNaN(n) ? null : Math.round(n);
 }
 
 function errMsg(e: unknown): string {
@@ -54,24 +60,55 @@ function errMsg(e: unknown): string {
   return String(e);
 }
 
-// ── Telegram: scrape public channel page for subscriber count ──
-async function collectTelegram(channel: string): Promise<CollectorResult> {
-  const handle = channel.replace(/^@/, "").replace(/^https?:\/\/t\.me\//, "").replace(/\/$/, "");
-  try {
-    const res = await fetchWithTimeout(`https://t.me/${encodeURIComponent(handle)}`);
-    if (!res.ok) return { value: null, error: `Telegram HTTP ${res.status}` };
-    const html = await res.text();
-    const extra = html.match(/tgme_page_extra"[^>]*>([^<]+)</);
-    if (!extra) return { value: null, error: "Telegram: no public counter (private or not found)" };
-    const text = extra[1];
-    if (!/subscriber|member/i.test(text)) {
-      return { value: null, error: "Telegram: page has no subscriber count" };
-    }
-    const value = parseHumanNumber(text);
-    return value != null ? { value, error: null } : { value: null, error: "Telegram: unparseable count" };
-  } catch (e) {
-    return { value: null, error: `Telegram: ${errMsg(e)}` };
+// ── Telegram: scrape the public channel page for subscriber count ──
+// Robust across both shapes Telegram serves:
+//   • info page  t.me/<c>   → <div class="tgme_page_extra">123 456 subscribers</div> (full number)
+//   • web preview t.me/s/<c> → <span class="counter_value">12.3K</span><span class="counter_type">subscribers</span>
+export function parseTelegramCount(html: string): number | null {
+  // 1) Info page (full, exact number).
+  const extra = html.match(/tgme_page_extra"[^>]*>([^<]*(?:subscriber|member)[^<]*)</i);
+  if (extra) {
+    const v = parseHumanNumber(extra[1]);
+    if (v != null) return v;
   }
+  // 2) Web-preview header counter (abbreviated, e.g. 12.3K).
+  const counter = html.match(
+    /counter_value"[^>]*>\s*([\d.,\s]+[KMB]?)\s*<\/span>\s*<span[^>]*counter_type"[^>]*>\s*(?:subscriber|member)/i
+  );
+  if (counter) {
+    const v = parseHumanNumber(counter[1]);
+    if (v != null) return v;
+  }
+  // 3) Generic safety net: any "<n> subscribers/members" on the page.
+  const generic = html.match(/([\d][\d.,\s]*\s*[KMB]?)\s*(?:subscriber|member)/i);
+  if (generic) {
+    const v = parseHumanNumber(generic[1]);
+    if (v != null) return v;
+  }
+  return null;
+}
+
+async function collectTelegram(channel: string): Promise<CollectorResult> {
+  const handle = channel
+    .replace(/^@/, "")
+    .replace(/^https?:\/\/t\.me\//, "")
+    .replace(/^s\//, "")
+    .replace(/\/$/, "");
+  // Info page first (exact number), then the web preview (more reliably served).
+  for (const url of [
+    `https://t.me/${encodeURIComponent(handle)}`,
+    `https://t.me/s/${encodeURIComponent(handle)}`,
+  ]) {
+    try {
+      const res = await fetchWithTimeout(url, { headers: { "Accept-Language": "en" } }, 8000);
+      if (!res.ok) continue;
+      const v = parseTelegramCount(await res.text());
+      if (v != null) return { value: v, error: null };
+    } catch {
+      // try next URL
+    }
+  }
+  return { value: null, error: "Telegram: no public subscriber count (private channel or wrong handle)" };
 }
 
 // ── Discord: invite endpoint with approximate counts (no auth) ──
