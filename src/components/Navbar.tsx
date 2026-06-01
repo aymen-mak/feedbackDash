@@ -2,15 +2,40 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  Link2,
+  Menu,
+  X,
+  Sun,
+  Moon,
+  Droplets,
+  Check,
+  User,
+} from "lucide-react";
 import { useTheme } from "@/lib/theme";
+import { useReviewer } from "@/lib/reviewer";
+import { useLoadingBar } from "@/components/LoadingBar";
 
 export default function Navbar() {
-  const { theme, toggle } = useTheme();
+  const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const { theme, toggle, textSize, textSizeLabel, cycleTextSize } = useTheme();
+  const { name: reviewerName, openPrompt } = useReviewer();
+  const { start: lbStart, done: lbDone } = useLoadingBar();
+  const prevPath = useRef(pathname);
 
-  const logoSrc =
-    theme === "light"
-      ? "/makina_pulse_light.png"
-      : "/makina_pulse_dark_transparent.png";
+  // Trigger loading bar on page navigation
+  useEffect(() => {
+    if (prevPath.current !== pathname) {
+      lbStart();
+      // Done after a short delay to simulate page load
+      const t = setTimeout(() => lbDone(), 300);
+      prevPath.current = pathname;
+      return () => clearTimeout(t);
+    }
+  }, [pathname, lbStart, lbDone]);
 
   const handleShare = async () => {
     const url = window.location.origin;
@@ -32,6 +57,7 @@ export default function Navbar() {
     { href: "/feedback", label: "Feedback" },
     { href: "/review", label: "Review" },
     { href: "/team", label: "Team" },
+    { href: "/competitors", label: "Competitors" },
   ];
 
   const themeIcon = {
@@ -88,29 +114,28 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* Navigation */}
-        <div className="flex items-center gap-6 text-sm font-medium">
-          <Link href="/" className="hover:text-makina-accent transition">
-            Feedback
-          </Link>
-          <Link href="/dashboard" className="hover:text-makina-accent transition">
-            Dashboard
-          </Link>
-          <Link href="/review" className="hover:text-makina-accent transition">
-            Review
-          </Link>
-          <Link href="/competitors" className="hover:text-makina-accent transition">
-            Competitors
-          </Link>
+        {/* Desktop nav links */}
+        <div className="hidden md:flex items-center gap-1">
+          {links.map((link) => {
+            const isActive = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`relative px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                  isActive
+                    ? "text-makina-accent bg-makina-accent-dim"
+                    : "text-makina-muted hover:text-makina-text hover:bg-makina-surface"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </div>
 
-        {/* Theme Switch */}
-        <button
-          onClick={toggle}
-          className="text-xs text-makina-muted hover:text-makina-text transition"
-        >
-          {themeLabel[theme]}
-        </button>
+        {/* Spacer */}
+        <div className="flex-1" />
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5">
