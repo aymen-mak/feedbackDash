@@ -77,6 +77,25 @@ function manual(v: Partial<PlatformMetric> & { platform: PlatformMetric["platfor
 export function competitorSeed(): Competitor[] {
   return [
     build({
+      id: "makina",
+      defillamaSlug: "makina",
+      name: "Makina",
+      isSelf: true,
+      segment: "Vault infra / curated strategies",
+      website: "https://makina.finance",
+      remark:
+        "Us — the protocol this dashboard benchmarks against the field. \"A new execution engine for DeFi\" (vault infra / curated strategies).",
+      communityStrength: 0,
+      platforms: [
+        manual({ platform: "twitter", handle: "@makinafi", url: xUrl("@makinafi"), presence: "active" }),
+        manual({ platform: "discord", handle: "discord.gg/makinafi", url: "https://discord.gg/makinafi", autoKey: "makinafi", presence: "active" }),
+        manual({ platform: "telegram", handle: "t.me/makinafinance", url: "https://t.me/makinafinance", autoKey: "makinafinance", presence: "active" }),
+        manual({ platform: "linkedin", handle: "makinafi", url: liUrl("makinafi"), presence: "active", note: "LinkedIn slug from research (makinafi) — confirm against the official site." }),
+        manual({ platform: "github", handle: "MakinaHQ", url: ghUrl("MakinaHQ"), autoKey: "MakinaHQ", presence: "active" }),
+      ],
+    }),
+
+    build({
       id: "lombard",
       defillamaSlug: "lombard",
       name: "Lombard",

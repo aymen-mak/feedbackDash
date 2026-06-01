@@ -122,7 +122,7 @@ function defaultPlatforms(): PlatformMetric[] {
   );
 }
 
-const PRESENCES: Presence[] = ["active", "inactive", "none", "external", "unknown"];
+const PRESENCES: Presence[] = ["active", "inactive", "none", "external", "private", "unknown"];
 
 /** Coerce untrusted client input into well-formed PlatformMetric[]. */
 export function sanitizePlatforms(input: unknown): PlatformMetric[] {
@@ -183,7 +183,7 @@ function seedSnapshots(competitors: Competitor[]): Snapshot[] {
 // Bump to force a one-time heal on next boot: flush auto-collected values
 // captured by older buggy collectors, and re-baseline curated metadata
 // (presence/notes/tags/reach-exclusion) from the seed.
-const DATA_VERSION = 4;
+const DATA_VERSION = 5;
 
 let bootstrapped = false;
 async function ensureSeeded() {
@@ -199,10 +199,10 @@ async function ensureSeeded() {
 /**
  * Heal already-seeded stores so older rows pick up new identifiers without
  * losing collected values. Idempotent & safe to run on every cold start:
- *  - removes the obsolete self/reference row (Makina),
  *  - backfills `defillamaSlug` and per-platform `autoKey` from the seed,
  *  - adds platforms present in the seed but missing on the stored row,
- *  - ensures the `onchain` key exists.
+ *  - ensures the `onchain` key exists,
+ *  - re-adds seed entries missing from the store (version-gated, one-time).
  */
 async function migrate(seed: Competitor[]) {
   const all = hasPostgres() ? await pgListCompetitors() : fileListCompetitors();
@@ -211,11 +211,6 @@ async function migrate(seed: Competitor[]) {
   const seedById = new Map(seed.map((s) => [s.id, s]));
 
   for (const c of all) {
-    if (c.isSelf || c.id === "makina") {
-      if (hasPostgres()) await pgDeleteCompetitor(c.id);
-      else fileDeleteCompetitor(c.id);
-      continue;
-    }
     let changed = false;
 
     // One-time reset: drop auto-collected values captured by older buggy
@@ -276,7 +271,16 @@ async function migrate(seed: Competitor[]) {
     }
   }
 
+  // Re-add seed entries missing from the store (e.g. Makina, previously
+  // removed) — one-time on a version bump; later user deletions are respected.
   if (needsReset) {
+    const existing = new Set(all.map((c) => c.id));
+    for (const s of seed) {
+      if (!existing.has(s.id)) {
+        if (hasPostgres()) await pgUpsertCompetitor(s);
+        else fileUpsertCompetitor(s);
+      }
+    }
     if (hasPostgres()) await pgSetVersion(DATA_VERSION);
     else fileSetVersion(DATA_VERSION);
   }
@@ -396,6 +400,7 @@ export async function patchCompetitor(
       update.communityStrength !== undefined
         ? clampScore(update.communityStrength)
         : existing.communityStrength,
+    hidden: update.hidden !== undefined ? update.hidden : existing.hidden,
     platforms: incomingPlatforms ?? existing.platforms,
     updatedAt: now,
   };
