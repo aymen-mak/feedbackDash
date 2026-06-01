@@ -178,9 +178,10 @@ function seedSnapshots(competitors: Competitor[]): Snapshot[] {
   return snaps;
 }
 
-// Bump to force a one-time reset of auto-collected values on next boot
-// (used to flush values captured by older buggy collectors).
-const DATA_VERSION = 2;
+// Bump to force a one-time heal on next boot: flush auto-collected values
+// captured by older buggy collectors, and re-baseline curated presence/notes
+// from the seed (so e.g. Lombard Telegram picks up the new "private" tag).
+const DATA_VERSION = 3;
 
 let bootstrapped = false;
 async function ensureSeeded() {
@@ -247,6 +248,12 @@ async function migrate(seed: Competitor[]) {
         }
         if (!cp.autoKey && sp.autoKey) {
           cp.autoKey = sp.autoKey;
+          changed = true;
+        }
+        // One-time re-baseline of curated metadata (presence tags, notes).
+        if (needsReset) {
+          cp.presence = sp.presence;
+          cp.note = sp.note;
           changed = true;
         }
         // Scrub stale hardcoded seed counts (never freshly collected or edited).

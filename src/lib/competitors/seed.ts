@@ -91,7 +91,7 @@ export function competitorSeed(): Competitor[] {
         manual({ platform: "twitter", handle: "@Lombard_Finance", url: xUrl("@Lombard_Finance"), value: 70000, presence: "active", note: "70k+ per their own 1-year recap; likely higher post-token." }),
         manual({ platform: "linkedin", handle: "lombardfinance", url: liUrl("lombardfinance"), presence: "active" }),
         manual({ platform: "discord", handle: "discord.gg/2HG7G69twc", url: "https://discord.com/invite/2HG7G69twc", autoKey: "2HG7G69twc", value: 35000, presence: "active" }),
-        manual({ platform: "telegram", presence: "active", note: "Support/dev contact rather than a public-subscriber broadcast channel." }),
+        manual({ platform: "telegram", presence: "private", note: "Dev/support contact, not a public-subscriber broadcast channel — no follower count." }),
         manual({ platform: "github", handle: "lombard-finance", url: ghUrl("lombard-finance"), autoKey: "lombard-finance", presence: "active" }),
         manual({ platform: "other", handle: "Programs", presence: "active", note: "Ambassador Program · Kaito Yapper leaderboard · 6,000+ event attendees." }),
       ],

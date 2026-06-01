@@ -17,6 +17,8 @@ function emptyState(m: PlatformMetric): { text: string; cls: string; pulse?: boo
       return { text: "dormant", cls: "border-amber-500/30 text-amber-500 bg-amber-500/5" };
     case "external":
       return { text: "external", cls: "border-violet-500/30 text-violet-400 bg-violet-500/5" };
+    case "private":
+      return { text: "private", cls: "border-makina-border/60 text-makina-subtle bg-makina-surface/60" };
     default:
       // active / unknown with no number
       if (m.autoKey)

@@ -68,6 +68,7 @@ function SocialCell({ m, trend }: { m?: PlatformMetric; trend?: number }) {
   if (m.lastError) (glyph = "⚠"), (cls = "text-makina-red");
   else if (m.presence === "inactive") (glyph = "dormant"), (cls = "text-amber-500");
   else if (m.presence === "external") (glyph = "ext"), (cls = "text-violet-400");
+  else if (m.presence === "private") (glyph = "private"), (cls = "text-makina-subtle");
   else if (m.presence === "none") (glyph = "—"), (cls = "text-makina-subtle");
   else if (m.autoKey) (glyph = "sync"), (cls = "text-makina-accent/80");
   else (glyph = "N/A"), (cls = "text-makina-muted");
