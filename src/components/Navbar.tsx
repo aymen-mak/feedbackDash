@@ -21,7 +21,7 @@ export default function Navbar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [copied, setCopied] = useState(false);
-  const { theme, toggle, textSize, textSizeLabel, cycleTextSize } = useTheme();
+  const { theme, toggle, textSize, textSizeLabel, maxTextSize, cycleTextSize } = useTheme();
   const { name: reviewerName, openPrompt } = useReviewer();
   const { start: lbStart, done: lbDone } = useLoadingBar();
   const prevPath = useRef(pathname);
@@ -75,7 +75,7 @@ export default function Navbar() {
   // Text size indicator dots
   const sizeIndicator = (
     <span className="flex items-center gap-0.5 ml-0.5">
-      {[0, 1, 2].map((i) => (
+      {Array.from({ length: maxTextSize + 1 }, (_, i) => i).map((i) => (
         <span
           key={i}
           className={`inline-block rounded-full transition-all ${

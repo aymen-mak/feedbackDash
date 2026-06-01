@@ -13,9 +13,9 @@
   --color-makina-blue: #3b82f6;
   --color-makina-green: #22c55e;
   --color-makina-red: #ef4444;
-  --color-makina-text: #edf2f7;
-  --color-makina-muted: #64748b;
-  --color-makina-subtle: #2d3d56;
+  --color-makina-text: #f5f8fc;
+  --color-makina-muted: #cbd6e4;
+  --color-makina-subtle: #8d9bad;
 }
 
 /* Light mode overrides */
@@ -31,9 +31,9 @@ html.light {
   --color-makina-blue: #3b82f6;
   --color-makina-green: #16a34a;
   --color-makina-red: #dc2626;
-  --color-makina-text: #0f172a;
-  --color-makina-muted: #64748b;
-  --color-makina-subtle: #94a3b8;
+  --color-makina-text: #0b1220;
+  --color-makina-muted: #334155;
+  --color-makina-subtle: #647387;
   --chart-grid: #dfe6ee;
   --chart-tick: #64748b;
   --chart-tooltip-bg: #ffffff;
@@ -56,9 +56,9 @@ html.glass {
   --color-makina-blue: #60a5fa;
   --color-makina-green: #4ade80;
   --color-makina-red: #f87171;
-  --color-makina-text: rgba(255, 255, 255, 0.9);
-  --color-makina-muted: rgba(255, 255, 255, 0.4);
-  --color-makina-subtle: rgba(255, 255, 255, 0.15);
+  --color-makina-text: rgba(255, 255, 255, 0.97);
+  --color-makina-muted: rgba(255, 255, 255, 0.8);
+  --color-makina-subtle: rgba(255, 255, 255, 0.52);
   --chart-grid: rgba(255, 255, 255, 0.06);
   --chart-tick: rgba(255, 255, 255, 0.35);
   --chart-tooltip-bg: rgba(10, 14, 26, 0.8);
@@ -127,7 +127,9 @@ html.glass .glow-accent {
 body {
   background: var(--color-makina-bg);
   color: var(--color-makina-text);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Heavier base weight so muted/small text doesn't read as hairline-thin. */
+  font-weight: 450;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -235,42 +237,28 @@ html.light .hover-lift:hover {
   animation: pulse-live 2s ease-in-out infinite;
 }
 
-/* ── 3-level text sizing ── */
-/* Level 1 — Normal */
-html.text-size-1 .text-xs {
-  font-size: 0.78125rem !important;
-  line-height: 1.125rem !important;
-}
-html.text-size-1 .text-\[10px\] {
-  font-size: 0.6875rem !important;
-  line-height: 0.9375rem !important;
-}
-html.text-size-1 .text-\[11px\] {
-  font-size: 0.75rem !important;
-  line-height: 1rem !important;
-}
-html.text-size-1 .text-sm {
-  font-size: 0.875rem !important;
-  line-height: 1.3125rem !important;
-}
+/* ── Granular text sizing (levels 1–4; level 0 = base/compact) ──
+   Each level steps up ~10%, scaling the small utility sizes the dashboard
+   leans on. Level 1 is the default for a comfortable baseline. */
+html.text-size-1 .text-\[10px\] { font-size: 0.78rem !important; line-height: 1.05rem !important; }
+html.text-size-1 .text-\[11px\] { font-size: 0.82rem !important; line-height: 1.1rem !important; }
+html.text-size-1 .text-xs       { font-size: 0.84rem !important; line-height: 1.2rem !important; }
+html.text-size-1 .text-sm       { font-size: 0.95rem !important; line-height: 1.4rem !important; }
 
-/* Level 2 — Comfort */
-html.text-size-2 .text-xs {
-  font-size: 0.8125rem !important;
-  line-height: 1.25rem !important;
-}
-html.text-size-2 .text-\[10px\] {
-  font-size: 0.75rem !important;
-  line-height: 1rem !important;
-}
-html.text-size-2 .text-\[11px\] {
-  font-size: 0.8125rem !important;
-  line-height: 1.125rem !important;
-}
-html.text-size-2 .text-sm {
-  font-size: 0.9375rem !important;
-  line-height: 1.375rem !important;
-}
+html.text-size-2 .text-\[10px\] { font-size: 0.84rem !important; line-height: 1.15rem !important; }
+html.text-size-2 .text-\[11px\] { font-size: 0.88rem !important; line-height: 1.2rem !important; }
+html.text-size-2 .text-xs       { font-size: 0.92rem !important; line-height: 1.3rem !important; }
+html.text-size-2 .text-sm       { font-size: 1.02rem !important; line-height: 1.5rem !important; }
+
+html.text-size-3 .text-\[10px\] { font-size: 0.9rem !important; line-height: 1.25rem !important; }
+html.text-size-3 .text-\[11px\] { font-size: 0.95rem !important; line-height: 1.3rem !important; }
+html.text-size-3 .text-xs       { font-size: 1rem !important; line-height: 1.45rem !important; }
+html.text-size-3 .text-sm       { font-size: 1.1rem !important; line-height: 1.6rem !important; }
+
+html.text-size-4 .text-\[10px\] { font-size: 0.97rem !important; line-height: 1.35rem !important; }
+html.text-size-4 .text-\[11px\] { font-size: 1.02rem !important; line-height: 1.4rem !important; }
+html.text-size-4 .text-xs       { font-size: 1.1rem !important; line-height: 1.55rem !important; }
+html.text-size-4 .text-sm       { font-size: 1.2rem !important; line-height: 1.7rem !important; }
 
 /* ── Tactile button press ── */
 @keyframes btn-press {
