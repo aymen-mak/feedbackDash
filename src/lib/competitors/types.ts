@@ -158,6 +158,8 @@ export interface Competitor {
   name: string;
   /** True for Makina itself (the reference row). */
   isSelf: boolean;
+  /** Hidden from all dashboard views (cards, table, charts, reach) when true. */
+  hidden?: boolean;
   /** Positioning tag, e.g. "Bitcoin LST", "Vault infra", "RWA". */
   segment: string;
   tvl: string | null;
@@ -226,5 +228,6 @@ export interface CompetitorUpdate {
   defillamaSlug?: string | null;
   remark?: string;
   communityStrength?: number;
+  hidden?: boolean;
   platforms?: PlatformMetric[];
 }

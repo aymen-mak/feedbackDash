@@ -41,6 +41,7 @@ export async function PATCH(
     if (typeof body.remark === "string") update.remark = body.remark;
     if (typeof body.communityStrength === "number")
       update.communityStrength = body.communityStrength;
+    if (typeof body.hidden === "boolean") update.hidden = body.hidden;
     if (Array.isArray(body.platforms))
       update.platforms = body.platforms as CompetitorUpdate["platforms"];
 

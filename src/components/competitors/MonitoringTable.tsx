@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowUp, ArrowDown, Eye, EyeOff } from "lucide-react";
 import { type Competitor, type Platform, type PlatformMetric } from "@/lib/competitors/types";
 import { formatCount, formatUsd, signedPct, freshness, HEALTH_COLOR, audience } from "./platformMeta";
 import Sparkline from "./Sparkline";
@@ -93,9 +93,10 @@ interface Props {
   competitors: Competitor[];
   trends?: Record<string, Partial<Record<Platform, number>>>;
   onSelect: (id: string) => void;
+  onToggleHidden?: (id: string, hidden: boolean) => void;
 }
 
-export default function MonitoringTable({ competitors, trends, onSelect }: Props) {
+export default function MonitoringTable({ competitors, trends, onSelect, onToggleHidden }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("tvl");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
@@ -161,7 +162,9 @@ export default function MonitoringTable({ competitors, trends, onSelect }: Props
               <tr
                 key={c.id}
                 onClick={() => onSelect(c.id)}
-                className="cursor-pointer border-b border-makina-border/50 transition-colors hover:bg-makina-surface/50"
+                className={`cursor-pointer border-b border-makina-border/50 transition-colors hover:bg-makina-surface/50 ${
+                  c.hidden ? "opacity-50" : ""
+                }`}
               >
                 <td className="px-2 py-2.5">
                   <div className="flex items-center gap-2">
@@ -172,6 +175,18 @@ export default function MonitoringTable({ competitors, trends, onSelect }: Props
                       </span>
                     )}
                     {c.token && <span className="text-[10px] font-medium text-makina-accent">{c.token}</span>}
+                    {onToggleHidden && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleHidden(c.id, !c.hidden);
+                        }}
+                        className="text-makina-subtle transition-colors hover:text-makina-text"
+                        title={c.hidden ? "Un-hide" : "Hide"}
+                      >
+                        {c.hidden ? <EyeOff size={12} /> : <Eye size={12} />}
+                      </button>
+                    )}
                   </div>
                   <div className="text-[10px] text-makina-subtle">{c.segment}</div>
                 </td>

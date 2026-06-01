@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, ChevronDown, BarChart3 } from "lucide-react";
+import { ExternalLink, ChevronDown, BarChart3, Eye, EyeOff } from "lucide-react";
 import { type Competitor, type Platform } from "@/lib/competitors/types";
 import PlatformBadge from "./PlatformBadge";
 import OnchainRow from "./OnchainRow";
@@ -27,9 +27,18 @@ interface Props {
   index?: number;
   /** Largest community reach in the set, for the relative bar. */
   maxAudience?: number;
+  /** Hide/show this protocol from the dashboard. */
+  onToggleHidden?: (id: string, hidden: boolean) => void;
 }
 
-export default function CompetitorCard({ competitor: c, trends, onSelect, index = 0, maxAudience = 1 }: Props) {
+export default function CompetitorCard({
+  competitor: c,
+  trends,
+  onSelect,
+  index = 0,
+  maxAudience = 1,
+  onToggleHidden,
+}: Props) {
   const aud = audience(c);
   const [expanded, setExpanded] = useState(false);
   const platforms = [...c.platforms].sort(
@@ -42,7 +51,9 @@ export default function CompetitorCard({ competitor: c, trends, onSelect, index 
 
   return (
     <div
-      className="flex flex-col rounded-xl border border-makina-border bg-makina-card p-4 hover-lift animate-fade-in-up"
+      className={`flex flex-col rounded-xl border border-makina-border bg-makina-card p-4 hover-lift animate-fade-in-up ${
+        c.hidden ? "opacity-50" : ""
+      }`}
       style={{ animationDelay: `${Math.min(index * 40, 320)}ms` }}
     >
       {/* Header */}
@@ -58,17 +69,28 @@ export default function CompetitorCard({ competitor: c, trends, onSelect, index 
           </div>
           <p className="mt-0.5 truncate text-[11px] text-makina-muted">{c.segment}</p>
         </div>
-        {c.website && (
-          <a
-            href={c.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="shrink-0 text-makina-subtle transition-colors hover:text-makina-accent"
-            title={c.website}
-          >
-            <ExternalLink size={14} />
-          </a>
-        )}
+        <div className="flex shrink-0 items-center gap-1.5">
+          {c.website && (
+            <a
+              href={c.website}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-makina-subtle transition-colors hover:text-makina-accent"
+              title={c.website}
+            >
+              <ExternalLink size={14} />
+            </a>
+          )}
+          {onToggleHidden && (
+            <button
+              onClick={() => onToggleHidden(c.id, !c.hidden)}
+              className="text-makina-subtle transition-colors hover:text-makina-text"
+              title={c.hidden ? "Un-hide from dashboard" : "Hide from dashboard"}
+            >
+              {c.hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Meta chips */}

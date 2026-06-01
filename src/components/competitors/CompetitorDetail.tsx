@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Pencil, Trash2, ExternalLink, AlertTriangle } from "lucide-react";
+import { X, Pencil, Trash2, ExternalLink, AlertTriangle, Eye, EyeOff } from "lucide-react";
 import {
   type Competitor,
   type Snapshot,
@@ -31,9 +31,10 @@ interface Props {
   snapshots: Snapshot[];
   onClose: () => void;
   onChanged: () => void;
+  onToggleHidden?: (id: string, hidden: boolean) => void;
 }
 
-export default function CompetitorDetail({ competitor, snapshots, onClose, onChanged }: Props) {
+export default function CompetitorDetail({ competitor, snapshots, onClose, onChanged, onToggleHidden }: Props) {
   const [current, setCurrent] = useState(competitor);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -280,13 +281,28 @@ export default function CompetitorDetail({ competitor, snapshots, onClose, onCha
               Delete
             </button>
           )}
-          <button
-            onClick={() => setEditing(true)}
-            className="inline-flex items-center gap-2 rounded-md gradient-accent px-4 py-1.5 text-sm font-semibold text-makina-bg transition-all hover:brightness-110"
-          >
-            <Pencil size={13} />
-            Edit
-          </button>
+          <div className="flex items-center gap-2">
+            {onToggleHidden && (
+              <button
+                onClick={() => {
+                  const next = !current.hidden;
+                  setCurrent({ ...current, hidden: next });
+                  onToggleHidden(current.id, next);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-makina-border bg-makina-surface px-3 py-1.5 text-xs text-makina-muted transition-colors hover:text-makina-text"
+              >
+                {current.hidden ? <Eye size={13} /> : <EyeOff size={13} />}
+                {current.hidden ? "Un-hide" : "Hide"}
+              </button>
+            )}
+            <button
+              onClick={() => setEditing(true)}
+              className="inline-flex items-center gap-2 rounded-md gradient-accent px-4 py-1.5 text-sm font-semibold text-makina-bg transition-all hover:brightness-110"
+            >
+              <Pencil size={13} />
+              Edit
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download } from "lucide-react";
+import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
 import CompetitorComparisonChart from "@/components/competitors/CompetitorComparisonChart";
@@ -45,6 +45,7 @@ function CompetitorsInner() {
   const [adding, setAdding] = useState(false);
   const [view, setView] = useState<"table" | "cards">("table");
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const [sources, setSources] = useState<RefreshResponse | null>(null);
 
   const load = useCallback(async () => {
@@ -86,6 +87,22 @@ function CompetitorsInner() {
     setRefreshing(false);
   };
 
+  const toggleHidden = useCallback(
+    async (id: string, hidden: boolean) => {
+      try {
+        await fetch(`/api/competitors/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hidden }),
+        });
+        await load();
+      } catch {
+        setError("Failed to update visibility.");
+      }
+    },
+    [load]
+  );
+
   // Per-competitor, per-platform change vs. the previous snapshot.
   const trends = useMemo(() => {
     const byKey: Record<string, number[]> = {};
@@ -118,21 +135,22 @@ function CompetitorsInner() {
     };
   }, [sources]);
 
-  // Ranked: self first (reference), then by community strength.
-  const ranked = useMemo(
-    () => [...competitors].sort((a, b) => audience(b) - audience(a)),
-    [competitors]
-  );
+  // Active = not hidden. Hidden protocols drop out of every metric/visual; the
+  // "Show hidden" toggle only re-reveals them in the list so they can be un-hidden.
+  const active = useMemo(() => competitors.filter((c) => !c.hidden), [competitors]);
+  const hiddenCount = competitors.length - active.length;
+  const shown = showHidden ? competitors : active;
+  const ranked = useMemo(() => [...shown].sort((a, b) => audience(b) - audience(a)), [shown]);
 
-  const peers = competitors.filter((c) => !c.isSelf);
+  const peers = active.filter((c) => !c.isSelf);
   const strongest = [...peers].sort((a, b) => audience(b) - audience(a))[0];
-  const maxAudience = Math.max(1, ...competitors.map(audience));
+  const maxAudience = Math.max(1, ...active.map(audience));
   const totalX = peers.reduce(
-    (sum, c) => sum + (c.platforms.find((p) => p.platform === "twitter")?.value ?? 0),
+    (sum, c) => sum + (c.platforms.find((p) => p.platform === "twitter" && !p.reachExcluded)?.value ?? 0),
     0
   );
   const totalTvl = peers.reduce((sum, c) => sum + (c.onchain?.tvl ?? 0), 0);
-  const lastUpdated = competitors
+  const lastUpdated = active
     .flatMap((c) => [...c.platforms.map((p) => p.lastUpdated), c.onchain?.lastUpdated])
     .filter(Boolean)
     .sort()
@@ -278,28 +296,49 @@ function CompetitorsInner() {
                   </button>
                 ))}
               </div>
-              <button
-                onClick={() => setAutoRefresh((v) => !v)}
-                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                  autoRefresh
-                    ? "border-makina-green/40 bg-makina-green/5 text-makina-green"
-                    : "border-makina-border text-makina-muted hover:text-makina-text"
-                }`}
-                title="Re-read data every 60s to surface cron updates"
-              >
-                <span
-                  className={`h-1.5 w-1.5 rounded-full ${autoRefresh ? "bg-makina-green animate-pulse-live" : "bg-makina-subtle"}`}
-                />
-                {autoRefresh ? "Live" : "Auto-refresh off"}
-              </button>
+              <div className="flex items-center gap-2">
+                {hiddenCount > 0 && (
+                  <button
+                    onClick={() => setShowHidden((v) => !v)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                      showHidden
+                        ? "border-makina-accent/40 bg-makina-accent-dim text-makina-accent"
+                        : "border-makina-border text-makina-muted hover:text-makina-text"
+                    }`}
+                    title={showHidden ? "Hidden protocols shown (dimmed) so you can un-hide" : "Reveal hidden protocols to un-hide them"}
+                  >
+                    {showHidden ? <Eye size={13} /> : <EyeOff size={13} />}
+                    {showHidden ? `Showing ${hiddenCount} hidden` : `Show hidden (${hiddenCount})`}
+                  </button>
+                )}
+                <button
+                  onClick={() => setAutoRefresh((v) => !v)}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    autoRefresh
+                      ? "border-makina-green/40 bg-makina-green/5 text-makina-green"
+                      : "border-makina-border text-makina-muted hover:text-makina-text"
+                  }`}
+                  title="Re-read data every 60s to surface cron updates"
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${autoRefresh ? "bg-makina-green animate-pulse-live" : "bg-makina-subtle"}`}
+                  />
+                  {autoRefresh ? "Live" : "Auto-refresh off"}
+                </button>
+              </div>
             </div>
 
             {/* Comparison chart */}
-            <CompetitorComparisonChart competitors={competitors} />
+            <CompetitorComparisonChart competitors={active} />
 
             {/* Monitoring view */}
             {view === "table" ? (
-              <MonitoringTable competitors={competitors} trends={trends} onSelect={setSelectedId} />
+              <MonitoringTable
+                competitors={shown}
+                trends={trends}
+                onSelect={setSelectedId}
+                onToggleHidden={toggleHidden}
+              />
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {ranked.map((c, i) => (
@@ -310,6 +349,7 @@ function CompetitorsInner() {
                     index={i}
                     onSelect={setSelectedId}
                     maxAudience={maxAudience}
+                    onToggleHidden={toggleHidden}
                   />
                 ))}
               </div>
@@ -327,6 +367,7 @@ function CompetitorsInner() {
             snapshots={snapshots.filter((s) => s.competitorId === selected.id)}
             onClose={() => setSelectedId(null)}
             onChanged={load}
+            onToggleHidden={toggleHidden}
           />
         );
       })()}
