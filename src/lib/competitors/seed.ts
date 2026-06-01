@@ -150,7 +150,7 @@ export function competitorSeed(): Competitor[] {
         manual({ platform: "twitter", handle: "@MidasRWA", url: xUrl("@MidasRWA"), presence: "active", tag: "inflated?", note: "~524K on a Jan-2024 account — anomalously high vs older/bigger peers; likely incentive-driven." }),
         manual({ platform: "linkedin", handle: "midasrwa", url: liUrl("midasrwa"), presence: "active" }),
         manual({ platform: "discord", handle: "discord.gg/midasrwa", url: "https://discord.gg/midasrwa", autoKey: "midasrwa", presence: "active", note: "Role tiers — Early Joiner, Holder. Launched Dec 2024." }),
-        manual({ platform: "telegram", handle: "t.me/midasrwa", url: "https://t.me/midasrwa", autoKey: "midasrwa", presence: "active", tag: "airdrop", reachExcluded: true, note: "~1.37M but driven by the 'Yielder' tap-to-earn airdrop Mini App — not an organic community; excluded from reach." }),
+        manual({ platform: "telegram", handle: "t.me/midasrwa", url: "https://t.me/midasrwa", autoKey: "midasrwa", presence: "active", tag: "announcement", reachExcluded: true, note: "'Official Announcements' broadcast channel — 1.37M subs but only ~23% view posts (~1M dormant); base amassed via the Yielder airdrop campaign, then renamed. Overstates community → excluded from reach." }),
         manual({ platform: "other", handle: "YouTube", presence: "active", note: "Tutorials / updates." }),
       ],
     }),
