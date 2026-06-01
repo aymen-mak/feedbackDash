@@ -16,12 +16,13 @@ import {
 } from "@/lib/competitors/types";
 import { PLATFORM_META } from "./platformMeta";
 
-const PRESENCE_OPTS: Presence[] = ["active", "inactive", "none", "external", "unknown"];
+const PRESENCE_OPTS: Presence[] = ["active", "inactive", "none", "external", "private", "unknown"];
 const PRESENCE_LABEL: Record<Presence, string> = {
   active: "Active",
   inactive: "Dormant",
   none: "None",
   external: "External",
+  private: "Private / no public count",
   unknown: "Unknown",
 };
 

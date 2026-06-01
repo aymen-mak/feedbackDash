@@ -76,15 +76,17 @@ export type MetricSource = "auto" | "manual";
  * - inactive: exists but dormant / sunsetted
  * - none:     no presence at all
  * - external: rolls up under a parent/other entity (e.g. Flux under Ondo DAO)
+ * - private:  channel exists but exposes no public count (dev/support/private)
  * - unknown:  not yet assessed
  */
-export type Presence = "active" | "inactive" | "none" | "external" | "unknown";
+export type Presence = "active" | "inactive" | "none" | "external" | "private" | "unknown";
 
 export const PRESENCE_LABELS: Record<Presence, string> = {
   active: "Active",
   inactive: "Dormant",
   none: "None",
   external: "External",
+  private: "No public count",
   unknown: "Unknown",
 };
 
