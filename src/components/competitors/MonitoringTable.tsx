@@ -50,11 +50,21 @@ function SocialCell({ m, trend }: { m?: PlatformMetric; trend?: number }) {
   if (m.value != null) {
     return (
       <td className="px-2 py-2.5 text-right">
-        <span className="inline-flex items-center justify-end gap-1">
-          <span className="font-medium tabular-nums text-makina-text/90">{formatCount(m.value)}</span>
+        <span
+          className="inline-flex items-center justify-end gap-1"
+          title={m.reachExcluded ? `${m.tag || "excluded"} — not counted in reach` : undefined}
+        >
+          <span
+            className={`font-medium tabular-nums ${
+              m.reachExcluded ? "text-makina-muted line-through decoration-makina-subtle/50" : "text-makina-text/90"
+            }`}
+          >
+            {formatCount(m.value)}
+          </span>
           <span className={`h-1 w-1 rounded-full ${m.source === "auto" ? "bg-makina-green" : "bg-makina-muted"}`} />
         </span>
-        {typeof trend === "number" && trend !== 0 && (
+        {m.reachExcluded && m.tag && <div className="text-[8px] font-medium text-amber-500">{m.tag}</div>}
+        {typeof trend === "number" && trend !== 0 && !m.reachExcluded && (
           <div className={`text-[9px] tabular-nums ${trend > 0 ? "text-makina-green" : "text-makina-red"}`}>
             {trend > 0 ? "▲" : "▼"}
             {formatCount(Math.abs(trend))}

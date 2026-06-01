@@ -274,6 +274,21 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
                       <label className={labelCls}>Note</label>
                       <input className={inputCls} value={p.note ?? ""} onChange={(e) => updatePlatform(p.platform, { note: e.target.value || null })} placeholder="Optional context" />
                     </div>
+                    <div className="col-span-2">
+                      <label className={labelCls}>
+                        Tag <span className="lowercase text-makina-subtle">— e.g. announcement, airdrop, inflated?</span>
+                      </label>
+                      <input className={inputCls} value={p.tag ?? ""} onChange={(e) => updatePlatform(p.platform, { tag: e.target.value || null })} placeholder="optional label shown on the metric" />
+                    </div>
+                    <label className="col-span-2 flex cursor-pointer items-center gap-2 text-[11px] text-makina-muted">
+                      <input
+                        type="checkbox"
+                        checked={!!p.reachExcluded}
+                        onChange={(e) => updatePlatform(p.platform, { reachExcluded: e.target.checked })}
+                        className="accent-makina-accent"
+                      />
+                      Exclude from Community reach (announcement / bot-inflated)
+                    </label>
                   </div>
                 </div>
               ))}

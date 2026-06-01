@@ -36,6 +36,7 @@ export default function PlatformBadge({ metric, trend }: Props) {
   if (metric.handle) titleParts.push(metric.handle);
   if (hasValue) titleParts.push(`${metric.value!.toLocaleString()} · ${metric.source}`);
   else if (state) titleParts.push(state.text === "—" ? "no presence" : state.text);
+  if (metric.reachExcluded) titleParts.push("excluded from Community reach");
   if (metric.note) titleParts.push(metric.note);
   if (metric.lastError) titleParts.push(`⚠ ${metric.lastError}`);
 
@@ -54,7 +55,15 @@ export default function PlatformBadge({ metric, trend }: Props) {
 
       {hasValue ? (
         <>
-          <span className="font-semibold text-makina-text">{formatCount(metric.value)}</span>
+          <span
+            className={`font-semibold ${
+              metric.reachExcluded
+                ? "text-makina-muted line-through decoration-makina-subtle/50"
+                : "text-makina-text"
+            }`}
+          >
+            {formatCount(metric.value)}
+          </span>
           <span
             className={`h-1.5 w-1.5 rounded-full ${metric.source === "auto" ? "bg-makina-green" : "bg-makina-muted"}`}
             title={metric.source === "auto" ? "Auto-collected" : "Manual entry"}
@@ -63,6 +72,19 @@ export default function PlatformBadge({ metric, trend }: Props) {
             <span className={`text-[10px] font-medium ${trend > 0 ? "text-makina-green" : "text-makina-red"}`}>
               {trend > 0 ? "▲" : "▼"}
               {formatCount(Math.abs(trend))}
+            </span>
+          )}
+          {metric.tag && (
+            <span
+              className="rounded bg-amber-500/15 px-1 py-0.5 text-[9px] font-medium text-amber-500"
+              title={metric.reachExcluded ? "Excluded from Community reach" : undefined}
+            >
+              {metric.tag}
+            </span>
+          )}
+          {!metric.tag && metric.reachExcluded && (
+            <span className="text-[9px] text-makina-subtle" title="Excluded from Community reach">
+              ⊘ reach
             </span>
           )}
         </>

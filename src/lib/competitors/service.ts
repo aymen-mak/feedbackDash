@@ -151,6 +151,8 @@ export function sanitizePlatforms(input: unknown): PlatformMetric[] {
           : "unknown",
         source: r.source === "auto" ? "auto" : "manual",
         note: str(r.note),
+        tag: str(r.tag),
+        reachExcluded: r.reachExcluded === true,
         lastUpdated: str(r.lastUpdated),
         lastError: str(r.lastError),
       })
@@ -179,9 +181,9 @@ function seedSnapshots(competitors: Competitor[]): Snapshot[] {
 }
 
 // Bump to force a one-time heal on next boot: flush auto-collected values
-// captured by older buggy collectors, and re-baseline curated presence/notes
-// from the seed (so e.g. Lombard Telegram picks up the new "private" tag).
-const DATA_VERSION = 3;
+// captured by older buggy collectors, and re-baseline curated metadata
+// (presence/notes/tags/reach-exclusion) from the seed.
+const DATA_VERSION = 4;
 
 let bootstrapped = false;
 async function ensureSeeded() {
@@ -250,10 +252,13 @@ async function migrate(seed: Competitor[]) {
           cp.autoKey = sp.autoKey;
           changed = true;
         }
-        // One-time re-baseline of curated metadata (presence tags, notes).
+        // One-time re-baseline of curated metadata (presence, notes, tags,
+        // reach-exclusion) from the seed.
         if (needsReset) {
           cp.presence = sp.presence;
           cp.note = sp.note;
+          cp.tag = sp.tag ?? null;
+          cp.reachExcluded = sp.reachExcluded ?? false;
           changed = true;
         }
         // Scrub stale hardcoded seed counts (never freshly collected or edited).

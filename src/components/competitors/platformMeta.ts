@@ -7,7 +7,9 @@ const AUDIENCE_PLATFORMS: Platform[] = ["twitter", "discord", "telegram", "linke
 
 export function audience(c: Competitor): number {
   return c.platforms.reduce(
-    (sum, p) => sum + (AUDIENCE_PLATFORMS.includes(p.platform) && p.value != null ? p.value : 0),
+    (sum, p) =>
+      sum +
+      (AUDIENCE_PLATFORMS.includes(p.platform) && p.value != null && !p.reachExcluded ? p.value : 0),
     0
   );
 }

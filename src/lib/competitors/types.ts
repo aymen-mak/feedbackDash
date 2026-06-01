@@ -108,6 +108,11 @@ export interface PlatformMetric {
   source: MetricSource;
   /** Per-platform qualitative note. */
   note: string | null;
+  /** Short qualitative tag shown on the metric (e.g. "announcement", "airdrop-farmed"). */
+  tag?: string | null;
+  /** When true, the value is still shown but EXCLUDED from Community reach
+   *  (e.g. a bot/airdrop-inflated announcement/broadcast channel). */
+  reachExcluded?: boolean;
   /** ISO timestamp of last value update. */
   lastUpdated: string | null;
   /** Last auto-collector error message, if any. */
@@ -204,6 +209,8 @@ export function makeMetric(
     presence: p.presence ?? "unknown",
     source: p.source ?? "manual",
     note: p.note ?? null,
+    tag: p.tag ?? null,
+    reachExcluded: p.reachExcluded ?? false,
     lastUpdated: p.lastUpdated ?? null,
     lastError: p.lastError ?? null,
   };
