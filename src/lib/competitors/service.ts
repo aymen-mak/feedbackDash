@@ -74,6 +74,8 @@ import {
   fileDeleteCompetitor,
   fileGetSnapshots,
   fileAddSnapshots,
+  fileGetVersion,
+  fileSetVersion,
 } from "./store";
 import {
   pgSeedCompetitorsIfEmpty,
@@ -83,6 +85,8 @@ import {
   pgDeleteCompetitor,
   pgGetCompetitorSnapshots,
   pgAddCompetitorSnapshots,
+  pgGetVersion,
+  pgSetVersion,
 } from "./db";
 
 // Backend-agnostic facade. Chooses Postgres when configured, file/memory
@@ -174,6 +178,10 @@ function seedSnapshots(competitors: Competitor[]): Snapshot[] {
   return snaps;
 }
 
+// Bump to force a one-time reset of auto-collected values on next boot
+// (used to flush values captured by older buggy collectors).
+const DATA_VERSION = 2;
+
 let bootstrapped = false;
 async function ensureSeeded() {
   if (bootstrapped) return;
@@ -195,46 +203,70 @@ async function ensureSeeded() {
  */
 async function migrate(seed: Competitor[]) {
   const all = hasPostgres() ? await pgListCompetitors() : fileListCompetitors();
+  const ver = hasPostgres() ? await pgGetVersion() : fileGetVersion();
+  const needsReset = ver < DATA_VERSION;
   const seedById = new Map(seed.map((s) => [s.id, s]));
+
   for (const c of all) {
     if (c.isSelf || c.id === "makina") {
       if (hasPostgres()) await pgDeleteCompetitor(c.id);
       else fileDeleteCompetitor(c.id);
       continue;
     }
-    const s = seedById.get(c.id);
-    if (!s) continue;
     let changed = false;
-    if (!c.defillamaSlug && s.defillamaSlug) {
-      c.defillamaSlug = s.defillamaSlug;
-      changed = true;
-    }
-    if (c.onchain === undefined) {
-      c.onchain = null;
-      changed = true;
-    }
-    for (const sp of s.platforms) {
-      const cp = c.platforms.find((p) => p.platform === sp.platform);
-      if (!cp) {
-        c.platforms.push(sp);
-        changed = true;
-        continue;
-      }
-      if (!cp.autoKey && sp.autoKey) {
-        cp.autoKey = sp.autoKey;
-        changed = true;
-      }
-      // Scrub stale hardcoded seed counts (never freshly collected or edited).
-      if (cp.value != null && cp.source === "manual" && cp.lastUpdated === SEED_DATE) {
-        cp.value = null;
-        cp.lastUpdated = null;
-        changed = true;
+
+    // One-time reset: drop auto-collected values captured by older buggy
+    // parsers (e.g. "208 members" → 208M) so they re-collect cleanly.
+    if (needsReset) {
+      for (const p of c.platforms) {
+        if (p.source === "auto" && p.value != null) {
+          p.value = null;
+          p.lastUpdated = null;
+          p.lastError = null;
+          changed = true;
+        }
       }
     }
+
+    const s = seedById.get(c.id);
+    if (s) {
+      if (!c.defillamaSlug && s.defillamaSlug) {
+        c.defillamaSlug = s.defillamaSlug;
+        changed = true;
+      }
+      if (c.onchain === undefined) {
+        c.onchain = null;
+        changed = true;
+      }
+      for (const sp of s.platforms) {
+        const cp = c.platforms.find((p) => p.platform === sp.platform);
+        if (!cp) {
+          c.platforms.push(sp);
+          changed = true;
+          continue;
+        }
+        if (!cp.autoKey && sp.autoKey) {
+          cp.autoKey = sp.autoKey;
+          changed = true;
+        }
+        // Scrub stale hardcoded seed counts (never freshly collected or edited).
+        if (cp.value != null && cp.source === "manual" && cp.lastUpdated === SEED_DATE) {
+          cp.value = null;
+          cp.lastUpdated = null;
+          changed = true;
+        }
+      }
+    }
+
     if (changed) {
       if (hasPostgres()) await pgUpsertCompetitor(c);
       else fileUpsertCompetitor(c);
     }
+  }
+
+  if (needsReset) {
+    if (hasPostgres()) await pgSetVersion(DATA_VERSION);
+    else fileSetVersion(DATA_VERSION);
   }
 }
 

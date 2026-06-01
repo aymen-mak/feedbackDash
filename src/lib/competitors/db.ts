@@ -27,6 +27,21 @@ export async function pgEnsureCompetitorSchema() {
     CREATE INDEX IF NOT EXISTS idx_competitor_snapshots
     ON competitor_snapshots (competitor_id, platform, captured_at)
   `;
+  await sql`CREATE TABLE IF NOT EXISTS competitor_meta (key TEXT PRIMARY KEY, value TEXT)`;
+}
+
+export async function pgGetVersion(): Promise<number> {
+  await pgEnsureCompetitorSchema();
+  const { rows } = await sql`SELECT value FROM competitor_meta WHERE key = 'version'`;
+  return rows.length ? parseInt(rows[0].value as string, 10) || 0 : 0;
+}
+
+export async function pgSetVersion(v: number): Promise<void> {
+  await pgEnsureCompetitorSchema();
+  await sql`
+    INSERT INTO competitor_meta (key, value) VALUES ('version', ${String(v)})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+  `;
 }
 
 function rowToCompetitor(row: Record<string, unknown>): Competitor {
