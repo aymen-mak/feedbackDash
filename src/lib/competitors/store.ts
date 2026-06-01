@@ -9,6 +9,7 @@ import { type Competitor, type Snapshot, type Platform } from "./types";
 interface Store {
   competitors: Competitor[];
   snapshots: Snapshot[];
+  version?: number;
 }
 
 let memoryStore: Store | null = null;
@@ -36,6 +37,7 @@ function read(): Store {
       const store: Store = {
         competitors: data.competitors ?? [],
         snapshots: data.snapshots ?? [],
+        version: data.version ?? 0,
       };
       memoryStore = store;
       return store;
@@ -107,5 +109,15 @@ export function fileAddSnapshots(snaps: Snapshot[]) {
   if (snaps.length === 0) return;
   const store = read();
   store.snapshots.push(...snaps);
+  write(store);
+}
+
+export function fileGetVersion(): number {
+  return read().version ?? 0;
+}
+
+export function fileSetVersion(v: number) {
+  const store = read();
+  store.version = v;
   write(store);
 }

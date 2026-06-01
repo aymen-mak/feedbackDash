@@ -103,7 +103,8 @@ async function collectTelegram(channel: string): Promise<CollectorResult> {
       const res = await fetchWithTimeout(url, { headers: { "Accept-Language": "en" } }, 8000);
       if (!res.ok) continue;
       const v = parseTelegramCount(await res.text());
-      if (v != null) return { value: v, error: null };
+      // Guard against gross misparses — no Telegram channel exceeds ~100M.
+      if (v != null && v > 0 && v <= 100_000_000) return { value: v, error: null };
     } catch {
       // try next URL
     }
