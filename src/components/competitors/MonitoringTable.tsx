@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { ArrowUp, ArrowDown, Eye, EyeOff } from "lucide-react";
+import { ArrowUp, ArrowDown, Eye, EyeOff, Pin } from "lucide-react";
 import { type Competitor, type Platform, type PlatformMetric } from "@/lib/competitors/types";
 import { formatCount, formatUsd, signedPct, freshness, HEALTH_COLOR, audience } from "./platformMeta";
 import Sparkline from "./Sparkline";
@@ -94,16 +94,18 @@ interface Props {
   trends?: Record<string, Partial<Record<Platform, number>>>;
   onSelect: (id: string) => void;
   onToggleHidden?: (id: string, hidden: boolean) => void;
+  onTogglePin?: (id: string, pinned: boolean) => void;
 }
 
-export default function MonitoringTable({ competitors, trends, onSelect, onToggleHidden }: Props) {
+export default function MonitoringTable({ competitors, trends, onSelect, onToggleHidden, onTogglePin }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("tvl");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
 
   const sorted = useMemo(() => {
     const acc = ACCESSORS[sortKey];
     return [...competitors].sort((a, b) => {
-      if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1; // self pinned to top
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1; // pinned to top
+      if (a.isSelf !== b.isSelf) return a.isSelf ? -1 : 1;
       const av = acc(a);
       const bv = acc(b);
       const cmp =
@@ -163,8 +165,8 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                 key={c.id}
                 onClick={() => onSelect(c.id)}
                 className={`cursor-pointer border-b border-makina-border/50 transition-colors hover:bg-makina-surface/50 ${
-                  c.hidden ? "opacity-50" : ""
-                }`}
+                  c.pinned ? "border-l-2 border-l-makina-accent bg-makina-accent-dim/15" : ""
+                } ${c.hidden ? "opacity-50" : ""}`}
               >
                 <td className="px-2 py-2.5">
                   <div className="flex items-center gap-2">
@@ -175,6 +177,18 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                       </span>
                     )}
                     {c.token && <span className="text-[10px] font-medium text-makina-accent">{c.token}</span>}
+                    {onTogglePin && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onTogglePin(c.id, !c.pinned);
+                        }}
+                        className={`transition-colors ${c.pinned ? "text-makina-accent" : "text-makina-subtle hover:text-makina-text"}`}
+                        title={c.pinned ? "Unpin" : "Pin to top"}
+                      >
+                        <Pin size={12} className={c.pinned ? "fill-current" : ""} />
+                      </button>
+                    )}
                     {onToggleHidden && (
                       <button
                         onClick={(e) => {

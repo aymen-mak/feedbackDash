@@ -49,6 +49,7 @@ interface Datum {
   name: string;
   value: number;
   isSelf: boolean;
+  pinned: boolean;
 }
 
 export default function CompetitorComparisonChart({ competitors }: { competitors: Competitor[] }) {
@@ -67,13 +68,15 @@ export default function CompetitorComparisonChart({ competitors }: { competitors
     return competitors
       .map((comp): Datum | null => {
         const v = series.get(comp);
-        return v != null ? { name: comp.name, value: v, isSelf: comp.isSelf } : null;
+        return v != null ? { name: comp.name, value: v, isSelf: comp.isSelf, pinned: !!comp.pinned } : null;
       })
       .filter((d): d is Datum => d !== null)
-      .sort((a, b) => b.value - a.value);
+      .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.value - a.value);
   }, [competitors, series]);
 
   const fmt = (v: number) => (series?.usd ? formatUsd(v) : formatCount(v));
+  // Only dim non-pinned bars when something is actually pinned.
+  const anyPinned = data.some((d) => d.pinned);
 
   return (
     <div className="rounded-xl border border-makina-border bg-makina-card p-5 animate-fade-in-up">
@@ -133,7 +136,13 @@ export default function CompetitorComparisonChart({ competitors }: { competitors
               />
               <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={26}>
                 {data.map((d, i) => (
-                  <Cell key={i} fill={series.color} opacity={d.isSelf ? 1 : 0.72} />
+                  <Cell
+                    key={i}
+                    fill={series.color}
+                    opacity={d.pinned || !anyPinned ? 1 : 0.4}
+                    stroke={d.pinned ? "#93c5fd" : "none"}
+                    strokeWidth={d.pinned ? 1.5 : 0}
+                  />
                 ))}
                 <LabelList
                   dataKey="value"

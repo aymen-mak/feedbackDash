@@ -401,6 +401,7 @@ export async function patchCompetitor(
         ? clampScore(update.communityStrength)
         : existing.communityStrength,
     hidden: update.hidden !== undefined ? update.hidden : existing.hidden,
+    pinned: update.pinned !== undefined ? update.pinned : existing.pinned,
     platforms: incomingPlatforms ?? existing.platforms,
     updatedAt: now,
   };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ExternalLink, ChevronDown, BarChart3, Eye, EyeOff } from "lucide-react";
+import { ExternalLink, ChevronDown, BarChart3, Eye, EyeOff, Pin } from "lucide-react";
 import { type Competitor, type Platform } from "@/lib/competitors/types";
 import PlatformBadge from "./PlatformBadge";
 import OnchainRow from "./OnchainRow";
@@ -29,6 +29,8 @@ interface Props {
   maxAudience?: number;
   /** Hide/show this protocol from the dashboard. */
   onToggleHidden?: (id: string, hidden: boolean) => void;
+  /** Pin/unpin this protocol to the top. */
+  onTogglePin?: (id: string, pinned: boolean) => void;
 }
 
 export default function CompetitorCard({
@@ -38,6 +40,7 @@ export default function CompetitorCard({
   index = 0,
   maxAudience = 1,
   onToggleHidden,
+  onTogglePin,
 }: Props) {
   const aud = audience(c);
   const [expanded, setExpanded] = useState(false);
@@ -51,9 +54,9 @@ export default function CompetitorCard({
 
   return (
     <div
-      className={`flex flex-col rounded-xl border border-makina-border bg-makina-card p-4 hover-lift animate-fade-in-up ${
-        c.hidden ? "opacity-50" : ""
-      }`}
+      className={`flex flex-col rounded-xl border bg-makina-card p-4 hover-lift animate-fade-in-up ${
+        c.pinned ? "border-makina-accent/60 ring-1 ring-makina-accent/25" : "border-makina-border"
+      } ${c.hidden ? "opacity-50" : ""}`}
       style={{ animationDelay: `${Math.min(index * 40, 320)}ms` }}
     >
       {/* Header */}
@@ -80,6 +83,15 @@ export default function CompetitorCard({
             >
               <ExternalLink size={14} />
             </a>
+          )}
+          {onTogglePin && (
+            <button
+              onClick={() => onTogglePin(c.id, !c.pinned)}
+              className={`transition-colors ${c.pinned ? "text-makina-accent" : "text-makina-subtle hover:text-makina-text"}`}
+              title={c.pinned ? "Unpin" : "Pin to top"}
+            >
+              <Pin size={14} className={c.pinned ? "fill-current" : ""} />
+            </button>
           )}
           {onToggleHidden && (
             <button
