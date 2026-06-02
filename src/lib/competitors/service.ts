@@ -271,16 +271,17 @@ async function migrate(seed: Competitor[]) {
     }
   }
 
-  // Re-add seed entries missing from the store (e.g. Makina, previously
-  // removed) — one-time on a version bump; later user deletions are respected.
-  if (needsReset) {
-    const existing = new Set(all.map((c) => c.id));
-    for (const s of seed) {
-      if (!existing.has(s.id)) {
-        if (hasPostgres()) await pgUpsertCompetitor(s);
-        else fileUpsertCompetitor(s);
-      }
+  // Re-add missing seed entries. The isSelf row (Makina = "us") is always
+  // restored when missing so it can never silently vanish; other seed entries
+  // are restored only on a version bump (later user deletions are respected).
+  const existing = new Set(all.map((c) => c.id));
+  for (const s of seed) {
+    if (!existing.has(s.id) && (s.isSelf || needsReset)) {
+      if (hasPostgres()) await pgUpsertCompetitor(s);
+      else fileUpsertCompetitor(s);
     }
+  }
+  if (needsReset) {
     if (hasPostgres()) await pgSetVersion(DATA_VERSION);
     else fileSetVersion(DATA_VERSION);
   }
