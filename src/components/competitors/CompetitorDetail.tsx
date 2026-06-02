@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Pencil, Trash2, ExternalLink, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { X, Pencil, Trash2, ExternalLink, AlertTriangle, Eye, EyeOff, Pin } from "lucide-react";
 import {
   type Competitor,
   type Snapshot,
@@ -32,9 +32,17 @@ interface Props {
   onClose: () => void;
   onChanged: () => void;
   onToggleHidden?: (id: string, hidden: boolean) => void;
+  onTogglePin?: (id: string, pinned: boolean) => void;
 }
 
-export default function CompetitorDetail({ competitor, snapshots, onClose, onChanged, onToggleHidden }: Props) {
+export default function CompetitorDetail({
+  competitor,
+  snapshots,
+  onClose,
+  onChanged,
+  onToggleHidden,
+  onTogglePin,
+}: Props) {
   const [current, setCurrent] = useState(competitor);
   const [editing, setEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -282,6 +290,23 @@ export default function CompetitorDetail({ competitor, snapshots, onClose, onCha
             </button>
           )}
           <div className="flex items-center gap-2">
+            {onTogglePin && (
+              <button
+                onClick={() => {
+                  const next = !current.pinned;
+                  setCurrent({ ...current, pinned: next });
+                  onTogglePin(current.id, next);
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors ${
+                  current.pinned
+                    ? "border-makina-accent/50 bg-makina-accent-dim text-makina-accent"
+                    : "border-makina-border bg-makina-surface text-makina-muted hover:text-makina-text"
+                }`}
+              >
+                <Pin size={13} className={current.pinned ? "fill-current" : ""} />
+                {current.pinned ? "Pinned" : "Pin"}
+              </button>
+            )}
             {onToggleHidden && (
               <button
                 onClick={() => {

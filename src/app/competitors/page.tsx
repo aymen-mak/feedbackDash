@@ -103,6 +103,22 @@ function CompetitorsInner() {
     [load]
   );
 
+  const togglePin = useCallback(
+    async (id: string, pinned: boolean) => {
+      try {
+        await fetch(`/api/competitors/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pinned }),
+        });
+        await load();
+      } catch {
+        setError("Failed to update pin.");
+      }
+    },
+    [load]
+  );
+
   // Per-competitor, per-platform change vs. the previous snapshot.
   const trends = useMemo(() => {
     const byKey: Record<string, number[]> = {};
@@ -140,7 +156,10 @@ function CompetitorsInner() {
   const active = useMemo(() => competitors.filter((c) => !c.hidden), [competitors]);
   const hiddenCount = competitors.length - active.length;
   const shown = showHidden ? competitors : active;
-  const ranked = useMemo(() => [...shown].sort((a, b) => audience(b) - audience(a)), [shown]);
+  const ranked = useMemo(
+    () => [...shown].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned) || audience(b) - audience(a)),
+    [shown]
+  );
 
   const peers = active.filter((c) => !c.isSelf);
   const strongest = [...peers].sort((a, b) => audience(b) - audience(a))[0];
@@ -338,6 +357,7 @@ function CompetitorsInner() {
                 trends={trends}
                 onSelect={setSelectedId}
                 onToggleHidden={toggleHidden}
+                onTogglePin={togglePin}
               />
             ) : (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -350,6 +370,7 @@ function CompetitorsInner() {
                     onSelect={setSelectedId}
                     maxAudience={maxAudience}
                     onToggleHidden={toggleHidden}
+                    onTogglePin={togglePin}
                   />
                 ))}
               </div>
@@ -368,6 +389,7 @@ function CompetitorsInner() {
             onClose={() => setSelectedId(null)}
             onChanged={load}
             onToggleHidden={toggleHidden}
+            onTogglePin={togglePin}
           />
         );
       })()}

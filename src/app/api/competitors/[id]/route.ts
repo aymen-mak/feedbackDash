@@ -42,6 +42,7 @@ export async function PATCH(
     if (typeof body.communityStrength === "number")
       update.communityStrength = body.communityStrength;
     if (typeof body.hidden === "boolean") update.hidden = body.hidden;
+    if (typeof body.pinned === "boolean") update.pinned = body.pinned;
     if (Array.isArray(body.platforms))
       update.platforms = body.platforms as CompetitorUpdate["platforms"];
 

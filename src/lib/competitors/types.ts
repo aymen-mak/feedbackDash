@@ -160,6 +160,8 @@ export interface Competitor {
   isSelf: boolean;
   /** Hidden from all dashboard views (cards, table, charts, reach) when true. */
   hidden?: boolean;
+  /** Pinned to the top of the table/cards with a distinctive highlight. */
+  pinned?: boolean;
   /** Positioning tag, e.g. "Bitcoin LST", "Vault infra", "RWA". */
   segment: string;
   tvl: string | null;
@@ -229,5 +231,6 @@ export interface CompetitorUpdate {
   remark?: string;
   communityStrength?: number;
   hidden?: boolean;
+  pinned?: boolean;
   platforms?: PlatformMetric[];
 }
