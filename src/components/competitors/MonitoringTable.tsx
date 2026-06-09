@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { ArrowUp, ArrowDown, Eye, EyeOff, Pin } from "lucide-react";
 import { type Competitor, type Platform, type PlatformMetric } from "@/lib/competitors/types";
-import { formatCount, formatUsd, signedPct, freshness, HEALTH_COLOR, audience } from "./platformMeta";
+import { formatCount, formatUsd, signedPct, freshness, HEALTH_COLOR, audience, PLATFORM_SOURCE, ONCHAIN_SOURCE } from "./platformMeta";
 import Sparkline from "./Sparkline";
 
 type SortKey =
@@ -54,7 +54,13 @@ function SocialCell({ m, trend }: { m?: PlatformMetric; trend?: number }) {
       <td className="px-2 py-2.5 text-right">
         <span
           className="inline-flex items-center justify-end gap-1"
-          title={m.reachExcluded ? `${m.tag || "excluded"} — not counted in reach` : undefined}
+          title={
+            m.reachExcluded
+              ? `${m.tag || "excluded"} — not counted in reach`
+              : m.source === "auto"
+              ? `auto · via ${PLATFORM_SOURCE[m.platform].detail}`
+              : "manual entry"
+          }
         >
           <span
             className={`font-medium tabular-nums ${
@@ -141,8 +147,9 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
   );
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-makina-border bg-makina-card animate-fade-in-up">
-      <table className="w-full min-w-[1060px] border-collapse text-sm">
+    <div className="space-y-2 animate-fade-in-up">
+      <div className="overflow-x-auto rounded-xl border border-makina-border bg-makina-card">
+        <table className="w-full min-w-[1060px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-makina-border">
             <Th k="name" label="Protocol" />
@@ -268,7 +275,14 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
             );
           })}
         </tbody>
-      </table>
+        </table>
+      </div>
+      <p className="px-1 text-[10px] leading-relaxed text-makina-subtle">
+        Sources — X: {PLATFORM_SOURCE.twitter.short} · LinkedIn: {PLATFORM_SOURCE.linkedin.short} · Discord:{" "}
+        {PLATFORM_SOURCE.discord.short} · Telegram: {PLATFORM_SOURCE.telegram.short} · GitHub:{" "}
+        {PLATFORM_SOURCE.github.short} · Web: {PLATFORM_SOURCE.website.short} · TVL/Fees/Rev: {ONCHAIN_SOURCE.short}.
+        Green dot = auto-collected · grey = manual. Hover any value for its exact source.
+      </p>
     </div>
   );
 }

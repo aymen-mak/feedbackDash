@@ -10,12 +10,14 @@ import {
   Trophy,
   Crown,
   Minus,
+  Layers,
+  Info,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import PasswordGate from "@/components/PasswordGate";
 import Sparkline from "@/components/competitors/Sparkline";
 import MetricsTrendChart, { type TrendSeries } from "@/components/competitors/MetricsTrendChart";
-import { formatCount, signedPct, PLATFORM_META } from "@/components/competitors/platformMeta";
+import { formatCount, signedPct, PLATFORM_META, PLATFORM_SOURCE } from "@/components/competitors/platformMeta";
 import { downloadCsv } from "@/components/competitors/exportCsv";
 import {
   GRANULARITIES,
@@ -78,6 +80,8 @@ function MetricsInner() {
   const [platform, setPlatform] = useState<Platform>("twitter");
   const [gran, setGran] = useState<Granularity>("weekly");
   const [showDetails, setShowDetails] = useState(false);
+  const [focusId, setFocusId] = useState<string>("");
+  const [compareAll, setCompareAll] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -167,6 +171,15 @@ function MetricsInner() {
     [rows]
   );
 
+  // Keep the chart focus on a protocol that exists; default to us, else the top.
+  useEffect(() => {
+    if (ranked.length === 0) return;
+    if (!ranked.some((r) => r.c.id === focusId)) {
+      const self = ranked.find((r) => r.c.isSelf);
+      setFocusId(self ? self.c.id : ranked[0].c.id);
+    }
+  }, [ranked, focusId]);
+
   const colorOf = useMemo(() => {
     const map = new Map<string, string>();
     let p = 0;
@@ -184,6 +197,7 @@ function MetricsInner() {
   }, [rows]);
 
   const unit = PLATFORM_METRIC_UNIT[platform];
+  const source = PLATFORM_SOURCE[platform];
   const selfRow = rows.find((r) => r.c.isSelf);
   const topMover = rows
     .filter((r) => r.deltaPct != null)
@@ -203,8 +217,10 @@ function MetricsInner() {
     emphasized: !!r.c.isSelf || !!r.c.pinned,
   }));
 
+  const focusName = ranked.find((r) => r.c.id === focusId)?.c.name ?? "";
+
   const exportCsv = () => {
-    const head = ["Protocol", ...tableLabels, "Net change", "Net %"];
+    const head = ["Protocol", ...tableLabels, "Net change", "Net %", "Source"];
     const lines = [head.join(",")];
     for (const r of ranked) {
       const cells = r.values.slice(tStart).map((v) => (v == null ? "" : String(v)));
@@ -214,6 +230,7 @@ function MetricsInner() {
           ...cells,
           r.deltaAbs ?? "",
           r.deltaPct != null ? r.deltaPct.toFixed(1) : "",
+          `"${source.short}"`,
         ].join(",")
       );
     }
@@ -221,6 +238,11 @@ function MetricsInner() {
       `metrics-${platform}-${gran}-${new Date().toISOString().slice(0, 10)}.csv`,
       lines.join("\n")
     );
+  };
+
+  const openFocus = (id: string) => {
+    setFocusId(id);
+    setShowDetails(true);
   };
 
   const Kpi = ({
@@ -258,7 +280,7 @@ function MetricsInner() {
               Metrics <span className="gradient-text">Tracker</span>
             </h1>
             <p className="mt-1 text-xs text-makina-muted">
-              Where we stand at a glance — expand any section for the period-by-period detail.
+              Where we stand at a glance — expand the details to act on it.
             </p>
           </div>
           <button
@@ -277,38 +299,65 @@ function MetricsInner() {
           </div>
         )}
 
-        {/* Controls: platform + granularity */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="inline-flex flex-wrap rounded-lg border border-makina-border bg-makina-surface p-0.5">
-            {(platformOptions.length ? platformOptions : PLATFORM_PICK).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPlatform(p)}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-all ${
-                  platform === p ? "bg-makina-card text-makina-text shadow-sm" : "text-makina-muted hover:text-makina-text"
-                }`}
-              >
-                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PLATFORM_META[p].color }} />
-                {PLATFORM_META[p].short}
-              </button>
-            ))}
+        {/* Controls */}
+        <div className="space-y-3 rounded-xl border border-makina-border bg-makina-card p-4">
+          <div>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-makina-muted">Platform</p>
+            <div className="flex flex-wrap gap-2">
+              {(platformOptions.length ? platformOptions : PLATFORM_PICK).map((p) => {
+                const on = platform === p;
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPlatform(p)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition-all ${
+                      on
+                        ? "border-transparent text-white shadow-sm"
+                        : "border-makina-border bg-makina-surface text-makina-muted hover:border-makina-accent/40 hover:text-makina-text"
+                    }`}
+                    style={on ? { backgroundColor: PLATFORM_META[p].color } : undefined}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full"
+                      style={{ backgroundColor: on ? "rgba(255,255,255,0.95)" : PLATFORM_META[p].color }}
+                    />
+                    {PLATFORM_META[p].short}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <div className="inline-flex rounded-lg border border-makina-border bg-makina-surface p-0.5">
-            {GRANULARITIES.map((g) => (
-              <button
-                key={g.key}
-                onClick={() => setGran(g.key)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
-                  gran === g.key ? "bg-makina-card text-makina-text shadow-sm" : "text-makina-muted hover:text-makina-text"
-                }`}
-              >
-                {g.label}
-              </button>
-            ))}
+
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-makina-muted">Period</p>
+              <div className="inline-flex rounded-lg border border-makina-border bg-makina-surface p-1">
+                {GRANULARITIES.map((g) => (
+                  <button
+                    key={g.key}
+                    onClick={() => setGran(g.key)}
+                    title={g.label}
+                    className={`rounded-md px-3.5 py-1.5 text-xs font-bold tabular-nums transition-all ${
+                      gran === g.key
+                        ? "bg-makina-accent text-makina-bg shadow-sm"
+                        : "text-makina-muted hover:bg-makina-card hover:text-makina-text"
+                    }`}
+                  >
+                    {g.short}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Always-visible data source for the selected platform */}
+            <span
+              title={source.detail}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-makina-border bg-makina-surface px-3 py-1.5 text-[11px] text-makina-muted"
+            >
+              <Info size={12} className="text-makina-subtle" />
+              Source: <span className="font-semibold text-makina-text/90">{source.short}</span>
+              <span className="text-makina-subtle">· {unit}</span>
+            </span>
           </div>
-          <span className="text-[11px] text-makina-subtle">
-            {PLATFORM_LABELS[platform]} · {unit}
-          </span>
         </div>
 
         {loading ? (
@@ -343,7 +392,7 @@ function MetricsInner() {
               />
               <Kpi
                 icon={TrendingUp}
-                label={`Top mover · ${cfg.label.toLowerCase()} window`}
+                label={`Top mover · ${cfg.label.toLowerCase()}`}
                 value={topMover ? topMover.c.name : "—"}
                 sub={topMover ? <DeltaTag abs={topMover.deltaAbs} pct={topMover.deltaPct} /> : undefined}
               />
@@ -357,18 +406,24 @@ function MetricsInner() {
                   ) : undefined
                 }
               />
-              <Kpi icon={TrendingUp} label="Tracked here" value={String(rows.length)} sub={<span className="text-makina-subtle">protocols with data</span>} />
+              <Kpi icon={Layers} label="Tracked here" value={String(rows.length)} sub={<span className="text-makina-subtle">protocols with data</span>} />
             </div>
 
-            {/* ── GLANCE: per-competitor scorecards ── */}
+            {/* ── GLANCE: per-competitor scorecards (click to focus the chart) ── */}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {ranked.map((r, i) => {
                 const accent = r.c.isSelf || r.c.pinned;
+                const focused = focusId === r.c.id;
                 return (
-                  <div
+                  <button
                     key={r.c.id}
-                    className={`flex items-center justify-between gap-3 rounded-xl border bg-makina-card p-4 hover-lift animate-fade-in-up ${
-                      accent ? "border-makina-accent/60 ring-1 ring-makina-accent/20" : "border-makina-border"
+                    onClick={() => openFocus(r.c.id)}
+                    className={`flex items-center justify-between gap-3 rounded-xl border bg-makina-card p-4 text-left hover-lift animate-fade-in-up ${
+                      focused
+                        ? "border-makina-accent ring-2 ring-makina-accent/30"
+                        : accent
+                        ? "border-makina-accent/60 ring-1 ring-makina-accent/20"
+                        : "border-makina-border"
                     }`}
                     style={{ animationDelay: `${Math.min(i * 30, 240)}ms` }}
                   >
@@ -393,7 +448,7 @@ function MetricsInner() {
                       <span className="text-[10px] font-medium text-makina-subtle">#{rankByValue.get(r.c.id)}</span>
                       <Sparkline data={r.spark} width={90} height={32} />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -404,9 +459,7 @@ function MetricsInner() {
                 onClick={() => setShowDetails((v) => !v)}
                 className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
               >
-                <span className="text-sm font-semibold text-makina-text">
-                  Details — trend & period-by-period
-                </span>
+                <span className="text-sm font-semibold text-makina-text">Details — trend & period-by-period</span>
                 <span className="flex items-center gap-2 text-xs text-makina-muted">
                   {showDetails ? "Hide" : "Expand"}
                   <ChevronDown size={16} className={showDetails ? "rotate-180 transition-transform" : "transition-transform"} />
@@ -415,29 +468,58 @@ function MetricsInner() {
 
               {showDetails && (
                 <div className="space-y-5 border-t border-makina-border p-4">
-                  {/* Trend chart */}
-                  <div>
-                    <div className="mb-2 flex items-center justify-between">
-                      <span className="text-[11px] font-semibold uppercase tracking-wider text-makina-muted">
-                        {PLATFORM_LABELS[platform]} · {cfg.label} trend
+                  {/* Chart header: focused protocol + compare toggle + export */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm">
+                      <span className="font-semibold text-makina-text">{focusName}</span>
+                      <span className="text-makina-muted"> · {PLATFORM_LABELS[platform]} · {cfg.label}</span>
+                      <span className="ml-2 text-[11px] text-makina-subtle" title={source.detail}>
+                        via {source.short}
                       </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setCompareAll((v) => !v)}
+                        className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                          compareAll
+                            ? "border-makina-accent/50 bg-makina-accent-dim text-makina-accent"
+                            : "border-makina-border text-makina-muted hover:text-makina-text"
+                        }`}
+                      >
+                        <Layers size={12} />
+                        {compareAll ? "Comparing all" : "Compare all"}
+                      </button>
                       <button
                         onClick={exportCsv}
-                        className="inline-flex items-center gap-1.5 rounded-md border border-makina-border bg-makina-surface px-2 py-1 text-[11px] font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text"
+                        className="inline-flex items-center gap-1.5 rounded-md border border-makina-border bg-makina-surface px-2.5 py-1 text-[11px] font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text"
                       >
                         <Download size={12} />
                         Export CSV
                       </button>
                     </div>
-                    <MetricsTrendChart labels={labels} series={chartSeries} />
-                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                      {ranked.map((r) => (
-                        <span key={r.c.id} className="inline-flex items-center gap-1.5 text-[11px] text-makina-muted">
+                  </div>
+
+                  <MetricsTrendChart labels={labels} series={chartSeries} focusId={focusId} compareAll={compareAll} />
+
+                  {/* Focus chips (double as legend) */}
+                  <div className="flex flex-wrap gap-2">
+                    {ranked.map((r) => {
+                      const on = focusId === r.c.id;
+                      return (
+                        <button
+                          key={r.c.id}
+                          onClick={() => setFocusId(r.c.id)}
+                          className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                            on
+                              ? "border-makina-accent bg-makina-accent-dim text-makina-text"
+                              : "border-makina-border text-makina-muted hover:border-makina-accent/40 hover:text-makina-text"
+                          }`}
+                        >
                           <span className="h-2 w-2 rounded-full" style={{ backgroundColor: colorOf.get(r.c.id) }} />
                           {r.c.name}
-                        </span>
-                      ))}
-                    </div>
+                        </button>
+                      );
+                    })}
                   </div>
 
                   {/* Period table */}
@@ -493,9 +575,8 @@ function MetricsInner() {
                   </div>
 
                   <p className="text-[10px] text-makina-subtle">
-                    Values are the reading at each period’s end (carried forward between captures). Data is
-                    collected automatically on the daily cron and on “Capture now”. Finer granularities fill in as
-                    more points accrue.
+                    Values are the reading at each period’s end (carried forward between captures). {PLATFORM_LABELS[platform]} via{" "}
+                    {source.detail}. Collected on the daily cron and on “Capture now”; finer periods fill in as more points accrue.
                   </p>
                 </div>
               )}

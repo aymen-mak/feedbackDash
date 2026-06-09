@@ -9,13 +9,14 @@ import { type Snapshot, type Competitor, type Platform } from "@/lib/competitors
 
 export type Granularity = "hourly" | "daily" | "weekly" | "biweekly" | "monthly";
 
-/** Selectable granularities with the size of the trailing window each shows. */
-export const GRANULARITIES: { key: Granularity; label: string; periods: number }[] = [
-  { key: "hourly", label: "Hourly", periods: 24 },
-  { key: "daily", label: "Daily", periods: 30 },
-  { key: "weekly", label: "Weekly", periods: 16 },
-  { key: "biweekly", label: "Biweekly", periods: 12 },
-  { key: "monthly", label: "Monthly", periods: 12 },
+/** Selectable granularities: `short` is the TradingView-style button label,
+ *  `label` the descriptive name, `periods` the trailing window length. */
+export const GRANULARITIES: { key: Granularity; label: string; short: string; periods: number }[] = [
+  { key: "hourly", label: "Hourly", short: "1H", periods: 24 },
+  { key: "daily", label: "Daily", short: "1D", periods: 30 },
+  { key: "weekly", label: "Weekly", short: "1W", periods: 16 },
+  { key: "biweekly", label: "Biweekly", short: "2W", periods: 12 },
+  { key: "monthly", label: "Monthly", short: "1M", periods: 12 },
 ];
 
 const HOUR = 3_600_000;

@@ -28,6 +28,23 @@ export const PLATFORM_META: Record<Platform, { short: string; color: string }> =
   other: { short: "Other", color: "#94a3b8" },
 };
 
+// Where each platform's auto-collected value comes from — surfaced in the UI so
+// every number is attributable. `short` is for inline labels; `detail` for
+// tooltips. On-chain figures (TVL/fees/revenue) come from DefiLlama.
+export const PLATFORM_SOURCE: Record<Platform, { short: string; detail: string }> = {
+  twitter: { short: "X + search", detail: "X syndication API → Nitter → search-result snippets (no free official API)" },
+  linkedin: { short: "LinkedIn + search", detail: "LinkedIn public company page → search-result snippets" },
+  discord: { short: "Discord API", detail: "Discord invite endpoint (approximate_member_count)" },
+  telegram: { short: "Telegram", detail: "Public Telegram channel page" },
+  reddit: { short: "Reddit", detail: "Reddit r/<sub>/about.json" },
+  github: { short: "GitHub API", detail: "GitHub public users API (followers)" },
+  youtube: { short: "manual", detail: "Manual entry — no free collector wired" },
+  website: { short: "Similarweb (est.)", detail: "Similarweb public data — estimated monthly visits (best-effort; blank if unranked)" },
+  other: { short: "manual", detail: "Manual entry" },
+};
+
+export const ONCHAIN_SOURCE = { short: "DefiLlama", detail: "DefiLlama — TVL, fees & revenue" };
+
 /** 33300 → "33.3K", 125700 → "125.7K", 70000 → "70K", 53 → "53". */
 export function formatCount(v: number | null | undefined): string {
   if (v == null) return "N/A";

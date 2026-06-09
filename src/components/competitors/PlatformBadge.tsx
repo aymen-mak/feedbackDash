@@ -1,5 +1,5 @@
 import { type PlatformMetric, PLATFORM_LABELS } from "@/lib/competitors/types";
-import { PLATFORM_META, formatCount } from "./platformMeta";
+import { PLATFORM_META, PLATFORM_SOURCE, formatCount } from "./platformMeta";
 
 interface Props {
   metric: PlatformMetric;
@@ -35,6 +35,7 @@ export default function PlatformBadge({ metric, trend }: Props) {
   const titleParts: string[] = [PLATFORM_LABELS[metric.platform]];
   if (metric.handle) titleParts.push(metric.handle);
   if (hasValue) titleParts.push(`${metric.value!.toLocaleString()} · ${metric.source}`);
+  if (hasValue && metric.source === "auto") titleParts.push(`via ${PLATFORM_SOURCE[metric.platform].detail}`);
   else if (state) titleParts.push(state.text === "—" ? "no presence" : state.text);
   if (metric.reachExcluded) titleParts.push("excluded from Community reach");
   if (metric.note) titleParts.push(metric.note);

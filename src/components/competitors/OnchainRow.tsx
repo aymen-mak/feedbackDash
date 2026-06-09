@@ -1,5 +1,5 @@
 import { type Competitor } from "@/lib/competitors/types";
-import { formatUsd, signedPct } from "./platformMeta";
+import { formatUsd, signedPct, ONCHAIN_SOURCE } from "./platformMeta";
 import Sparkline from "./Sparkline";
 
 // Compact on-chain strip for a competitor card: TVL + 24h change + sparkline,
@@ -23,6 +23,9 @@ export default function OnchainRow({ c }: { c: Competitor }) {
               {signedPct(chg)}
             </span>
           )}
+          <span className="text-[9px] text-makina-subtle" title={ONCHAIN_SOURCE.detail}>
+            · {ONCHAIN_SOURCE.short}
+          </span>
         </div>
         {series.length >= 2 ? (
           <Sparkline data={series} width={72} height={20} />
