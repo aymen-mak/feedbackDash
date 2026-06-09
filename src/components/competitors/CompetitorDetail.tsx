@@ -21,6 +21,7 @@ const PLATFORM_ORDER: Platform[] = [
   "telegram",
   "linkedin",
   "github",
+  "website",
   "reddit",
   "youtube",
   "other",

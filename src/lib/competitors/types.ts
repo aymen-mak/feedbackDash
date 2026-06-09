@@ -8,6 +8,7 @@ export type Platform =
   | "reddit"
   | "github"
   | "youtube"
+  | "website"
   | "other";
 
 export const PLATFORMS: Platform[] = [
@@ -18,6 +19,7 @@ export const PLATFORMS: Platform[] = [
   "reddit",
   "github",
   "youtube",
+  "website",
   "other",
 ];
 
@@ -29,6 +31,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
   reddit: "Reddit",
   github: "GitHub",
   youtube: "YouTube",
+  website: "Website",
   other: "Other",
 };
 
@@ -41,6 +44,7 @@ export const PLATFORM_METRIC_UNIT: Record<Platform, string> = {
   reddit: "members",
   github: "followers",
   youtube: "subscribers",
+  website: "monthly visits",
   other: "followers",
 };
 
@@ -53,6 +57,7 @@ export const PLATFORM_AUTO_SUPPORTED: Record<Platform, boolean> = {
   reddit: true, // about.json
   github: true, // public users API
   youtube: false, // needs API key
+  website: true, // best-effort estimated monthly visits (Similarweb public data)
   other: false,
 };
 
@@ -65,6 +70,7 @@ export const PLATFORM_AUTOKEY_HINT: Record<Platform, string> = {
   reddit: "subreddit (no r/)",
   github: "org or user slug",
   youtube: "manual only",
+  website: "domain, e.g. example.com (best-effort traffic estimate)",
   other: "manual only",
 };
 

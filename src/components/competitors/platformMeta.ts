@@ -24,6 +24,7 @@ export const PLATFORM_META: Record<Platform, { short: string; color: string }> =
   reddit: { short: "Reddit", color: "#ff4500" },
   github: { short: "GitHub", color: "#8b949e" },
   youtube: { short: "YouTube", color: "#ff0000" },
+  website: { short: "Web", color: "#10b981" },
   other: { short: "Other", color: "#94a3b8" },
 };
 

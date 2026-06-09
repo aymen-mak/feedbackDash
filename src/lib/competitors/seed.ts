@@ -20,6 +20,17 @@ function liUrl(slug: string): string {
 function ghUrl(slug: string): string {
   return `https://github.com/${slug}`;
 }
+/** Bare registrable domain from a website URL (for the website traffic collector). */
+function webDomain(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return (
+    url
+      .replace(/^https?:\/\//i, "")
+      .replace(/^www\./i, "")
+      .replace(/[/?#].*$/, "")
+      .toLowerCase() || null
+  );
+}
 
 interface SeedInput {
   id: string;
@@ -44,6 +55,21 @@ function build(input: SeedInput): Competitor {
     if (p.platform === "linkedin" && p.handle) return { ...p, autoKey: p.handle };
     return p;
   });
+  // Track the marketing site itself as a platform — estimated monthly visits,
+  // auto-collected from the domain. Added for any competitor with a website
+  // that doesn't already declare one explicitly.
+  const domain = webDomain(input.website);
+  if (domain && !platforms.some((p) => p.platform === "website")) {
+    platforms.push(
+      makeMetric({
+        platform: "website",
+        handle: domain,
+        url: input.website ?? null,
+        autoKey: domain,
+        presence: "active",
+      })
+    );
+  }
   return {
     id: input.id,
     name: input.name,

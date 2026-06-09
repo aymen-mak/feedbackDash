@@ -58,6 +58,7 @@ export default function Navbar() {
     { href: "/review", label: "Review" },
     { href: "/team", label: "Team" },
     { href: "/competitors", label: "Competitors" },
+    { href: "/metrics", label: "Metrics" },
   ];
 
   const themeIcon = {

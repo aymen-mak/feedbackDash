@@ -17,9 +17,10 @@ type SortKey =
   | "discord"
   | "telegram"
   | "github"
+  | "website"
   | "updated";
 
-const SOCIAL_COLS: Platform[] = ["twitter", "linkedin", "discord", "telegram", "github"];
+const SOCIAL_COLS: Platform[] = ["twitter", "linkedin", "discord", "telegram", "github", "website"];
 
 const metricOf = (c: Competitor, p: Platform) => c.platforms.find((x) => x.platform === p);
 const valOf = (c: Competitor, p: Platform) => metricOf(c, p)?.value ?? null;
@@ -42,6 +43,7 @@ const ACCESSORS: Record<SortKey, (c: Competitor) => number | string> = {
   discord: (c) => valOf(c, "discord") ?? -1,
   telegram: (c) => valOf(c, "telegram") ?? -1,
   github: (c) => valOf(c, "github") ?? -1,
+  website: (c) => valOf(c, "website") ?? -1,
   updated: (c) => new Date(lastUpdatedOf(c) ?? 0).getTime(),
 };
 
@@ -140,7 +142,7 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
 
   return (
     <div className="overflow-x-auto rounded-xl border border-makina-border bg-makina-card animate-fade-in-up">
-      <table className="w-full min-w-[980px] border-collapse text-sm">
+      <table className="w-full min-w-[1060px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-makina-border">
             <Th k="name" label="Protocol" />
@@ -153,6 +155,7 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
             <Th k="discord" label="Discord" right />
             <Th k="telegram" label="Telegram" right />
             <Th k="github" label="GitHub" right />
+            <Th k="website" label="Web visits" right />
             <Th k="updated" label="Updated" />
           </tr>
         </thead>

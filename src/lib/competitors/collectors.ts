@@ -415,6 +415,55 @@ async function collectLinkedin(slug: string): Promise<CollectorResult> {
   return { value: null, error: "LinkedIn: page walled & snippet missed — will retry next cycle" };
 }
 
+/** Strip protocol / www / path → bare registrable domain. */
+function normalizeDomain(raw: string): string {
+  return raw
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/^www\./i, "")
+    .replace(/[/?#].*$/, "")
+    .toLowerCase();
+}
+
+// ── Website traffic — best-effort estimated monthly visits via Similarweb's
+// public data endpoint (unofficial, no key). It is rate-limited and only
+// populated for domains Similarweb actually ranks, so smaller sites legitimately
+// return nothing — in which case the value stays blank, by design. ──
+async function collectWebsite(domainOrUrl: string): Promise<CollectorResult> {
+  const domain = normalizeDomain(domainOrUrl);
+  if (!domain) return { value: null, error: "Website: no domain" };
+  try {
+    const res = await fetchWithTimeout(
+      `https://data.similarweb.com/api/v1/data?domain=${encodeURIComponent(domain)}`,
+      { headers: { Accept: "application/json" } }
+    );
+    if (!res.ok) {
+      return {
+        value: null,
+        error: `Website: Similarweb HTTP ${res.status} (domain may be unranked)`,
+      };
+    }
+    const data = (await res.json()) as {
+      EstimatedMonthlyVisits?: Record<string, number>;
+      Engagments?: { Visits?: string | number };
+    };
+    // Prefer the most recent month from the estimated-visits series.
+    const emv = data?.EstimatedMonthlyVisits;
+    if (emv && typeof emv === "object") {
+      const months = Object.keys(emv).sort();
+      const latest = months.length ? emv[months[months.length - 1]] : undefined;
+      if (typeof latest === "number" && latest > 0) return { value: Math.round(latest), error: null };
+    }
+    // Fallback: the headline "Visits" engagement figure.
+    const rawVisits = data?.Engagments?.Visits;
+    const v = typeof rawVisits === "string" ? parseFloat(rawVisits) : rawVisits;
+    if (typeof v === "number" && Number.isFinite(v) && v > 0) return { value: Math.round(v), error: null };
+    return { value: null, error: "Website: no visit estimate available" };
+  } catch (e) {
+    return { value: null, error: `Website: ${errMsg(e)}` };
+  }
+}
+
 /** Platform → collector. Platforms without an entry are manual-only. */
 export const COLLECTORS: Partial<Record<Platform, (key: string) => Promise<CollectorResult>>> = {
   telegram: collectTelegram,
@@ -423,6 +472,7 @@ export const COLLECTORS: Partial<Record<Platform, (key: string) => Promise<Colle
   github: collectGithub,
   twitter: collectTwitter,
   linkedin: collectLinkedin,
+  website: collectWebsite,
 };
 
 // ── DefiLlama on-chain metrics (free API) ──
