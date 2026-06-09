@@ -8,6 +8,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
 } from "recharts";
 import { useChartColors } from "./useChartColors";
@@ -24,25 +25,22 @@ export interface TrendSeries {
 interface Props {
   labels: string[];
   series: TrendSeries[];
-  /** The protocol drawn as the bold, filled focus line. */
-  focusId: string;
-  /** Overlay the other protocols as faint context lines. */
-  compareAll: boolean;
+  /** "area" draws a single filled trend; "lines" overlays multiple. */
+  mode: "area" | "lines";
+  /** Axis/tooltip formatting: absolute counts or % change. */
+  valueFormat: "count" | "percent";
 }
 
-export default function MetricsTrendChart({ labels, series, focusId, compareAll }: Props) {
+export default function MetricsTrendChart({ labels, series, mode, valueFormat }: Props) {
   const c = useChartColors();
 
   if (series.length === 0) {
     return (
       <div className="flex h-80 items-center justify-center text-center text-sm text-makina-muted">
-        No history yet for this platform — points accrue on each capture / daily cron.
+        Nothing selected — tick a protocol below to plot it.
       </div>
     );
   }
-
-  const focus = series.find((s) => s.id === focusId) ?? series[0];
-  const others = series.filter((s) => s.id !== focus.id);
 
   const data = labels.map((label, i) => {
     const row: Record<string, string | number | null> = { label };
@@ -50,14 +48,21 @@ export default function MetricsTrendChart({ labels, series, focusId, compareAll 
     return row;
   });
 
+  const fmtTick = (v: number) =>
+    valueFormat === "percent" ? `${v > 0 ? "+" : ""}${Math.round(v)}%` : formatCount(v);
+  const fmtTip = (v: number) =>
+    valueFormat === "percent" ? `${v > 0 ? "+" : ""}${v.toFixed(1)}%` : v.toLocaleString();
+
+  const head = series[0];
+
   return (
     <div className="h-80">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="metricsFocusFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={focus.color} stopOpacity={0.28} />
-              <stop offset="100%" stopColor={focus.color} stopOpacity={0} />
+              <stop offset="0%" stopColor={head.color} stopOpacity={0.28} />
+              <stop offset="100%" stopColor={head.color} stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid vertical={false} stroke={c.grid} strokeDasharray="3 3" />
@@ -73,9 +78,10 @@ export default function MetricsTrendChart({ labels, series, focusId, compareAll 
             tick={{ fontSize: 11, fill: c.tick }}
             axisLine={false}
             tickLine={false}
-            width={52}
-            tickFormatter={(v) => formatCount(typeof v === "number" ? v : null)}
+            width={54}
+            tickFormatter={(v) => fmtTick(typeof v === "number" ? v : 0)}
           />
+          {valueFormat === "percent" && <ReferenceLine y={0} stroke={c.tooltipBorder} strokeDasharray="4 4" />}
           <Tooltip
             contentStyle={{
               backgroundColor: c.tooltipBg,
@@ -84,38 +90,36 @@ export default function MetricsTrendChart({ labels, series, focusId, compareAll 
               fontSize: "12px",
               color: c.tooltipText,
             }}
-            formatter={(v, name) => [typeof v === "number" ? v.toLocaleString() : "—", name as string]}
+            formatter={(v, name) => [typeof v === "number" ? fmtTip(v) : "—", name as string]}
           />
 
-          {/* Faint context lines (opt-in) drawn under the focus line. */}
-          {compareAll &&
-            others.map((s) => (
+          {mode === "area" ? (
+            <Area
+              type="monotone"
+              dataKey={head.id}
+              name={head.name}
+              stroke={head.color}
+              strokeWidth={3}
+              fill="url(#metricsFocusFill)"
+              dot={{ r: 2.5, fill: head.color, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+              connectNulls
+            />
+          ) : (
+            series.map((s) => (
               <Line
                 key={s.id}
                 type="monotone"
                 dataKey={s.id}
                 name={s.name}
                 stroke={s.color}
-                strokeWidth={1.4}
-                strokeOpacity={0.35}
+                strokeWidth={s.emphasized ? 2.8 : 1.8}
                 dot={false}
-                activeDot={{ r: 3 }}
+                activeDot={{ r: 4 }}
                 connectNulls
               />
-            ))}
-
-          {/* Focus protocol: bold line + gradient area. */}
-          <Area
-            type="monotone"
-            dataKey={focus.id}
-            name={focus.name}
-            stroke={focus.color}
-            strokeWidth={3}
-            fill="url(#metricsFocusFill)"
-            dot={{ r: 2.5, fill: focus.color, strokeWidth: 0 }}
-            activeDot={{ r: 5 }}
-            connectNulls
-          />
+            ))
+          )}
         </ComposedChart>
       </ResponsiveContainer>
     </div>
