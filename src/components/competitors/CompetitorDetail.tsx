@@ -102,11 +102,6 @@ export default function CompetitorDetail({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <h2 className="truncate text-base font-bold text-makina-text">{current.name}</h2>
-              {current.isSelf && (
-                <span className="rounded-full bg-makina-accent-dim px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-makina-accent">
-                  You
-                </span>
-              )}
               {current.website && (
                 <a href={current.website} target="_blank" rel="noopener noreferrer" className="text-makina-subtle hover:text-makina-accent" title={current.website}>
                   <ExternalLink size={13} />

@@ -181,11 +181,6 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                 <td className="px-2 py-2.5">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-makina-text">{c.name}</span>
-                    {c.isSelf && (
-                      <span className="rounded-full bg-makina-accent-dim px-1 py-0.5 text-[8px] font-bold uppercase text-makina-accent">
-                        You
-                      </span>
-                    )}
                     {c.token && <span className="text-[10px] font-medium text-makina-accent">{c.token}</span>}
                     {onTogglePin && (
                       <button

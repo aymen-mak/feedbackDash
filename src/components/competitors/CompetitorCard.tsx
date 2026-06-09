@@ -65,11 +65,6 @@ export default function CompetitorCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="truncate text-sm font-bold text-makina-text">{c.name}</h3>
-            {c.isSelf && (
-              <span className="rounded-full bg-makina-accent-dim px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-makina-accent">
-                You
-              </span>
-            )}
           </div>
           <p className="mt-0.5 truncate text-[11px] text-makina-muted">{c.segment}</p>
         </div>

@@ -394,7 +394,7 @@ function MetricsInner() {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Kpi
                 icon={Crown}
-                label="Makina (us)"
+                label="Makina"
                 value={selfRow?.current != null ? formatCount(selfRow.current) : "—"}
                 sub={
                   selfRow ? (
@@ -502,9 +502,6 @@ function MetricsInner() {
                             <button onClick={() => solo(r.c.id)} className="flex items-center gap-2 text-left" title="View solo">
                               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: colorOf.get(r.c.id) }} />
                               <span className="font-semibold text-makina-text hover:text-makina-accent">{r.c.name}</span>
-                              {r.c.isSelf && (
-                                <span className="rounded-full bg-makina-accent-dim px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wider text-makina-accent">You</span>
-                              )}
                               <span className="text-[10px] text-makina-subtle">#{rankByValue.get(r.c.id)}</span>
                             </button>
                           </td>
