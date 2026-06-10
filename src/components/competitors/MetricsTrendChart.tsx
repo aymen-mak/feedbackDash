@@ -27,8 +27,8 @@ interface Props {
   series: TrendSeries[];
   /** "area" draws a single filled trend; "lines" overlays multiple. */
   mode: "area" | "lines";
-  /** Axis/tooltip formatting: absolute counts or % change. */
-  valueFormat: "count" | "percent";
+  /** Axis/tooltip formatting: absolute counts, signed % change, or a ratio (x%). */
+  valueFormat: "count" | "percent" | "ratio";
 }
 
 export default function MetricsTrendChart({ labels, series, mode, valueFormat }: Props) {
@@ -49,9 +49,17 @@ export default function MetricsTrendChart({ labels, series, mode, valueFormat }:
   });
 
   const fmtTick = (v: number) =>
-    valueFormat === "percent" ? `${v > 0 ? "+" : ""}${Math.round(v)}%` : formatCount(v);
+    valueFormat === "percent"
+      ? `${v > 0 ? "+" : ""}${Math.round(v)}%`
+      : valueFormat === "ratio"
+      ? `${Math.round(v * 10) / 10}%`
+      : formatCount(v);
   const fmtTip = (v: number) =>
-    valueFormat === "percent" ? `${v > 0 ? "+" : ""}${v.toFixed(1)}%` : v.toLocaleString();
+    valueFormat === "percent"
+      ? `${v > 0 ? "+" : ""}${v.toFixed(1)}%`
+      : valueFormat === "ratio"
+      ? `${v.toFixed(1)}%`
+      : v.toLocaleString();
 
   const head = series[0];
 

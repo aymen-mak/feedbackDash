@@ -1,5 +1,6 @@
 import { sql } from "@vercel/postgres";
 import { type Competitor, type Snapshot, type Platform } from "./types";
+import { type MakinaJournal } from "@/lib/makina/journal";
 
 // Postgres backend for the competitor tracker. The competitor document is
 // stored as JSONB (schema-flexible as the model evolves); snapshots get their
@@ -40,6 +41,26 @@ export async function pgSetVersion(v: number): Promise<void> {
   await pgEnsureCompetitorSchema();
   await sql`
     INSERT INTO competitor_meta (key, value) VALUES ('version', ${String(v)})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+  `;
+}
+
+// ── Makina performance journal (stored as a single JSON blob in meta) ──
+export async function pgGetMakinaJournal(): Promise<MakinaJournal> {
+  await pgEnsureCompetitorSchema();
+  const { rows } = await sql`SELECT value FROM competitor_meta WHERE key = 'makina_journal'`;
+  if (!rows.length) return { entries: [] };
+  try {
+    return JSON.parse(rows[0].value as string) as MakinaJournal;
+  } catch {
+    return { entries: [] };
+  }
+}
+
+export async function pgSetMakinaJournal(journal: MakinaJournal): Promise<void> {
+  await pgEnsureCompetitorSchema();
+  await sql`
+    INSERT INTO competitor_meta (key, value) VALUES ('makina_journal', ${JSON.stringify(journal)})
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
   `;
 }

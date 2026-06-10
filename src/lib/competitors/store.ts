@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { type Competitor, type Snapshot, type Platform } from "./types";
+import { type MakinaJournal } from "@/lib/makina/journal";
 
 // File-backed + in-memory store for the competitor tracker. Mirrors the
 // feedback store's strategy: project-local data/ when writable, /tmp on
@@ -10,6 +11,7 @@ interface Store {
   competitors: Competitor[];
   snapshots: Snapshot[];
   version?: number;
+  journal?: MakinaJournal;
 }
 
 let memoryStore: Store | null = null;
@@ -119,5 +121,16 @@ export function fileGetVersion(): number {
 export function fileSetVersion(v: number) {
   const store = read();
   store.version = v;
+  write(store);
+}
+
+// ── Makina performance journal ──
+export function fileGetJournal(): MakinaJournal {
+  return read().journal ?? { entries: [] };
+}
+
+export function fileSetJournal(journal: MakinaJournal) {
+  const store = read();
+  store.journal = journal;
   write(store);
 }
