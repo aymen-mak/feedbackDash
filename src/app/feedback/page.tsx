@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox, ChevronUp, ChevronDown, Sun, Moon, Droplets, Link2 } from "lucide-react";
+import Navbar from "@/components/Navbar";
 import LiveFeed from "@/components/LiveFeed";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { useLoadingBar } from "@/components/LoadingBar";
@@ -192,6 +193,7 @@ export default function FeedbackPage() {
 
   return (
     <div className="min-h-screen">
+      <Navbar />
 
       <main className="mx-auto max-w-6xl px-4 pt-10 pb-8 space-y-6">
 

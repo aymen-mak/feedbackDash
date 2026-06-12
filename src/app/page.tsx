@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Navbar from "@/components/Navbar";
 import { useTheme } from "@/lib/theme";
 import { ArrowRight, MessageSquare, Lightbulb, Sparkles, Zap, Image as ImageIcon, Eye } from "lucide-react";
 
@@ -8,7 +9,9 @@ export default function LandingPage() {
   const { theme } = useTheme();
 
   return (
-    <div className="min-h-screen overflow-hidden">
+    <>
+      <Navbar />
+      <div className="min-h-screen overflow-hidden">
       {/* ── Hero Section ── */}
       <section className="relative min-h-[92vh] flex flex-col items-center justify-center px-4">
         {/* Ambient glow backdrop */}
@@ -224,6 +227,7 @@ export default function LandingPage() {
           &copy; 2026 Makina Finance. All rights reserved.
         </div>
       </section>
-    </div>
+      </div>
+    </>
   );
 }

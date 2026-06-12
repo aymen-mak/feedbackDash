@@ -89,9 +89,6 @@ export default function Navbar() {
     </span>
   );
 
-  // Landing page and public feedback page have their own headers — no navbar.
-  if (pathname === "/" || pathname === "/feedback") return null;
-
   return (
     <nav className="sticky top-0 z-40 border-b border-makina-border/30 bg-makina-bg/95 backdrop-blur-xl">
       <div className="mx-auto flex h-14 max-w-7xl items-center px-4">
