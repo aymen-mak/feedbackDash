@@ -13,7 +13,6 @@ import {
   Pencil,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import PasswordGate from "@/components/PasswordGate";
 import Sparkline from "@/components/competitors/Sparkline";
 import MetricsTrendChart from "@/components/competitors/MetricsTrendChart";
 import WeekEntryModal from "@/components/makina/WeekEntryModal";
@@ -376,9 +375,5 @@ function MetricsInner() {
 }
 
 export default function MetricsPage() {
-  return (
-    <PasswordGate>
-      <MetricsInner />
-    </PasswordGate>
-  );
+  return <MetricsInner />;
 }

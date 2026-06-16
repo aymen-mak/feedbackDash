@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Navbar from "@/components/Navbar";
-import PasswordGate from "@/components/PasswordGate";
 import ReviewerNamePrompt from "@/components/ReviewerNamePrompt";
 import FeedbackCard, { type FeedbackItemData } from "@/components/FeedbackCard";
 import { AnalyticsChart } from "@/components/Charts";
@@ -518,19 +517,17 @@ export default function ReviewPage() {
 
   if (loading) {
     return (
-      <PasswordGate>
-        <div className="min-h-screen">
-          <Navbar />
-          <main className="mx-auto max-w-7xl px-4 py-6 flex items-center justify-center h-[80vh]">
-            <div className="text-sm text-makina-muted animate-pulse">Loading review inbox...</div>
-          </main>
-        </div>
-      </PasswordGate>
+      <div className="min-h-screen">
+        <Navbar />
+        <main className="mx-auto max-w-7xl px-4 py-6 flex items-center justify-center h-[80vh]">
+          <div className="text-sm text-makina-muted animate-pulse">Loading review inbox...</div>
+        </main>
+      </div>
     );
   }
 
   return (
-    <PasswordGate>
+    <>
       <ReviewerNamePrompt />
       <div className="min-h-screen">
         <Navbar />
@@ -847,6 +844,6 @@ export default function ReviewPage() {
           )}
         </main>
       </div>
-    </PasswordGate>
+    </>
   );
 }

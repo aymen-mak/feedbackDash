@@ -54,9 +54,6 @@ export default function Navbar() {
   };
 
   const links = [
-    { href: "/feedback", label: "Feedback" },
-    { href: "/review", label: "Review" },
-    { href: "/team", label: "Team" },
     { href: "/competitors", label: "Competitors" },
     { href: "/metrics", label: "Metrics" },
   ];

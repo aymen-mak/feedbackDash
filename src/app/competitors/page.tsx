@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import PasswordGate from "@/components/PasswordGate";
 import CompetitorComparisonChart from "@/components/competitors/CompetitorComparisonChart";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
 import MonitoringTable from "@/components/competitors/MonitoringTable";
@@ -408,9 +407,5 @@ function CompetitorsInner() {
 }
 
 export default function CompetitorsPage() {
-  return (
-    <PasswordGate>
-      <CompetitorsInner />
-    </PasswordGate>
-  );
+  return <CompetitorsInner />;
 }
