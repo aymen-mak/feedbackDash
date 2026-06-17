@@ -69,7 +69,7 @@ export default function MetricsTrendChart({ labels, series, mode, valueFormat }:
         <ComposedChart data={data} margin={{ top: 10, right: 18, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="metricsFocusFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={head.color} stopOpacity={0.28} />
+              <stop offset="0%" stopColor={head.color} stopOpacity={0.4} />
               <stop offset="100%" stopColor={head.color} stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -91,6 +91,7 @@ export default function MetricsTrendChart({ labels, series, mode, valueFormat }:
           />
           {valueFormat === "percent" && <ReferenceLine y={0} stroke={c.tooltipBorder} strokeDasharray="4 4" />}
           <Tooltip
+            cursor={{ stroke: c.cursor, strokeWidth: 1, strokeDasharray: "4 4" }}
             contentStyle={{
               backgroundColor: c.tooltipBg,
               border: `1px solid ${c.tooltipBorder}`,
@@ -98,6 +99,7 @@ export default function MetricsTrendChart({ labels, series, mode, valueFormat }:
               fontSize: "12px",
               color: c.tooltipText,
             }}
+            labelStyle={{ color: c.tick, marginBottom: 2, fontSize: 11 }}
             formatter={(v, name) => [typeof v === "number" ? fmtTip(v) : "—", name as string]}
           />
 
@@ -107,10 +109,10 @@ export default function MetricsTrendChart({ labels, series, mode, valueFormat }:
               dataKey={head.id}
               name={head.name}
               stroke={head.color}
-              strokeWidth={3}
+              strokeWidth={2.5}
               fill="url(#metricsFocusFill)"
-              dot={{ r: 2.5, fill: head.color, strokeWidth: 0 }}
-              activeDot={{ r: 5 }}
+              dot={false}
+              activeDot={{ r: 4, strokeWidth: 0 }}
               connectNulls
             />
           ) : (

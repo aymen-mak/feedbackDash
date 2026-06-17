@@ -1,8 +1,8 @@
 "use client";
 
 import {
-  LineChart,
-  Line,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -20,6 +20,7 @@ interface Props {
 
 export default function HistoryChart({ snapshots, color = "#5b9cf6" }: Props) {
   const c = useChartColors();
+  const gid = `hist-${color.replace(/[^a-zA-Z0-9]/g, "")}`;
   const data = [...snapshots]
     .sort((a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime())
     .map((s) => ({
@@ -38,7 +39,13 @@ export default function HistoryChart({ snapshots, color = "#5b9cf6" }: Props) {
   return (
     <div className="h-40">
       <ResponsiveContainer width="100%" height="100%">
-        <LineChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
           <CartesianGrid vertical={false} stroke={c.grid} strokeDasharray="3 3" />
           <XAxis
             dataKey="date"
@@ -55,6 +62,7 @@ export default function HistoryChart({ snapshots, color = "#5b9cf6" }: Props) {
             tickFormatter={(v) => formatCount(typeof v === "number" ? v : null)}
           />
           <Tooltip
+            cursor={{ stroke: c.cursor, strokeWidth: 1, strokeDasharray: "4 4" }}
             contentStyle={{
               backgroundColor: c.tooltipBg,
               border: `1px solid ${c.tooltipBorder}`,
@@ -62,17 +70,20 @@ export default function HistoryChart({ snapshots, color = "#5b9cf6" }: Props) {
               fontSize: "12px",
               color: c.tooltipText,
             }}
+            labelStyle={{ color: c.tick, marginBottom: 2, fontSize: 11 }}
             formatter={(v) => [typeof v === "number" ? v.toLocaleString() : String(v ?? ""), "value"]}
           />
-          <Line
+          <Area
             type="monotone"
             dataKey="value"
             stroke={color}
-            strokeWidth={2}
-            dot={{ r: 3, fill: color, stroke: c.dotStroke, strokeWidth: 1 }}
-            activeDot={{ r: 4 }}
+            strokeWidth={2.5}
+            fill={`url(#${gid})`}
+            dot={false}
+            activeDot={{ r: 4, strokeWidth: 0 }}
+            connectNulls
           />
-        </LineChart>
+        </AreaChart>
       </ResponsiveContainer>
     </div>
   );

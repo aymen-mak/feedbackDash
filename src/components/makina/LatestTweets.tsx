@@ -8,13 +8,12 @@ import { type TweetMetric } from "@/lib/makina/journal";
 type MetricKey = "impressions" | "likes" | "replies" | "reposts" | "quotes" | "bookmarks";
 type SortKey = "createdAt" | MetricKey;
 
-const METRICS: { key: MetricKey; label: string; Icon: ComponentType<{ size?: number }> }[] = [
-  { key: "impressions", label: "Impressions", Icon: Eye },
-  { key: "likes", label: "Likes", Icon: Heart },
-  { key: "replies", label: "Replies", Icon: MessageCircle },
-  { key: "reposts", label: "Reposts", Icon: Repeat2 },
-  { key: "quotes", label: "Quotes", Icon: Quote },
-  { key: "bookmarks", label: "Bookmarks", Icon: Bookmark },
+const ENGAGE: { key: Exclude<MetricKey, "impressions">; label: string; Icon: ComponentType<{ size?: number }>; color: string }[] = [
+  { key: "likes", label: "Likes", Icon: Heart, color: "#f43f5e" },
+  { key: "replies", label: "Replies", Icon: MessageCircle, color: "#38bdf8" },
+  { key: "reposts", label: "Reposts", Icon: Repeat2, color: "#22c55e" },
+  { key: "quotes", label: "Quotes", Icon: Quote, color: "#a78bfa" },
+  { key: "bookmarks", label: "Bookmarks", Icon: Bookmark, color: "#f59e0b" },
 ];
 
 const SORTS: { key: SortKey; label: string }[] = [
@@ -55,6 +54,8 @@ export default function LatestTweets({
   updatedAt?: string;
 }) {
   const [sort, setSort] = useState<SortKey>("createdAt");
+
+  const maxImp = useMemo(() => Math.max(1, ...tweets.map((t) => t.impressions || 0)), [tweets]);
 
   const sorted = useMemo(() => {
     const arr = [...tweets];
@@ -99,41 +100,66 @@ export default function LatestTweets({
           No posts captured yet — hit “Collect now” and they’ll appear here.
         </div>
       ) : (
-        <ul className="divide-y divide-makina-border/60 overflow-y-auto" style={{ maxHeight: 360 }}>
-          {sorted.map((t) => (
-            <li key={t.id}>
-              <a
-                href={t.url || undefined}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block px-4 py-3 transition-colors hover:bg-makina-surface/40"
-              >
-                <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
-                  <ExternalLink size={12} className="shrink-0 text-makina-subtle transition-colors group-hover:text-makina-accent" />
-                </div>
-                <p className="mb-2 text-[13px] leading-snug text-makina-text/90" style={clamp2}>
-                  {t.text || "(no text)"}
-                </p>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  {METRICS.map((m) => {
-                    const on = sort === m.key;
-                    return (
+        <ul className="divide-y divide-makina-border/60 overflow-y-auto" style={{ maxHeight: 380 }}>
+          {sorted.map((t) => {
+            const impPct = Math.max(3, Math.round(((t.impressions || 0) / maxImp) * 100));
+            return (
+              <li key={t.id}>
+                <a
+                  href={t.url || undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group block px-4 py-3 transition-colors hover:bg-makina-surface/40"
+                >
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
+                    <ExternalLink size={12} className="shrink-0 text-makina-subtle transition-colors group-hover:text-makina-accent" />
+                  </div>
+                  <p className="mb-2.5 text-[13px] leading-snug text-makina-text/90" style={clamp2}>
+                    {t.text || "(no text)"}
+                  </p>
+
+                  {/* Impressions — headline reach with a relative bar */}
+                  <div className="mb-2">
+                    <div className="mb-1 flex items-center justify-between">
                       <span
-                        key={m.key}
-                        title={m.label}
-                        className={`inline-flex items-center gap-1 text-[11px] tabular-nums ${on ? "font-semibold" : "text-makina-muted"}`}
-                        style={on ? { color: accent } : undefined}
+                        className="inline-flex items-center gap-1 text-[11px] font-medium"
+                        style={{ color: sort === "impressions" ? accent : undefined }}
                       >
-                        <m.Icon size={12} />
-                        {formatCount(t[m.key] ?? 0)}
+                        <Eye size={12} className="text-makina-subtle" /> Impressions
                       </span>
-                    );
-                  })}
-                </div>
-              </a>
-            </li>
-          ))}
+                      <span className="text-xs font-bold tabular-nums text-makina-text">{formatCount(t.impressions || 0)}</span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-makina-surface">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${impPct}%`, backgroundColor: accent }} />
+                    </div>
+                  </div>
+
+                  {/* Engagement — color-coded stat pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    {ENGAGE.map((m) => {
+                      const on = sort === m.key;
+                      return (
+                        <span
+                          key={m.key}
+                          title={m.label}
+                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
+                          style={{
+                            backgroundColor: `${m.color}1f`,
+                            color: m.color,
+                            boxShadow: on ? `inset 0 0 0 1px ${m.color}` : undefined,
+                          }}
+                        >
+                          <m.Icon size={11} />
+                          {formatCount(t[m.key] ?? 0)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </a>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
