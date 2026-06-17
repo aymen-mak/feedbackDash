@@ -38,9 +38,9 @@ function relTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-const clamp3 = {
+const clamp2 = {
   display: "-webkit-box",
-  WebkitLineClamp: 3,
+  WebkitLineClamp: 2,
   WebkitBoxOrient: "vertical" as const,
   overflow: "hidden",
 };
@@ -71,73 +71,70 @@ export default function LatestTweets({
   }, [tweets, sort]);
 
   return (
-    <div>
-      <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-makina-muted">Latest posts</p>
-          <p className="mt-0.5 text-[11px] text-makina-subtle">
-            Real per-post numbers from the last scrape{updatedAt ? ` · ${relTime(updatedAt)}` : ""}.
+    <div className="flex flex-col rounded-xl border border-makina-border bg-makina-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-makina-border px-4 py-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-makina-text">Latest posts &amp; metrics</h3>
+          <p className="text-[11px] text-makina-subtle">
+            Real per-post numbers{updatedAt ? ` · ${relTime(updatedAt)}` : ""}
           </p>
         </div>
         {tweets.length > 0 && (
-          <label className="inline-flex items-center gap-1.5 text-[11px] text-makina-muted">
-            Sort
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              className="rounded-md border border-makina-border bg-makina-surface px-2 py-1 text-[11px] text-makina-text outline-none transition-colors hover:border-makina-accent/40 focus:border-makina-accent/60"
-            >
-              {SORTS.map((s) => (
-                <option key={s.key} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className="rounded-md border border-makina-border bg-makina-surface px-2 py-1 text-[11px] text-makina-text outline-none transition-colors hover:border-makina-accent/40 focus:border-makina-accent/60"
+          >
+            {SORTS.map((s) => (
+              <option key={s.key} value={s.key}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         )}
       </div>
 
       {tweets.length === 0 ? (
-        <div className="rounded-xl border border-makina-border bg-makina-card p-6 text-center text-sm text-makina-muted">
+        <div className="px-4 py-10 text-center text-sm text-makina-muted">
           No posts captured yet — hit “Collect now” and they’ll appear here.
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {sorted.map((t, i) => (
-            <a
-              key={t.id}
-              href={t.url || undefined}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group flex flex-col rounded-xl border border-makina-border bg-makina-card p-3.5 transition-all hover-lift hover:border-makina-accent/40 animate-fade-in-up"
-              style={{ animationDelay: `${Math.min(i * 30, 240)}ms` }}
-            >
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <span className="text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
-                <ExternalLink size={12} className="shrink-0 text-makina-subtle transition-colors group-hover:text-makina-accent" />
-              </div>
-              <p className="mb-3 text-[13px] leading-snug text-makina-text/90" style={clamp3}>
-                {t.text || "(no text)"}
-              </p>
-              <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-makina-border/50 pt-2.5">
-                {METRICS.map((m) => {
-                  const on = sort === m.key;
-                  return (
-                    <span
-                      key={m.key}
-                      title={m.label}
-                      className={`inline-flex items-center gap-1 text-[11px] tabular-nums ${on ? "font-semibold" : "text-makina-muted"}`}
-                      style={on ? { color: accent } : undefined}
-                    >
-                      <m.Icon size={12} />
-                      {formatCount(t[m.key] ?? 0)}
-                    </span>
-                  );
-                })}
-              </div>
-            </a>
+        <ul className="divide-y divide-makina-border/60 overflow-y-auto" style={{ maxHeight: 360 }}>
+          {sorted.map((t) => (
+            <li key={t.id}>
+              <a
+                href={t.url || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block px-4 py-3 transition-colors hover:bg-makina-surface/40"
+              >
+                <div className="mb-1 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
+                  <ExternalLink size={12} className="shrink-0 text-makina-subtle transition-colors group-hover:text-makina-accent" />
+                </div>
+                <p className="mb-2 text-[13px] leading-snug text-makina-text/90" style={clamp2}>
+                  {t.text || "(no text)"}
+                </p>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  {METRICS.map((m) => {
+                    const on = sort === m.key;
+                    return (
+                      <span
+                        key={m.key}
+                        title={m.label}
+                        className={`inline-flex items-center gap-1 text-[11px] tabular-nums ${on ? "font-semibold" : "text-makina-muted"}`}
+                        style={on ? { color: accent } : undefined}
+                      >
+                        <m.Icon size={12} />
+                        {formatCount(t[m.key] ?? 0)}
+                      </span>
+                    );
+                  })}
+                </div>
+              </a>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );

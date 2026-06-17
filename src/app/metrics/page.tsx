@@ -21,8 +21,6 @@ import { formatCount, signedPct, PLATFORM_META } from "@/components/competitors/
 import { downloadCsv } from "@/components/competitors/exportCsv";
 import {
   ACCOUNTS,
-  CATEGORY_ORDER,
-  CATEGORY_INFO,
   accountDef,
   defaultWeekStart,
   periodLabel,
@@ -32,7 +30,6 @@ import {
   type MakinaJournal,
   type MakinaTweets,
   type MetricKind,
-  type MetricCategory,
 } from "@/lib/makina/journal";
 
 const ENV_HELP =
@@ -163,7 +160,7 @@ function MetricsInner() {
   return (
     <div className="min-h-screen">
       <Navbar />
-      <main className="mx-auto max-w-6xl px-4 py-6">
+      <main className="mx-auto max-w-7xl px-4 py-6">
         {/* Header */}
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4 animate-fade-in-up">
           <div>
@@ -229,7 +226,7 @@ function MetricsInner() {
         )}
 
         {/* Account tabs */}
-        <div className="mb-5 flex flex-wrap gap-1.5">
+        <div className="mb-4 flex flex-wrap gap-1.5">
           {ACCOUNTS.map((a) => {
             const on = account === a.key;
             return (
@@ -259,99 +256,87 @@ function MetricsInner() {
             </p>
           </div>
         ) : (
-          <div className="space-y-5">
-            {/* Latest period header */}
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold text-makina-text">
-                Latest: <span className="text-makina-accent">{periodLabel(latest.periodStart)}</span>
-                {prev && <span className="ml-2 text-xs font-normal text-makina-subtle">vs {periodLabel(prev.periodStart)}</span>}
-              </h2>
+          <div className="space-y-4">
+            {/* Period + plain-language summary — one cohesive band */}
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-makina-text">
+                  Latest: <span className="text-makina-accent">{periodLabel(latest.periodStart)}</span>
+                  {prev && <span className="ml-2 text-xs font-normal text-makina-subtle">vs {periodLabel(prev.periodStart)}</span>}
+                </h2>
+                {summaryText && <p className="mt-1 max-w-3xl text-xs leading-relaxed text-makina-muted">{summaryText}</p>}
+              </div>
               <button
                 onClick={() => setModal({ entry: latest })}
-                className="inline-flex items-center gap-1.5 rounded-md border border-makina-border px-2.5 py-1 text-[11px] font-medium text-makina-muted transition-colors hover:text-makina-text"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-makina-border px-2.5 py-1 text-[11px] font-medium text-makina-muted transition-colors hover:text-makina-text"
               >
                 <Pencil size={12} />
                 Edit this week
               </button>
             </div>
 
-            {summaryText && (
-              <p className="rounded-lg border border-makina-border bg-makina-surface/40 px-3 py-2.5 text-sm text-makina-muted">
-                {summaryText}
-              </p>
-            )}
+            {/* KPIs — one dense grid; click a card to chart it */}
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {accDef.metrics.map((m) => {
+                const cur = latest.values[m.key] ?? null;
+                const pv = prev?.values[m.key] ?? null;
+                const on = chartMetric === m.key;
+                const spark = seriesOf(m.key).filter((v): v is number => v != null);
+                const hasHistory = spark.length >= 2;
+                return (
+                  <button
+                    key={m.key}
+                    onClick={() => setChartMetric(m.key)}
+                    title={m.description}
+                    className={`flex flex-col rounded-xl border bg-makina-card p-3 text-left transition-all hover-lift ${
+                      on ? "border-makina-accent ring-1 ring-makina-accent/30" : "border-makina-border"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="truncate text-[11px] text-makina-muted">{m.label}</span>
+                      {m.auto && <span className="text-[8px] font-bold uppercase text-makina-green">auto</span>}
+                    </div>
+                    <p className="mt-1 text-xl font-bold tabular-nums text-makina-text">{fmtMetric(cur, m.kind)}</p>
+                    <div className="mt-0.5 flex h-[18px] items-center justify-between gap-1">
+                      {hasHistory ? (
+                        <>
+                          <Delta pct={pctChange(cur, pv)} />
+                          <Sparkline data={spark} width={56} height={18} color={on ? accentColor : undefined} />
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-makina-subtle">first tracked week</span>
+                      )}
+                    </div>
+                    <p className="mt-1.5 text-[10px] leading-snug text-makina-subtle" style={clampDesc}>
+                      {m.description}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
 
-            {/* Categorized metric cards */}
-            {CATEGORY_ORDER.filter((cat) => accDef.metrics.some((m) => m.category === cat)).map((cat: MetricCategory) => (
-              <div key={cat}>
-                <div className="mb-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-makina-muted">{cat}</p>
-                  <p className="mt-0.5 text-[11px] text-makina-subtle">{CATEGORY_INFO[cat]}</p>
+            {/* Trend + latest posts side by side — uses the width, less up/down scrolling */}
+            <div className={`grid gap-4 ${accDef.platform === "twitter" ? "lg:grid-cols-2" : ""}`}>
+              <div className="rounded-xl border border-makina-border bg-makina-card p-4">
+                <div className="mb-3 text-sm">
+                  <span className="font-semibold text-makina-text">{chartDef?.label}</span>
+                  <span className="text-makina-muted"> · {accEntries.length} periods</span>
                 </div>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                  {accDef.metrics
-                    .filter((m) => m.category === cat)
-                    .map((m) => {
-                      const cur = latest.values[m.key] ?? null;
-                      const pv = prev?.values[m.key] ?? null;
-                      const on = chartMetric === m.key;
-                      const spark = seriesOf(m.key).filter((v): v is number => v != null);
-                      const hasHistory = spark.length >= 2;
-                      return (
-                        <button
-                          key={m.key}
-                          onClick={() => setChartMetric(m.key)}
-                          title={m.description}
-                          className={`rounded-xl border bg-makina-card p-3 text-left transition-all hover-lift ${
-                            on ? "border-makina-accent ring-1 ring-makina-accent/30" : "border-makina-border"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="truncate text-[11px] text-makina-muted">{m.label}</span>
-                            {m.auto && <span className="text-[8px] font-bold uppercase text-makina-green">auto</span>}
-                          </div>
-                          <p className="mt-1 text-xl font-bold tabular-nums text-makina-text">{fmtMetric(cur, m.kind)}</p>
-                          <div className="mt-0.5 flex h-[18px] items-center justify-between gap-1">
-                            {hasHistory ? (
-                              <>
-                                <Delta pct={pctChange(cur, pv)} />
-                                <Sparkline data={spark} width={56} height={18} color={on ? accentColor : undefined} />
-                              </>
-                            ) : (
-                              <span className="text-[10px] text-makina-subtle">first tracked week</span>
-                            )}
-                          </div>
-                          <p className="mt-1.5 text-[10px] leading-snug text-makina-subtle" style={clampDesc}>
-                            {m.description}
-                          </p>
-                        </button>
-                      );
-                    })}
-                </div>
+                <MetricsTrendChart
+                  labels={labels}
+                  series={[{ id: chartMetric, name: chartDef?.label ?? "", color: accentColor, values: seriesOf(chartMetric) }]}
+                  mode="area"
+                  valueFormat={chartDef?.kind === "ratio" ? "ratio" : "count"}
+                />
               </div>
-            ))}
 
-            {/* Latest posts & their per-post metrics */}
-            {accDef.platform === "twitter" && (
-              <LatestTweets
-                tweets={tweets.byAccount[account]?.tweets ?? []}
-                accent={accentColor}
-                updatedAt={tweets.byAccount[account]?.updatedAt}
-              />
-            )}
-
-            {/* Trend chart for the selected metric */}
-            <div className="rounded-xl border border-makina-border bg-makina-card p-4">
-              <div className="mb-3 text-sm">
-                <span className="font-semibold text-makina-text">{chartDef?.label}</span>
-                <span className="text-makina-muted"> · {accDef.label} · {accEntries.length} periods</span>
-              </div>
-              <MetricsTrendChart
-                labels={labels}
-                series={[{ id: chartMetric, name: chartDef?.label ?? "", color: accentColor, values: seriesOf(chartMetric) }]}
-                mode="area"
-                valueFormat={chartDef?.kind === "ratio" ? "ratio" : "count"}
-              />
+              {accDef.platform === "twitter" && (
+                <LatestTweets
+                  tweets={tweets.byAccount[account]?.tweets ?? []}
+                  accent={accentColor}
+                  updatedAt={tweets.byAccount[account]?.updatedAt}
+                />
+              )}
             </div>
 
             {/* History table */}
