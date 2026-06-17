@@ -2,21 +2,30 @@ import { type Platform } from "@/lib/competitors/types";
 
 // ── Makina in-depth performance journal ──
 // Weekly (or any-period) entries of the metrics we track for our own accounts.
-// The headline counts (followers, members, visits) are auto-collected; the deep
-// engagement metrics come from each platform's native analytics (X Analytics,
-// Telegram channel stats) which are owner-only, so they're entered by hand.
+// X metrics are auto-collected (followers + per-post engagement scraped via
+// Apify/scweet; new-follows and engagement-rate derived). No X metric is manual.
 
 export type MetricKind = "count" | "ratio"; // ratio = a percentage value (e.g. engagement rate)
 export type MetricCategory = "Audience" | "Reach" | "Engagement" | "Activity";
 
 export const CATEGORY_ORDER: MetricCategory[] = ["Audience", "Reach", "Engagement", "Activity"];
 
+/** One-line, plain-language intro shown under each section heading. */
+export const CATEGORY_INFO: Record<MetricCategory, string> = {
+  Audience: "Who follows you, and how that base is growing.",
+  Reach: "How many people your content reached this week.",
+  Engagement: "How people interacted with what you posted.",
+  Activity: "How active the community itself is.",
+};
+
 export interface MetricDef {
   key: string;
   label: string;
   kind: MetricKind;
   category: MetricCategory;
-  /** Auto-collected elsewhere (prefilled in the entry form). */
+  /** Plain-language explanation of what the number means. */
+  description: string;
+  /** Auto-collected (never entered by hand). */
   auto?: boolean;
 }
 
@@ -32,16 +41,15 @@ export interface AccountDef {
 }
 
 const X_METRICS: MetricDef[] = [
-  { key: "followers", label: "Followers", kind: "count", category: "Audience", auto: true },
-  { key: "newFollows", label: "New follows", kind: "count", category: "Audience" },
-  { key: "impressions", label: "Impressions", kind: "count", category: "Reach" },
-  { key: "profileVisits", label: "Profile visits", kind: "count", category: "Reach" },
-  { key: "engagementRate", label: "Engagement rate", kind: "ratio", category: "Engagement" },
-  { key: "replies", label: "Replies", kind: "count", category: "Engagement" },
-  { key: "likes", label: "Likes", kind: "count", category: "Engagement" },
-  { key: "reposts", label: "Reposts", kind: "count", category: "Engagement" },
-  { key: "bookmarks", label: "Bookmarks", kind: "count", category: "Engagement" },
-  { key: "shares", label: "Shares", kind: "count", category: "Engagement" },
+  { key: "followers", label: "Followers", kind: "count", category: "Audience", auto: true, description: "Total accounts following you." },
+  { key: "newFollows", label: "Net new follows", kind: "count", category: "Audience", auto: true, description: "Change in followers vs last week (this week − last week)." },
+  { key: "impressions", label: "Impressions", kind: "count", category: "Reach", auto: true, description: "Total views across the posts you published this week." },
+  { key: "engagementRate", label: "Engagement rate", kind: "ratio", category: "Engagement", auto: true, description: "Engagements ÷ impressions — how compelling your posts were." },
+  { key: "likes", label: "Likes", kind: "count", category: "Engagement", auto: true, description: "Likes your posts earned this week." },
+  { key: "replies", label: "Replies", kind: "count", category: "Engagement", auto: true, description: "Replies your posts received this week." },
+  { key: "reposts", label: "Reposts", kind: "count", category: "Engagement", auto: true, description: "Reposts (retweets) of your posts this week." },
+  { key: "shares", label: "Quotes", kind: "count", category: "Engagement", auto: true, description: "Quote-posts of your content this week." },
+  { key: "bookmarks", label: "Bookmarks", kind: "count", category: "Engagement", auto: true, description: "Times your posts were bookmarked this week." },
 ];
 
 export const ACCOUNTS: AccountDef[] = [
@@ -55,10 +63,10 @@ export const ACCOUNTS: AccountDef[] = [
     handle: "t.me/makinafinance",
     autoMetric: "members",
     metrics: [
-      { key: "members", label: "Member count", kind: "count", category: "Audience", auto: true },
-      { key: "messages", label: "Messages", kind: "count", category: "Activity" },
-      { key: "viewingMembers", label: "Viewing members", kind: "count", category: "Activity" },
-      { key: "postingMembers", label: "Posting members", kind: "count", category: "Activity" },
+      { key: "members", label: "Member count", kind: "count", category: "Audience", auto: true, description: "Total members in the channel." },
+      { key: "messages", label: "Messages", kind: "count", category: "Activity", description: "Messages posted in the channel this period." },
+      { key: "viewingMembers", label: "Viewing members", kind: "count", category: "Activity", description: "Members who viewed content this period." },
+      { key: "postingMembers", label: "Posting members", kind: "count", category: "Activity", description: "Members who posted this period." },
     ],
   },
   {
@@ -69,9 +77,9 @@ export const ACCOUNTS: AccountDef[] = [
     handle: "discord.gg/makinafi",
     autoMetric: "members",
     metrics: [
-      { key: "members", label: "Member count", kind: "count", category: "Audience", auto: true },
-      { key: "online", label: "Online", kind: "count", category: "Audience" },
-      { key: "messages", label: "Messages", kind: "count", category: "Activity" },
+      { key: "members", label: "Member count", kind: "count", category: "Audience", auto: true, description: "Total members in the server." },
+      { key: "online", label: "Online", kind: "count", category: "Audience", description: "Members online right now." },
+      { key: "messages", label: "Messages", kind: "count", category: "Activity", description: "Messages posted in the server this period." },
     ],
   },
   {
@@ -82,10 +90,10 @@ export const ACCOUNTS: AccountDef[] = [
     handle: "makina.finance",
     autoMetric: "monthlyVisits",
     metrics: [
-      { key: "monthlyVisits", label: "Monthly visits", kind: "count", category: "Audience", auto: true },
-      { key: "uniqueVisitors", label: "Unique visitors", kind: "count", category: "Audience" },
-      { key: "avgVisitSec", label: "Avg visit (sec)", kind: "count", category: "Engagement" },
-      { key: "signups", label: "App sign-ups", kind: "count", category: "Engagement" },
+      { key: "monthlyVisits", label: "Monthly visits", kind: "count", category: "Audience", auto: true, description: "Total visits over the trailing month." },
+      { key: "uniqueVisitors", label: "Unique visitors", kind: "count", category: "Audience", description: "Distinct people who visited this period." },
+      { key: "avgVisitSec", label: "Avg visit (sec)", kind: "count", category: "Engagement", description: "Average time on site per visit, in seconds." },
+      { key: "signups", label: "App sign-ups", kind: "count", category: "Engagement", description: "New app sign-ups this period." },
     ],
   },
 ];
@@ -101,6 +109,25 @@ export interface JournalEntry {
 
 export interface MakinaJournal {
   entries: JournalEntry[];
+}
+
+// ── Latest per-post metrics (cached from the last scrape, not live) ──
+export interface TweetMetric {
+  id: string;
+  url: string;
+  text: string;
+  createdAt: string; // ISO
+  impressions: number;
+  likes: number;
+  replies: number;
+  reposts: number;
+  quotes: number;
+  bookmarks: number;
+}
+
+export interface MakinaTweets {
+  /** Keyed by account key, e.g. "makinafi". */
+  byAccount: Record<string, { tweets: TweetMetric[]; updatedAt: string }>;
 }
 
 export function accountDef(key: string): AccountDef | undefined {

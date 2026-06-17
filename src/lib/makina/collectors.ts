@@ -1,3 +1,5 @@
+import { type TweetMetric } from "./journal";
+
 // Metric collectors for our OWN accounts that store NO account logins:
 //
 //  • X / Twitter → Apify running the altimis/scweet actor. It scrapes PUBLIC
@@ -13,6 +15,8 @@
 export interface CollectResult {
   values: Record<string, number | null>;
   error: string | null;
+  /** Latest per-post metrics (X only), newest first. */
+  tweets?: TweetMetric[];
 }
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
@@ -66,6 +70,7 @@ export async function collectXViaApify(handle: string): Promise<CollectResult> {
     const cutoff = Date.now() - WEEK_MS;
     let impressions = 0, likes = 0, replies = 0, reposts = 0, bookmarks = 0, shares = 0, count = 0;
     let followers: number | undefined;
+    const own: TweetMetric[] = [];
     for (const it of items) {
       if (it.noResults || it.demo) continue;
       const user = (it.user ?? {}) as Record<string, unknown>;
@@ -74,26 +79,41 @@ export async function collectXViaApify(handle: string): Promise<CollectResult> {
       if (author && author !== h.toLowerCase()) continue;
       const f = num(user.followers_count);
       if (f != null) followers = f; // captured regardless of tweet date
-      // Only tweets created within the last 7 days count toward this week.
-      const created = Date.parse(String(it.created_at ?? ""));
-      if (!Number.isNaN(created) && created < cutoff) continue;
       const tw = (it.tweet ?? {}) as Record<string, unknown>;
-      impressions += num(it.view_count) ?? num(tw.view_count) ?? 0;
-      likes += num(it.favorite_count) ?? num(tw.favorite_count) ?? 0;
-      replies += num(it.reply_count) ?? num(tw.reply_count) ?? 0;
-      reposts += num(it.retweet_count) ?? num(tw.retweet_count) ?? 0;
-      shares += num(it.quote_count) ?? num(tw.quote_count) ?? 0;
-      bookmarks += num(it.bookmark_count) ?? num(tw.bookmark_count) ?? 0;
+      const imp = num(it.view_count) ?? num(tw.view_count) ?? 0;
+      const lk = num(it.favorite_count) ?? num(tw.favorite_count) ?? 0;
+      const rp = num(it.reply_count) ?? num(tw.reply_count) ?? 0;
+      const rt = num(it.retweet_count) ?? num(tw.retweet_count) ?? 0;
+      const qt = num(it.quote_count) ?? num(tw.quote_count) ?? 0;
+      const bm = num(it.bookmark_count) ?? num(tw.bookmark_count) ?? 0;
+      const createdMs = Date.parse(String(it.created_at ?? tw.created_at ?? ""));
+
+      // Per-post record for the latest-tweets view (any date).
+      const rawText = String(it.text ?? tw.text ?? "").trim();
+      own.push({
+        id: String(it.id ?? tw.rest_id ?? it.tweet_url ?? own.length),
+        url: String(it.tweet_url ?? tw.tweet_url ?? ""),
+        text: rawText.length > 280 ? `${rawText.slice(0, 277)}…` : rawText,
+        createdAt: Number.isNaN(createdMs) ? "" : new Date(createdMs).toISOString(),
+        impressions: imp, likes: lk, replies: rp, reposts: rt, quotes: qt, bookmarks: bm,
+      });
+
+      // Weekly aggregates: only tweets created within the last 7 days.
+      if (!Number.isNaN(createdMs) && createdMs < cutoff) continue;
+      impressions += imp; likes += lk; replies += rp; reposts += rt; shares += qt; bookmarks += bm;
       count += 1;
     }
+
+    const tweets = own
+      .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
+      .slice(0, 12);
 
     const values: Record<string, number | null> = { impressions, likes, replies, reposts, bookmarks, shares };
     if (followers != null) values.followers = followers;
     const engagements = likes + replies + reposts + bookmarks + shares;
     values.engagementRate = impressions > 0 ? +((engagements / impressions) * 100).toFixed(2) : null;
-    // profileVisits is owner-only — no public source; left for backfill.
-    if (count === 0) return { values, error: "scweet: no tweets in the last 7 days" };
-    return { values, error: null };
+    if (count === 0) return { values, error: "scweet: no tweets in the last 7 days", tweets };
+    return { values, error: null, tweets };
   } catch (e) {
     return { values: {}, error: `Apify: ${errMsg(e)}` };
   }

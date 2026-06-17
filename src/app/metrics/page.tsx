@@ -16,17 +16,21 @@ import Navbar from "@/components/Navbar";
 import Sparkline from "@/components/competitors/Sparkline";
 import MetricsTrendChart from "@/components/competitors/MetricsTrendChart";
 import WeekEntryModal from "@/components/makina/WeekEntryModal";
+import LatestTweets from "@/components/makina/LatestTweets";
 import { formatCount, signedPct, PLATFORM_META } from "@/components/competitors/platformMeta";
 import { downloadCsv } from "@/components/competitors/exportCsv";
 import {
   ACCOUNTS,
   CATEGORY_ORDER,
+  CATEGORY_INFO,
   accountDef,
   defaultWeekStart,
   periodLabel,
   pctChange,
+  type AccountDef,
   type JournalEntry,
   type MakinaJournal,
+  type MakinaTweets,
   type MetricKind,
   type MetricCategory,
 } from "@/lib/makina/journal";
@@ -60,6 +64,28 @@ function Delta({ pct }: { pct: number | null }) {
   );
 }
 
+const clampDesc = {
+  display: "-webkit-box",
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: "vertical" as const,
+  overflow: "hidden",
+};
+
+/** Plain-language one-liner summarizing the week for an account. */
+function weekSummary(accDef: AccountDef, latest: JournalEntry): string | null {
+  if (accDef.platform !== "twitter") return null;
+  const v = latest.values;
+  const imp = v.impressions;
+  if (imp == null) return null;
+  const eng = (v.likes ?? 0) + (v.replies ?? 0) + (v.reposts ?? 0) + (v.bookmarks ?? 0) + (v.shares ?? 0);
+  const parts = [
+    `${accDef.short} earned ${formatCount(imp)} impressions`,
+    `${formatCount(eng)} engagements${v.engagementRate != null ? ` (${Math.round(v.engagementRate * 10) / 10}% rate)` : ""}`,
+  ];
+  if (v.newFollows != null) parts.push(`${v.newFollows >= 0 ? "+" : "−"}${formatCount(Math.abs(v.newFollows))} followers`);
+  return `This week, ${parts.join(", ")}.`;
+}
+
 function MetricsInner() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,11 +96,16 @@ function MetricsInner() {
   const [summary, setSummary] = useState<CollectSummary | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [modal, setModal] = useState<{ entry: JournalEntry | null } | null>(null);
+  const [tweets, setTweets] = useState<MakinaTweets>({ byAccount: {} });
 
   const load = useCallback(async () => {
     try {
-      const j = (await fetch("/api/makina/journal").then((r) => (r.ok ? r.json() : null))) as MakinaJournal | null;
+      const [j, t] = await Promise.all([
+        fetch("/api/makina/journal").then((r) => (r.ok ? r.json() : null)) as Promise<MakinaJournal | null>,
+        fetch("/api/makina/tweets").then((r) => (r.ok ? r.json() : null)) as Promise<MakinaTweets | null>,
+      ]);
       if (j && Array.isArray(j.entries)) setEntries(j.entries);
+      if (t && t.byAccount) setTweets(t);
     } catch {
       setError("Failed to load journal.");
     }
@@ -107,6 +138,7 @@ function MetricsInner() {
   const labels = accEntries.map((e) => periodLabel(e.periodStart));
   const latest = accEntries[accEntries.length - 1];
   const prev = accEntries[accEntries.length - 2];
+  const summaryText = latest ? weekSummary(accDef, latest) : null;
 
   // Keep the charted metric valid for the account.
   useEffect(() => {
@@ -243,10 +275,19 @@ function MetricsInner() {
               </button>
             </div>
 
+            {summaryText && (
+              <p className="rounded-lg border border-makina-border bg-makina-surface/40 px-3 py-2.5 text-sm text-makina-muted">
+                {summaryText}
+              </p>
+            )}
+
             {/* Categorized metric cards */}
             {CATEGORY_ORDER.filter((cat) => accDef.metrics.some((m) => m.category === cat)).map((cat: MetricCategory) => (
               <div key={cat}>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-makina-muted">{cat}</p>
+                <div className="mb-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-makina-muted">{cat}</p>
+                  <p className="mt-0.5 text-[11px] text-makina-subtle">{CATEGORY_INFO[cat]}</p>
+                </div>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
                   {accDef.metrics
                     .filter((m) => m.category === cat)
@@ -255,10 +296,12 @@ function MetricsInner() {
                       const pv = prev?.values[m.key] ?? null;
                       const on = chartMetric === m.key;
                       const spark = seriesOf(m.key).filter((v): v is number => v != null);
+                      const hasHistory = spark.length >= 2;
                       return (
                         <button
                           key={m.key}
                           onClick={() => setChartMetric(m.key)}
+                          title={m.description}
                           className={`rounded-xl border bg-makina-card p-3 text-left transition-all hover-lift ${
                             on ? "border-makina-accent ring-1 ring-makina-accent/30" : "border-makina-border"
                           }`}
@@ -268,10 +311,19 @@ function MetricsInner() {
                             {m.auto && <span className="text-[8px] font-bold uppercase text-makina-green">auto</span>}
                           </div>
                           <p className="mt-1 text-xl font-bold tabular-nums text-makina-text">{fmtMetric(cur, m.kind)}</p>
-                          <div className="mt-0.5 flex items-center justify-between gap-1">
-                            <Delta pct={pctChange(cur, pv)} />
-                            <Sparkline data={spark} width={56} height={18} color={on ? accentColor : undefined} />
+                          <div className="mt-0.5 flex h-[18px] items-center justify-between gap-1">
+                            {hasHistory ? (
+                              <>
+                                <Delta pct={pctChange(cur, pv)} />
+                                <Sparkline data={spark} width={56} height={18} color={on ? accentColor : undefined} />
+                              </>
+                            ) : (
+                              <span className="text-[10px] text-makina-subtle">first tracked week</span>
+                            )}
                           </div>
+                          <p className="mt-1.5 text-[10px] leading-snug text-makina-subtle" style={clampDesc}>
+                            {m.description}
+                          </p>
                         </button>
                       );
                     })}
@@ -292,6 +344,15 @@ function MetricsInner() {
                 valueFormat={chartDef?.kind === "ratio" ? "ratio" : "count"}
               />
             </div>
+
+            {/* Latest posts & their per-post metrics */}
+            {accDef.platform === "twitter" && (
+              <LatestTweets
+                tweets={tweets.byAccount[account]?.tweets ?? []}
+                accent={accentColor}
+                updatedAt={tweets.byAccount[account]?.updatedAt}
+              />
+            )}
 
             {/* History table */}
             <div className="rounded-xl border border-makina-border bg-makina-card">

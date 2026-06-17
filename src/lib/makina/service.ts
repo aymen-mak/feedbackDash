@@ -1,6 +1,6 @@
 import { hasPostgres } from "@/lib/db";
-import { fileGetJournal, fileSetJournal } from "@/lib/competitors/store";
-import { pgGetMakinaJournal, pgSetMakinaJournal } from "@/lib/competitors/db";
+import { fileGetJournal, fileSetJournal, fileGetMakinaTweets, fileSetMakinaTweets } from "@/lib/competitors/store";
+import { pgGetMakinaJournal, pgSetMakinaJournal, pgGetMakinaTweets, pgSetMakinaTweets } from "@/lib/competitors/db";
 import { getCompetitor } from "@/lib/competitors/service";
 import { type Competitor } from "@/lib/competitors/types";
 import {
@@ -9,6 +9,7 @@ import {
   defaultWeekStart,
   type JournalEntry,
   type MakinaJournal,
+  type MakinaTweets,
 } from "./journal";
 import { collectTelegramViaBot, collectXViaApify } from "./collectors";
 
@@ -19,6 +20,15 @@ export async function getJournal(): Promise<MakinaJournal> {
 async function saveJournal(journal: MakinaJournal): Promise<void> {
   if (hasPostgres()) await pgSetMakinaJournal(journal);
   else fileSetJournal(journal);
+}
+
+export async function getLatestTweets(): Promise<MakinaTweets> {
+  return hasPostgres() ? pgGetMakinaTweets() : fileGetMakinaTweets();
+}
+
+async function saveLatestTweets(tweets: MakinaTweets): Promise<void> {
+  if (hasPostgres()) await pgSetMakinaTweets(tweets);
+  else fileSetMakinaTweets(tweets);
 }
 
 /** Keep only known metric keys; coerce to finite numbers or null. */
@@ -113,6 +123,8 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       .sort((a, b) => b.periodStart.localeCompare(a.periodStart))[0];
 
   const summary: CollectSummary = { periodStart: period, accounts: [] };
+  const tweetsStore = await getLatestTweets();
+  let tweetsChanged = false;
 
   for (const acc of ACCOUNTS) {
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
@@ -122,6 +134,10 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       const r = await collectXViaApify(acc.handle ?? acc.key);
       Object.assign(collected, r.values);
       error = r.error;
+      if (r.tweets && r.tweets.length > 0) {
+        tweetsStore.byAccount[acc.key] = { tweets: r.tweets, updatedAt: new Date().toISOString() };
+        tweetsChanged = true;
+      }
     } else if (acc.key === "telegram") {
       const r = await collectTelegramViaBot(acc.handle ?? "makinafinance");
       Object.assign(collected, r.values);
@@ -147,5 +163,6 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     });
   }
 
+  if (tweetsChanged) await saveLatestTweets(tweetsStore);
   return summary;
 }

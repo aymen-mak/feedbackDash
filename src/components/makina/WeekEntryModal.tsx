@@ -122,8 +122,7 @@ export default function WeekEntryModal({ account, entry, defaultPeriodStart, onC
 
           {error && <p className="text-xs text-makina-red">{error}</p>}
           <p className="text-[10px] text-makina-subtle">
-            Blank fields are left untouched (won’t overwrite auto-collected values). Use this to backfill history or
-            fill owner-only gaps like profile visits.
+            Blank fields are left untouched (won’t overwrite auto-collected values). Use this to backfill historical weeks.
           </p>
         </div>
 

@@ -1,6 +1,6 @@
 import { sql } from "@vercel/postgres";
 import { type Competitor, type Snapshot, type Platform } from "./types";
-import { type MakinaJournal } from "@/lib/makina/journal";
+import { type MakinaJournal, type MakinaTweets } from "@/lib/makina/journal";
 
 // Postgres backend for the competitor tracker. The competitor document is
 // stored as JSONB (schema-flexible as the model evolves); snapshots get their
@@ -61,6 +61,26 @@ export async function pgSetMakinaJournal(journal: MakinaJournal): Promise<void> 
   await pgEnsureCompetitorSchema();
   await sql`
     INSERT INTO competitor_meta (key, value) VALUES ('makina_journal', ${JSON.stringify(journal)})
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+  `;
+}
+
+// ── Latest per-post metrics (single JSON blob in meta) ──
+export async function pgGetMakinaTweets(): Promise<MakinaTweets> {
+  await pgEnsureCompetitorSchema();
+  const { rows } = await sql`SELECT value FROM competitor_meta WHERE key = 'makina_tweets'`;
+  if (!rows.length) return { byAccount: {} };
+  try {
+    return JSON.parse(rows[0].value as string) as MakinaTweets;
+  } catch {
+    return { byAccount: {} };
+  }
+}
+
+export async function pgSetMakinaTweets(tweets: MakinaTweets): Promise<void> {
+  await pgEnsureCompetitorSchema();
+  await sql`
+    INSERT INTO competitor_meta (key, value) VALUES ('makina_tweets', ${JSON.stringify(tweets)})
     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
   `;
 }
