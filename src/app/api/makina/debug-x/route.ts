@@ -15,12 +15,12 @@ export async function GET(req: NextRequest) {
   const input = {
     source_mode: "auto",
     profile_urls: [`@${h}`],
-    max_items: 10,
+    max_items: 100,
     search_sort: "Latest",
   };
 
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 55000);
+  const timer = setTimeout(() => ctrl.abort(), 58000);
   try {
     const res = await fetch(
       `https://api.apify.com/v2/acts/altimis~scweet/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&memory=1024`,
