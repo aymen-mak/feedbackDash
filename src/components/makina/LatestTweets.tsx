@@ -55,8 +55,6 @@ export default function LatestTweets({
 }) {
   const [sort, setSort] = useState<SortKey>("createdAt");
 
-  const maxImp = useMemo(() => Math.max(1, ...tweets.map((t) => t.impressions || 0)), [tweets]);
-
   const sorted = useMemo(() => {
     const arr = [...tweets];
     arr.sort((a, b) =>
@@ -101,65 +99,54 @@ export default function LatestTweets({
         </div>
       ) : (
         <ul className="divide-y divide-makina-border/60 overflow-y-auto" style={{ maxHeight: 380 }}>
-          {sorted.map((t) => {
-            const impPct = Math.max(3, Math.round(((t.impressions || 0) / maxImp) * 100));
-            return (
-              <li key={t.id}>
-                <a
-                  href={t.url || undefined}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group block px-4 py-3 transition-colors hover:bg-makina-surface/40"
+          {sorted.map((t) => (
+            <li key={t.id}>
+              <a
+                href={t.url || undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block px-4 py-3 transition-colors hover:bg-makina-surface/40"
+              >
+                <div className="mb-1.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
+                  <ExternalLink size={12} className="shrink-0 text-makina-subtle transition-colors group-hover:text-makina-accent" />
+                </div>
+                <p className="mb-2.5 text-[13px] leading-snug text-makina-text/90" style={clamp2}>
+                  {t.text || "(no text)"}
+                </p>
+                <div
+                  className="mb-2 flex items-center gap-1.5 rounded-md px-1.5 py-1"
+                  style={{ backgroundColor: `${accent}14`, boxShadow: sort === "impressions" ? `inset 0 0 0 1px ${accent}` : undefined }}
                 >
-                  <div className="mb-1.5 flex items-center justify-between gap-2">
-                    <span className="text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
-                    <ExternalLink size={12} className="shrink-0 text-makina-subtle transition-colors group-hover:text-makina-accent" />
-                  </div>
-                  <p className="mb-2.5 text-[13px] leading-snug text-makina-text/90" style={clamp2}>
-                    {t.text || "(no text)"}
-                  </p>
-
-                  {/* Impressions, headline reach with a relative bar */}
-                  <div className="mb-2">
-                    <div className="mb-1 flex items-center justify-between">
+                  <Eye size={14} style={{ color: accent }} />
+                  <span className="text-base font-bold leading-none tabular-nums" style={{ color: accent }}>
+                    {formatCount(t.impressions || 0)}
+                  </span>
+                  <span className="text-[11px] text-makina-subtle">impressions</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {ENGAGE.map((m) => {
+                    const on = sort === m.key;
+                    return (
                       <span
-                        className="inline-flex items-center gap-1 text-[11px] font-medium"
-                        style={{ color: sort === "impressions" ? accent : undefined }}
+                        key={m.key}
+                        title={m.label}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
+                        style={{
+                          backgroundColor: `${m.color}1f`,
+                          color: m.color,
+                          boxShadow: on ? `inset 0 0 0 1px ${m.color}` : undefined,
+                        }}
                       >
-                        <Eye size={12} className="text-makina-subtle" /> Impressions
+                        <m.Icon size={11} />
+                        {formatCount(t[m.key] ?? 0)}
                       </span>
-                      <span className="text-xs font-bold tabular-nums text-makina-text">{formatCount(t.impressions || 0)}</span>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-makina-surface">
-                      <div className="h-full rounded-full transition-all" style={{ width: `${impPct}%`, backgroundColor: accent }} />
-                    </div>
-                  </div>
-
-                  {/* Engagement, color-coded stat pills */}
-                  <div className="flex flex-wrap gap-1.5">
-                    {ENGAGE.map((m) => {
-                      const on = sort === m.key;
-                      return (
-                        <span
-                          key={m.key}
-                          title={m.label}
-                          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold tabular-nums"
-                          style={{
-                            backgroundColor: `${m.color}1f`,
-                            color: m.color,
-                            boxShadow: on ? `inset 0 0 0 1px ${m.color}` : undefined,
-                          }}
-                        >
-                          <m.Icon size={11} />
-                          {formatCount(t[m.key] ?? 0)}
-                        </span>
-                      );
-                    })}
-                  </div>
-                </a>
-              </li>
-            );
-          })}
+                    );
+                  })}
+                </div>
+              </a>
+            </li>
+          ))}
         </ul>
       )}
     </div>

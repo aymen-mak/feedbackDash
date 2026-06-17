@@ -11,7 +11,7 @@ import {
   type MakinaJournal,
   type MakinaTweets,
 } from "./journal";
-import { collectTelegramViaBot, collectXViaApify } from "./collectors";
+import { collectTelegramViaBot, collectXProfiles } from "./collectors";
 
 export async function getJournal(): Promise<MakinaJournal> {
   return hasPostgres() ? pgGetMakinaJournal() : fileGetJournal();
@@ -126,12 +126,17 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   const tweetsStore = await getLatestTweets();
   let tweetsChanged = false;
 
+  // One scweet run covers every X handle (avoids the free tier's run limit).
+  const twHandles = ACCOUNTS.filter((a) => a.platform === "twitter").map((a) => a.handle ?? a.key);
+  const xResults = twHandles.length ? await collectXProfiles(twHandles) : {};
+
   for (const acc of ACCOUNTS) {
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
     let error: string | null = null;
 
     if (acc.platform === "twitter") {
-      const r = await collectXViaApify(acc.handle ?? acc.key);
+      const key = (acc.handle ?? acc.key).replace(/^@/, "").toLowerCase();
+      const r = xResults[key] ?? { values: {}, error: "scweet: no data" };
       Object.assign(collected, r.values);
       error = r.error;
       if (r.tweets && r.tweets.length > 0) {

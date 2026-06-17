@@ -164,12 +164,12 @@ function MetricsInner() {
         {/* Header */}
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4 animate-fade-in-up">
           <div>
-            <p className="text-xs font-medium uppercase tracking-wider text-makina-muted">Our performance</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-makina-muted">Performance</p>
             <h1 className="text-xl font-bold">
               Makina <span className="gradient-text">Analytics</span>
             </h1>
             <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-makina-muted">
-              Auto-collected from our own accounts
+              Auto-collected from Makina&apos;s accounts
               <span title={ENV_HELP} className="cursor-help">
                 <Info size={12} className="text-makina-subtle" />
               </span>

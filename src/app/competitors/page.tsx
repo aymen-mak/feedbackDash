@@ -299,6 +299,16 @@ function CompetitorsInner() {
               ))}
             </div>
 
+            {/* TVL methodology note */}
+            <div className="rounded-xl border border-makina-accent/30 bg-makina-accent-dim px-4 py-3 animate-fade-in-up">
+              <p className="text-xs leading-relaxed text-makina-text/90">
+                <span className="font-semibold text-makina-accent">How TVL is counted.</span>{" "}
+                Figures use DefiLlama&apos;s default accounting, where every dollar is counted once. Receipt and
+                liquid-staking tokens that are redeposited into other protocols are not counted twice, and borrowed
+                assets are excluded, so recursive lending and looping do not inflate the totals.
+              </p>
+            </div>
+
             {/* View controls */}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="inline-flex rounded-lg border border-makina-border bg-makina-surface p-0.5">

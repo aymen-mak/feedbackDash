@@ -46,15 +46,71 @@ function num(v: unknown): number | undefined {
 }
 
 // ── X via Apify + altimis/scweet (public profile scrape, no X login) ──
-export async function collectXViaApify(handle: string): Promise<CollectResult> {
+// A single scrape can cover several handles at once (scweet accepts multiple
+// profile_urls), keeping us to one run per collection, which matters on the
+// free tier's one-run-at-a-time limit.
+
+function aggregateHandle(items: Array<Record<string, unknown>>, handle: string): CollectResult {
+  const cutoff = Date.now() - WEEK_MS;
+  let impressions = 0, likes = 0, replies = 0, reposts = 0, bookmarks = 0, shares = 0, count = 0;
+  let followers: number | undefined;
+  const own: TweetMetric[] = [];
+  for (const it of items) {
+    const user = (it.user ?? {}) as Record<string, unknown>;
+    const f = num(user.followers_count);
+    if (f != null) followers = f; // captured regardless of tweet date
+    const tw = (it.tweet ?? {}) as Record<string, unknown>;
+    const imp = num(it.view_count) ?? num(tw.view_count) ?? 0;
+    const lk = num(it.favorite_count) ?? num(tw.favorite_count) ?? 0;
+    const rp = num(it.reply_count) ?? num(tw.reply_count) ?? 0;
+    const rt = num(it.retweet_count) ?? num(tw.retweet_count) ?? 0;
+    const qt = num(it.quote_count) ?? num(tw.quote_count) ?? 0;
+    const bm = num(it.bookmark_count) ?? num(tw.bookmark_count) ?? 0;
+    const createdMs = Date.parse(String(it.created_at ?? tw.created_at ?? ""));
+
+    // Per-post record for the latest-posts view (any date).
+    const rawText = String(it.text ?? tw.text ?? "").trim();
+    own.push({
+      id: String(it.id ?? tw.rest_id ?? it.tweet_url ?? own.length),
+      url: String(it.tweet_url ?? tw.tweet_url ?? ""),
+      text: rawText.length > 280 ? `${rawText.slice(0, 277)}…` : rawText,
+      createdAt: Number.isNaN(createdMs) ? "" : new Date(createdMs).toISOString(),
+      impressions: imp, likes: lk, replies: rp, reposts: rt, quotes: qt, bookmarks: bm,
+    });
+
+    // Weekly aggregates: only posts created within the last 7 days.
+    if (!Number.isNaN(createdMs) && createdMs < cutoff) continue;
+    impressions += imp; likes += lk; replies += rp; reposts += rt; shares += qt; bookmarks += bm;
+    count += 1;
+  }
+
+  const tweets = own
+    .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
+    .slice(0, 12);
+
+  const values: Record<string, number | null> = { impressions, likes, replies, reposts, bookmarks, shares };
+  if (followers != null) values.followers = followers;
+  const engagements = likes + replies + reposts + bookmarks + shares;
+  values.engagementRate = impressions > 0 ? +((engagements / impressions) * 100).toFixed(2) : null;
+  if (own.length === 0) return { values, error: `scweet: no posts found for @${handle}`, tweets };
+  if (count === 0) return { values, error: "scweet: no posts in the last 7 days", tweets };
+  return { values, error: null, tweets };
+}
+
+/** Scrape one or more handles in a single scweet run; keyed by lowercase handle (no @). */
+export async function collectXProfiles(handles: string[]): Promise<Record<string, CollectResult>> {
+  const clean = [...new Set(handles.map((h) => h.replace(/^@/, "").trim().toLowerCase()).filter(Boolean))];
+  const fail = (error: string): Record<string, CollectResult> =>
+    Object.fromEntries(clean.map((h) => [h, { values: {}, error }]));
+
   const token = process.env.APIFY_TOKEN;
-  if (!token) return { values: {}, error: "Apify not set (APIFY_TOKEN)" };
+  if (!token) return fail("Apify not set (APIFY_TOKEN)");
+  if (clean.length === 0) return {};
   const actor = process.env.APIFY_TWEET_ACTOR || "altimis~scweet";
-  const h = handle.replace(/^@/, "").trim();
   const input = {
     source_mode: "auto",
-    profile_urls: [`@${h}`],
-    max_items: 100, // scweet's schema minimum
+    profile_urls: clean.map((h) => `@${h}`),
+    max_items: Math.max(100, clean.length * 100), // scweet's schema minimum is 100
     search_sort: "Latest",
   };
   try {
@@ -63,59 +119,23 @@ export async function collectXViaApify(handle: string): Promise<CollectResult> {
       { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) },
       58000
     );
-    if (!res.ok) return { values: {}, error: `Apify HTTP ${res.status} (token/credit/rate-limit?)` };
+    if (!res.ok) return fail(`Apify HTTP ${res.status} (token/credit/rate-limit?)`);
     const items = (await res.json()) as Array<Record<string, unknown>>;
-    if (!Array.isArray(items)) return { values: {}, error: "Apify: unexpected response shape" };
+    if (!Array.isArray(items)) return fail("Apify: unexpected response shape");
 
-    const cutoff = Date.now() - WEEK_MS;
-    let impressions = 0, likes = 0, replies = 0, reposts = 0, bookmarks = 0, shares = 0, count = 0;
-    let followers: number | undefined;
-    const own: TweetMetric[] = [];
+    // Group posts by author handle (drops demo rows and retweets of others).
+    const byHandle: Record<string, Array<Record<string, unknown>>> = {};
     for (const it of items) {
       if (it.noResults || it.demo) continue;
       const user = (it.user ?? {}) as Record<string, unknown>;
-      // Only this account's own tweets (drop retweets of other accounts).
       const author = String(user.handle ?? it.handle ?? "").toLowerCase();
-      if (author && author !== h.toLowerCase()) continue;
-      const f = num(user.followers_count);
-      if (f != null) followers = f; // captured regardless of tweet date
-      const tw = (it.tweet ?? {}) as Record<string, unknown>;
-      const imp = num(it.view_count) ?? num(tw.view_count) ?? 0;
-      const lk = num(it.favorite_count) ?? num(tw.favorite_count) ?? 0;
-      const rp = num(it.reply_count) ?? num(tw.reply_count) ?? 0;
-      const rt = num(it.retweet_count) ?? num(tw.retweet_count) ?? 0;
-      const qt = num(it.quote_count) ?? num(tw.quote_count) ?? 0;
-      const bm = num(it.bookmark_count) ?? num(tw.bookmark_count) ?? 0;
-      const createdMs = Date.parse(String(it.created_at ?? tw.created_at ?? ""));
-
-      // Per-post record for the latest-tweets view (any date).
-      const rawText = String(it.text ?? tw.text ?? "").trim();
-      own.push({
-        id: String(it.id ?? tw.rest_id ?? it.tweet_url ?? own.length),
-        url: String(it.tweet_url ?? tw.tweet_url ?? ""),
-        text: rawText.length > 280 ? `${rawText.slice(0, 277)}…` : rawText,
-        createdAt: Number.isNaN(createdMs) ? "" : new Date(createdMs).toISOString(),
-        impressions: imp, likes: lk, replies: rp, reposts: rt, quotes: qt, bookmarks: bm,
-      });
-
-      // Weekly aggregates: only tweets created within the last 7 days.
-      if (!Number.isNaN(createdMs) && createdMs < cutoff) continue;
-      impressions += imp; likes += lk; replies += rp; reposts += rt; shares += qt; bookmarks += bm;
-      count += 1;
+      if (!author) continue;
+      (byHandle[author] = byHandle[author] ?? []).push(it);
     }
 
-    const tweets = own
-      .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
-      .slice(0, 12);
-
-    const values: Record<string, number | null> = { impressions, likes, replies, reposts, bookmarks, shares };
-    if (followers != null) values.followers = followers;
-    const engagements = likes + replies + reposts + bookmarks + shares;
-    values.engagementRate = impressions > 0 ? +((engagements / impressions) * 100).toFixed(2) : null;
-    if (count === 0) return { values, error: "scweet: no tweets in the last 7 days", tweets };
-    return { values, error: null, tweets };
+    return Object.fromEntries(clean.map((h) => [h, aggregateHandle(byHandle[h] ?? [], h)]));
   } catch (e) {
-    return { values: {}, error: `Apify: ${errMsg(e)}` };
+    return fail(`Apify: ${errMsg(e)}`);
   }
 }
 

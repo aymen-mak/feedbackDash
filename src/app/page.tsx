@@ -15,8 +15,8 @@ const ENTRIES = [
   {
     href: "/metrics",
     icon: <Activity size={18} />,
-    title: "Our metrics",
-    desc: "Follower growth, engagement, and per-post performance for our accounts.",
+    title: "Makina metrics",
+    desc: "Follower growth, engagement, and per-post performance.",
   },
 ];
 
@@ -28,19 +28,34 @@ export default function LandingPage() {
       <Navbar />
       <div className="relative min-h-[calc(100vh-3.5rem)] overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-1/3 h-[460px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-makina-accent/[0.045] blur-[120px]" />
+          <div
+            className="absolute left-1/2 top-1/3 h-[460px] w-[680px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-makina-accent/[0.045] blur-[120px] animate-pulse"
+            style={{ animationDuration: "6s" }}
+          />
         </div>
 
         <main className="relative mx-auto flex min-h-[calc(100vh-3.5rem)] max-w-3xl flex-col items-center justify-center px-4 py-16 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={theme === "light" ? "/makina_pulse_logo_trimmed_dark.png" : "/makina_pulse_logo_trimmed.png"}
-            alt="Makina Pulse"
-            className="h-11 w-auto"
-          />
-          <p className="mt-5 max-w-md text-sm leading-relaxed text-makina-muted">
-            Internal dashboard for competitor intelligence and our own social &amp; on-chain performance.
-            Auto-collected, no manual entry.
+          <div className="relative flex items-center justify-center">
+            {/* Pulse rings */}
+            <span
+              aria-hidden
+              className="pointer-events-none absolute h-28 w-28 rounded-full bg-makina-accent/10 animate-ping"
+              style={{ animationDuration: "3.2s" }}
+            />
+            <span
+              aria-hidden
+              className="pointer-events-none absolute h-28 w-28 rounded-full bg-makina-accent/10 animate-ping"
+              style={{ animationDuration: "3.2s", animationDelay: "1.6s" }}
+            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={theme === "light" ? "/makina_pulse_logo_trimmed_dark.png" : "/makina_pulse_logo_trimmed.png"}
+              alt="Makina Pulse"
+              className="relative h-11 w-auto"
+            />
+          </div>
+          <p className="mt-6 max-w-md text-sm leading-relaxed text-makina-muted">
+            Internal dashboard for competitor intelligence and Makina&apos;s social &amp; on-chain performance.
           </p>
 
           <div className="mt-9 grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
