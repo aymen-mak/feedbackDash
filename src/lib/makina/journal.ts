@@ -41,15 +41,15 @@ export interface AccountDef {
 }
 
 const X_METRICS: MetricDef[] = [
-  { key: "followers", label: "Followers", kind: "count", category: "Audience", auto: true, description: "Total accounts following you." },
-  { key: "newFollows", label: "Net new follows", kind: "count", category: "Audience", auto: true, description: "Change in followers vs last week (this week − last week)." },
-  { key: "impressions", label: "Impressions", kind: "count", category: "Reach", auto: true, description: "Total views across the posts you published this week." },
-  { key: "engagementRate", label: "Engagement rate", kind: "ratio", category: "Engagement", auto: true, description: "Engagements ÷ impressions — how compelling your posts were." },
-  { key: "likes", label: "Likes", kind: "count", category: "Engagement", auto: true, description: "Likes your posts earned this week." },
-  { key: "replies", label: "Replies", kind: "count", category: "Engagement", auto: true, description: "Replies your posts received this week." },
-  { key: "reposts", label: "Reposts", kind: "count", category: "Engagement", auto: true, description: "Reposts (retweets) of your posts this week." },
-  { key: "shares", label: "Quotes", kind: "count", category: "Engagement", auto: true, description: "Quote-posts of your content this week." },
-  { key: "bookmarks", label: "Bookmarks", kind: "count", category: "Engagement", auto: true, description: "Times your posts were bookmarked this week." },
+  { key: "followers", label: "Followers", kind: "count", category: "Audience", auto: true, description: "Accounts following this handle." },
+  { key: "newFollows", label: "Net new follows", kind: "count", category: "Audience", auto: true, description: "Net follower change vs the previous period." },
+  { key: "impressions", label: "Impressions", kind: "count", category: "Reach", auto: true, description: "Views across posts published this period." },
+  { key: "engagementRate", label: "Engagement rate", kind: "ratio", category: "Engagement", auto: true, description: "Engagements ÷ impressions." },
+  { key: "likes", label: "Likes", kind: "count", category: "Engagement", auto: true, description: "Likes on this period's posts." },
+  { key: "replies", label: "Replies", kind: "count", category: "Engagement", auto: true, description: "Replies on this period's posts." },
+  { key: "reposts", label: "Reposts", kind: "count", category: "Engagement", auto: true, description: "Reposts of this period's posts." },
+  { key: "shares", label: "Quotes", kind: "count", category: "Engagement", auto: true, description: "Quote-posts of this period's posts." },
+  { key: "bookmarks", label: "Bookmarks", kind: "count", category: "Engagement", auto: true, description: "Bookmarks on this period's posts." },
 ];
 
 export const ACCOUNTS: AccountDef[] = [
@@ -134,7 +134,7 @@ export function accountDef(key: string): AccountDef | undefined {
   return ACCOUNTS.find((a) => a.key === key);
 }
 
-/** Monday (UTC) of the week containing `d`, as YYYY-MM-DD — the default period. */
+/** Monday (UTC) of the week containing `d`, as YYYY-MM-DD, the default period. */
 export function defaultWeekStart(d: Date = new Date()): string {
   const day = d.getUTCDay(); // 0 Sun .. 6 Sat
   const diff = (day + 6) % 7; // days since Monday

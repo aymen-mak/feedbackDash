@@ -27,9 +27,9 @@ const SORTS: { key: SortKey; label: string }[] = [
 ];
 
 function relTime(iso: string): string {
-  if (!iso) return "—";
+  if (!iso) return "-";
   const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "—";
+  if (Number.isNaN(t)) return "-";
   const s = Math.max(0, (Date.now() - t) / 1000);
   if (s < 3600) return `${Math.max(1, Math.round(s / 60))}m ago`;
   if (s < 86400) return `${Math.round(s / 3600)}h ago`;
@@ -97,7 +97,7 @@ export default function LatestTweets({
 
       {tweets.length === 0 ? (
         <div className="px-4 py-10 text-center text-sm text-makina-muted">
-          No posts captured yet — hit “Collect now” and they’ll appear here.
+          No posts captured yet. Run Collect now.
         </div>
       ) : (
         <ul className="divide-y divide-makina-border/60 overflow-y-auto" style={{ maxHeight: 380 }}>
@@ -119,7 +119,7 @@ export default function LatestTweets({
                     {t.text || "(no text)"}
                   </p>
 
-                  {/* Impressions — headline reach with a relative bar */}
+                  {/* Impressions, headline reach with a relative bar */}
                   <div className="mb-2">
                     <div className="mb-1 flex items-center justify-between">
                       <span
@@ -135,7 +135,7 @@ export default function LatestTweets({
                     </div>
                   </div>
 
-                  {/* Engagement — color-coded stat pills */}
+                  {/* Engagement, color-coded stat pills */}
                   <div className="flex flex-wrap gap-1.5">
                     {ENGAGE.map((m) => {
                       const on = sort === m.key;

@@ -36,7 +36,7 @@ export default function PulseLogo({ size = 32, className = "", variant = "color"
         </mask>
       </defs>
 
-      {/* Interlocking rings — geometric knot */}
+      {/* Interlocking rings, geometric knot */}
       <circle
         cx="17" cy="17" r="9"
         stroke={variant === "color" ? `url(#${id})` : "currentColor"}

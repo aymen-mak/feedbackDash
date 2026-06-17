@@ -1,4 +1,4 @@
-// ── Competitor community tracker — shared types ──
+// ── Competitor community tracker, shared types ──
 
 export type Platform =
   | "twitter"
@@ -104,7 +104,7 @@ export interface PlatformMetric {
   url: string | null;
   /**
    * Key passed to the auto-collector to fetch a live value. When null, this
-   * platform is manual-only. Meaning depends on platform — see
+   * platform is manual-only. Meaning depends on platform, see
    * PLATFORM_AUTOKEY_HINT and collectors.ts.
    */
   autoKey: string | null;

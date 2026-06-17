@@ -100,7 +100,7 @@ export default function WeekEntryModal({ account, entry, defaultPeriodStart, onC
                         step="any"
                         value={vals[m.key]}
                         onChange={(e) => setVals((p) => ({ ...p, [m.key]: e.target.value }))}
-                        placeholder="—"
+                        placeholder="-"
                         className="w-full rounded-md border border-makina-border bg-makina-surface px-2 py-1.5 text-sm tabular-nums text-makina-text outline-none focus:border-makina-accent/50"
                       />
                     </label>

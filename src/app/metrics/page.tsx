@@ -33,9 +33,9 @@ import {
 } from "@/lib/makina/journal";
 
 const ENV_HELP =
-  "X: APIFY_TOKEN (Apify account token — scrapes public X data, no X login). " +
-  "Telegram: TELEGRAM_BOT_TOKEN (a @BotFather bot added as a channel admin). " +
-  "Discord/Website counts come from the daily competitor refresh.";
+  "X: APIFY_TOKEN (Apify token; scrapes public X data, no X login). " +
+  "Telegram: TELEGRAM_BOT_TOKEN (a @BotFather bot, channel admin). " +
+  "Discord/Website come from the daily competitor refresh.";
 
 interface CollectSummary {
   periodStart: string;
@@ -43,12 +43,12 @@ interface CollectSummary {
 }
 
 function fmtMetric(v: number | null | undefined, kind: MetricKind): string {
-  if (v == null) return "—";
+  if (v == null) return "-";
   return kind === "ratio" ? `${Math.round(v * 10) / 10}%` : formatCount(v);
 }
 
 function Delta({ pct }: { pct: number | null }) {
-  if (pct == null) return <span className="text-[11px] text-makina-subtle">—</span>;
+  if (pct == null) return <span className="text-[11px] text-makina-subtle">-</span>;
   const up = pct > 0;
   const flat = Math.abs(pct) < 0.05;
   const cls = flat ? "text-makina-muted" : up ? "text-makina-green" : "text-makina-red";
@@ -251,13 +251,13 @@ function MetricsInner() {
           <div className="rounded-xl border border-makina-border bg-makina-card p-10 text-center">
             <p className="text-sm text-makina-muted">No data yet for {accDef.label}.</p>
             <p className="mx-auto mt-1 max-w-md text-xs text-makina-subtle">
-              Add your account credentials as Vercel secrets, then hit “Collect now” — or “Add / backfill” to enter a
-              week by hand. Hover the ⓘ for the exact secrets.
+              Set the account&apos;s env vars in Vercel, then Collect now. Or use Add / backfill to enter a period
+              manually. Hover the ⓘ for the exact vars.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Period + plain-language summary — one cohesive band */}
+            {/* Period + plain-language summary, one cohesive band */}
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <h2 className="text-sm font-semibold text-makina-text">
@@ -275,7 +275,7 @@ function MetricsInner() {
               </button>
             </div>
 
-            {/* KPIs — one dense grid; click a card to chart it */}
+            {/* KPIs, one dense grid; click a card to chart it */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {accDef.metrics.map((m) => {
                 const cur = latest.values[m.key] ?? null;
@@ -315,7 +315,7 @@ function MetricsInner() {
               })}
             </div>
 
-            {/* Trend + latest posts side by side — uses the width, less up/down scrolling */}
+            {/* Trend + latest posts side by side, uses the width, less up/down scrolling */}
             <div className={`grid gap-4 ${accDef.platform === "twitter" ? "lg:grid-cols-2" : ""}`}>
               <div className="rounded-xl border border-makina-border bg-makina-card p-4">
                 <div className="mb-3 text-sm">

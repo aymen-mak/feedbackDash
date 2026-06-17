@@ -61,7 +61,7 @@ function write(store: Store) {
   try {
     fs.writeFileSync(DATA_FILE, JSON.stringify(store, null, 2));
   } catch {
-    // read-only fs — data lives in memory only
+    // read-only fs, data lives in memory only
   }
 }
 

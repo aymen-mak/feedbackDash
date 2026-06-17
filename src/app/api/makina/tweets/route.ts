@@ -4,7 +4,7 @@ import { getLatestTweets } from "@/lib/makina/service";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-// Cached per-post metrics from the last scrape (not live — respects quota).
+// Cached per-post metrics from the last scrape (not live, respects quota).
 export async function GET() {
   try {
     return NextResponse.json(await getLatestTweets());

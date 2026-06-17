@@ -115,7 +115,7 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
       }
       onSaved(await res.json());
     } catch {
-      setError("Save failed — check your connection.");
+      setError("Save failed, check your connection.");
       setSaving(false);
     }
   };
@@ -165,7 +165,7 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
             </div>
             <div className="col-span-2">
               <label className={labelCls}>
-                DefiLlama slug <span className="lowercase text-makina-subtle">— enables TVL / fees / revenue (e.g. lombard)</span>
+                DefiLlama slug <span className="lowercase text-makina-subtle">, enables TVL / fees / revenue (e.g. lombard)</span>
               </label>
               <input
                 className={inputCls}
@@ -265,7 +265,7 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
                     {PLATFORM_AUTO_SUPPORTED[p.platform] && (
                       <div className="col-span-2">
                         <label className={labelCls}>
-                          Auto key <span className="lowercase text-makina-subtle">— {PLATFORM_AUTOKEY_HINT[p.platform]}</span>
+                          Auto key <span className="lowercase text-makina-subtle">, {PLATFORM_AUTOKEY_HINT[p.platform]}</span>
                         </label>
                         <input className={inputCls} value={p.autoKey ?? ""} onChange={(e) => updatePlatform(p.platform, { autoKey: e.target.value.trim() || null })} placeholder="leave blank for manual" />
                       </div>
@@ -276,7 +276,7 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
                     </div>
                     <div className="col-span-2">
                       <label className={labelCls}>
-                        Tag <span className="lowercase text-makina-subtle">— e.g. announcement, airdrop, inflated?</span>
+                        Tag <span className="lowercase text-makina-subtle">, e.g. announcement, airdrop, inflated?</span>
                       </label>
                       <input className={inputCls} value={p.tag ?? ""} onChange={(e) => updatePlatform(p.platform, { tag: e.target.value || null })} placeholder="optional label shown on the metric" />
                     </div>

@@ -1,7 +1,7 @@
 import { type Platform, type Presence, type Competitor } from "@/lib/competitors/types";
 
 // Platforms that represent a human audience (GitHub = devs, on-chain = capital
-// are excluded). Their sum is a concrete, data-driven "community reach" — the
+// are excluded). Their sum is a concrete, data-driven "community reach", the
 // informative replacement for the old arbitrary 0–100 strength score.
 const AUDIENCE_PLATFORMS: Platform[] = ["twitter", "discord", "telegram", "linkedin"];
 
@@ -15,7 +15,7 @@ export function audience(c: Competitor): number {
 }
 
 // Brand colours + short labels for each platform (no brand-icon imports, which
-// lucide has been deprecating — colour + label is stable and on-theme).
+// lucide has been deprecating, colour + label is stable and on-theme).
 export const PLATFORM_META: Record<Platform, { short: string; color: string }> = {
   twitter: { short: "X", color: "#1d9bf0" },
   linkedin: { short: "LinkedIn", color: "#0a66c2" },
@@ -28,7 +28,7 @@ export const PLATFORM_META: Record<Platform, { short: string; color: string }> =
   other: { short: "Other", color: "#94a3b8" },
 };
 
-// Where each platform's auto-collected value comes from — surfaced in the UI so
+// Where each platform's auto-collected value comes from, surfaced in the UI so
 // every number is attributable. `short` is for inline labels; `detail` for
 // tooltips. On-chain figures (TVL/fees/revenue) come from DefiLlama.
 export const PLATFORM_SOURCE: Record<Platform, { short: string; detail: string }> = {
@@ -38,12 +38,12 @@ export const PLATFORM_SOURCE: Record<Platform, { short: string; detail: string }
   telegram: { short: "Telegram", detail: "Public Telegram channel page" },
   reddit: { short: "Reddit", detail: "Reddit r/<sub>/about.json" },
   github: { short: "GitHub API", detail: "GitHub public users API (followers)" },
-  youtube: { short: "manual", detail: "Manual entry — no free collector wired" },
-  website: { short: "Similarweb (est.)", detail: "Similarweb public data — estimated monthly visits (best-effort; blank if unranked)" },
+  youtube: { short: "manual", detail: "Manual entry, no free collector wired" },
+  website: { short: "Similarweb (est.)", detail: "Similarweb public data, estimated monthly visits (best-effort; blank if unranked)" },
   other: { short: "manual", detail: "Manual entry" },
 };
 
-export const ONCHAIN_SOURCE = { short: "DefiLlama", detail: "DefiLlama — TVL, fees & revenue" };
+export const ONCHAIN_SOURCE = { short: "DefiLlama", detail: "DefiLlama, TVL, fees & revenue" };
 
 /** 33300 → "33.3K", 125700 → "125.7K", 70000 → "70K", 53 → "53". */
 export function formatCount(v: number | null | undefined): string {

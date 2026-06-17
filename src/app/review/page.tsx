@@ -489,7 +489,7 @@ export default function ReviewPage() {
               </span>
             )}
 
-            {/* Reviewer attribution — far right, visually separated */}
+            {/* Reviewer attribution, far right, visually separated */}
             {item.reviewedBy && (
               <>
                 <span className="w-px h-4 bg-makina-border/60 mx-1 shrink-0" />
@@ -759,7 +759,7 @@ export default function ReviewPage() {
             </button>
           </div>
 
-          {/* Feedback list — compact layout */}
+          {/* Feedback list, compact layout */}
           <div className="space-y-2">
             {viewFilter === "inbox" ? (
               <>

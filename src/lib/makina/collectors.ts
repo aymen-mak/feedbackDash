@@ -3,11 +3,11 @@ import { type TweetMetric } from "./journal";
 // Metric collectors for our OWN accounts that store NO account logins:
 //
 //  • X / Twitter → Apify running the altimis/scweet actor. It scrapes PUBLIC
-//    profile-timeline data, so the only secret we hold is an Apify API token —
+//    profile-timeline data, so the only secret we hold is an Apify API token,
 //    it controls the Apify account, never X, can't post, and there is no X
 //    credential to leak.
 //  • Telegram → the Bot API with a revocable bot token (the bot must be a
-//    channel admin). Member count only — deep group stats have no secure API.
+//    channel admin). Member count only, deep group stats have no secure API.
 //
 // Owner-only metrics with no public/secure source (X profile visits; Telegram
 // messages / viewing / posting members) are left blank for manual backfill.
@@ -136,7 +136,7 @@ export async function collectTelegramViaBot(channel: string): Promise<CollectRes
     if (!data.ok || typeof data.result !== "number") {
       return { values: {}, error: `Telegram: ${data.description || "bot not admin / wrong channel"}` };
     }
-    // messages / viewing / posting members have no Bot-API source — backfill.
+    // messages / viewing / posting members have no Bot-API source, backfill.
     return { values: { members: data.result }, error: null };
   } catch (e) {
     return { values: {}, error: `Telegram: ${errMsg(e)}` };

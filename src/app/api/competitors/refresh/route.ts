@@ -28,7 +28,7 @@ export async function POST() {
   }
 }
 
-// Cron entrypoint (see vercel.json). Protected by CRON_SECRET when set —
+// Cron entrypoint (see vercel.json). Protected by CRON_SECRET when set,
 // Vercel sends it as `Authorization: Bearer <CRON_SECRET>`.
 export async function GET(req: NextRequest) {
   const secret = process.env.CRON_SECRET;

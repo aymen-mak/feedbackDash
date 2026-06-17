@@ -224,7 +224,7 @@ export default function TeamPage() {
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
 
-  // Inbox grouping: new + high priority at top, rest below — matching review page
+  // Inbox grouping: new + high priority at top, rest below, matching review page
   const newItems = viewFilter === "active" ? sorted.filter((i) => i.status === "new" && i.priority !== "high") : [];
   const highPriorityItems = viewFilter === "active" ? sorted.filter((i) => i.priority === "high" && i.status !== "new") : [];
   const newAndHighItems = viewFilter === "active" ? sorted.filter((i) => i.status === "new" && i.priority === "high") : [];
@@ -267,7 +267,7 @@ export default function TeamPage() {
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize border ${statusColors[item.status] || ""}`}>{item.status}</span>
                 </>)}
               </div>
-              <p className="text-xs text-makina-text/80 mt-1 truncate">{qa ? qa.label : ""}{qa && item.message ? " — " : ""}{item.message}</p>
+              <p className="text-xs text-makina-text/80 mt-1 truncate">{qa ? qa.label : ""}{qa && item.message ? ", " : ""}{item.message}</p>
             </div>
             <div className="hidden sm:flex items-center gap-3 shrink-0">
               <span className="text-[11px] text-makina-muted"><Clock size={10} className="inline mr-1" />{timeAgo(item.createdAt)}</span>
@@ -371,7 +371,7 @@ export default function TeamPage() {
             ))}
           </div>
 
-          {/* Filters — single row */}
+          {/* Filters, single row */}
           <div className="flex items-center gap-2 flex-wrap animate-fade-in-up" style={{ animationDelay: "100ms" }}>
             <Filter size={14} className="text-makina-muted shrink-0" />
             <div className="flex gap-1">

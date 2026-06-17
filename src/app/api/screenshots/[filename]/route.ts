@@ -15,7 +15,7 @@ export async function GET(
 ) {
   const { filename } = await params;
 
-  // Sanitize — only allow alphanumeric, dots, hyphens, underscores
+  // Sanitize, only allow alphanumeric, dots, hyphens, underscores
   if (!/^[\w.-]+$/.test(filename)) {
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
   }

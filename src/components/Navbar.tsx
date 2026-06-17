@@ -138,7 +138,7 @@ export default function Navbar() {
           <button
             onClick={openPrompt}
             className="hidden sm:flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-all text-makina-muted hover:text-makina-text hover:bg-makina-surface"
-            title={reviewerName ? `Reviewing as ${reviewerName} — click to change` : "Set your name"}
+            title={reviewerName ? `Reviewing as ${reviewerName}, click to change` : "Set your name"}
           >
             <User size={14} />
             {reviewerName ? (

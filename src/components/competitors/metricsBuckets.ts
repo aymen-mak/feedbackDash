@@ -21,7 +21,7 @@ export const GRANULARITIES: { key: Granularity; label: string; short: string; pe
 
 const HOUR = 3_600_000;
 const DAY = 24 * HOUR;
-// 2024-01-01 (UTC) is a Monday — anchor week/biweek buckets to it.
+// 2024-01-01 (UTC) is a Monday, anchor week/biweek buckets to it.
 const WEEK_ANCHOR = Date.UTC(2024, 0, 1);
 
 /** Start (inclusive) of the period containing time `t`. */

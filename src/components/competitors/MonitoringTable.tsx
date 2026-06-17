@@ -48,7 +48,7 @@ const ACCESSORS: Record<SortKey, (c: Competitor) => number | string> = {
 };
 
 function SocialCell({ m, trend }: { m?: PlatformMetric; trend?: number }) {
-  if (!m) return <td className="px-2 py-2.5 text-right text-makina-subtle">—</td>;
+  if (!m) return <td className="px-2 py-2.5 text-right text-makina-subtle">-</td>;
   if (m.value != null) {
     return (
       <td className="px-2 py-2.5 text-right">
@@ -56,7 +56,7 @@ function SocialCell({ m, trend }: { m?: PlatformMetric; trend?: number }) {
           className="inline-flex items-center justify-end gap-1"
           title={
             m.reachExcluded
-              ? `${m.tag || "excluded"} — not counted in reach`
+              ? `${m.tag || "excluded"}, not counted in reach`
               : m.source === "auto"
               ? `auto · via ${PLATFORM_SOURCE[m.platform].detail}`
               : "manual entry"
@@ -81,13 +81,13 @@ function SocialCell({ m, trend }: { m?: PlatformMetric; trend?: number }) {
       </td>
     );
   }
-  let glyph = "—";
+  let glyph = "-";
   let cls = "text-makina-subtle";
   if (m.lastError) (glyph = "⚠"), (cls = "text-makina-red");
   else if (m.presence === "inactive") (glyph = "dormant"), (cls = "text-amber-500");
   else if (m.presence === "external") (glyph = "ext"), (cls = "text-violet-400");
   else if (m.presence === "private") (glyph = "private"), (cls = "text-makina-subtle");
-  else if (m.presence === "none") (glyph = "—"), (cls = "text-makina-subtle");
+  else if (m.presence === "none") (glyph = "-"), (cls = "text-makina-subtle");
   else if (m.autoKey) (glyph = "sync"), (cls = "text-makina-accent/80");
   else (glyph = "N/A"), (cls = "text-makina-muted");
   return (
@@ -222,7 +222,7 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                           />
                         </div>
                         <span className="text-[11px] tabular-nums text-makina-muted">
-                          {a > 0 ? formatCount(a) : "—"}
+                          {a > 0 ? formatCount(a) : "-"}
                         </span>
                       </div>
                     );
@@ -236,7 +236,7 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                     )}
                     <div>
                       <div className="font-semibold tabular-nums text-makina-text">
-                        {oc?.tvl != null ? formatUsd(oc.tvl) : "—"}
+                        {oc?.tvl != null ? formatUsd(oc.tvl) : "-"}
                       </div>
                       {oc?.tvlChange1d != null && (
                         <div
@@ -250,10 +250,10 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                 </td>
 
                 <td className="px-2 py-2.5 text-right tabular-nums text-makina-text/80">
-                  {oc?.fees24h != null ? formatUsd(oc.fees24h) : <span className="text-makina-subtle">—</span>}
+                  {oc?.fees24h != null ? formatUsd(oc.fees24h) : <span className="text-makina-subtle">-</span>}
                 </td>
                 <td className="px-2 py-2.5 text-right tabular-nums text-makina-text/80">
-                  {oc?.revenue24h != null ? formatUsd(oc.revenue24h) : <span className="text-makina-subtle">—</span>}
+                  {oc?.revenue24h != null ? formatUsd(oc.revenue24h) : <span className="text-makina-subtle">-</span>}
                 </td>
 
                 {SOCIAL_COLS.map((p) => (
@@ -273,7 +273,7 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
         </table>
       </div>
       <p className="px-1 text-[10px] leading-relaxed text-makina-subtle">
-        Sources — X: {PLATFORM_SOURCE.twitter.short} · LinkedIn: {PLATFORM_SOURCE.linkedin.short} · Discord:{" "}
+        Sources, X: {PLATFORM_SOURCE.twitter.short} · LinkedIn: {PLATFORM_SOURCE.linkedin.short} · Discord:{" "}
         {PLATFORM_SOURCE.discord.short} · Telegram: {PLATFORM_SOURCE.telegram.short} · GitHub:{" "}
         {PLATFORM_SOURCE.github.short} · Web: {PLATFORM_SOURCE.website.short} · TVL/Fees/Rev: {ONCHAIN_SOURCE.short}.
         Green dot = auto-collected · grey = manual. Hover any value for its exact source.

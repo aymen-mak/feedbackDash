@@ -456,7 +456,7 @@ export async function refreshAll(): Promise<RefreshSummary> {
   }
   const llamaTasks = competitors.filter((c) => c.defillamaSlug);
 
-  // Collectors never throw — run everything in parallel; wall time is bounded
+  // Collectors never throw, run everything in parallel; wall time is bounded
   // by the slowest single request.
   const [socialSettled, llamaSettled] = await Promise.all([
     Promise.all(socialTasks.map(async (t) => ({ t, res: await COLLECTORS[t.p.platform]!(t.p.autoKey!) }))),

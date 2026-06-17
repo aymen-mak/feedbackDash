@@ -71,7 +71,7 @@ function resolveDataFile(): string {
 
 const DATA_FILE = resolveDataFile();
 
-/** Persistent screenshot directory — mirrors data-file resolution logic. */
+/** Persistent screenshot directory, mirrors data-file resolution logic. */
 export function resolveScreenshotDir(): string {
   const local = path.join(process.cwd(), "data", "screenshots");
   try {
@@ -81,7 +81,7 @@ export function resolveScreenshotDir(): string {
     fs.unlinkSync(testFile);
     return local;
   } catch {
-    // Not writable — fall back to /tmp
+    // Not writable, fall back to /tmp
   }
   const tmp = path.join("/tmp", "screenshots");
   if (!fs.existsSync(tmp)) fs.mkdirSync(tmp, { recursive: true });
@@ -459,7 +459,7 @@ export function getStats() {
     pct: reactionTotal > 0 ? Math.round((r.count / reactionTotal) * 100) : 0,
   }));
 
-  // Trending topics — simple keyword extraction from messages
+  // Trending topics, simple keyword extraction from messages
   const stopWords = new Set(["the", "a", "an", "is", "was", "are", "to", "it", "i", "my", "in", "of", "for", "and", "on", "that", "this", "be", "have", "has", "had", "but", "or", "so", "if", "at", "by", "from", "with", "would", "could", "when", "there"]);
   const wordCounts: Record<string, { count: number; categories: Set<CategoryId> }> = {};
   for (const f of notDismissed) {

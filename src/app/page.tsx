@@ -10,13 +10,13 @@ const ENTRIES = [
     href: "/competitors",
     icon: <Radar size={18} />,
     title: "Competitors",
-    desc: "Track the field — community size and on-chain TVL across every protocol we watch.",
+    desc: "Community size and on-chain TVL across every protocol we watch.",
   },
   {
     href: "/metrics",
     icon: <Activity size={18} />,
     title: "Our metrics",
-    desc: "Our own accounts — follower growth, engagement, and per-post performance.",
+    desc: "Follower growth, engagement, and per-post performance for our accounts.",
   },
 ];
 
@@ -39,8 +39,8 @@ export default function LandingPage() {
             className="h-11 w-auto"
           />
           <p className="mt-5 max-w-md text-sm leading-relaxed text-makina-muted">
-            Internal dashboard for competitor intelligence and our own social &amp; on-chain performance —
-            auto-collected, no manual entry.
+            Internal dashboard for competitor intelligence and our own social &amp; on-chain performance.
+            Auto-collected, no manual entry.
           </p>
 
           <div className="mt-9 grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">

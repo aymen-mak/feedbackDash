@@ -189,7 +189,7 @@ export default function CompetitorDetail({
                 </>
               ) : (
                 <p className="mt-2 text-[11px] text-makina-subtle">
-                  No on-chain data yet — slug <code className="text-makina-muted">{current.defillamaSlug}</code> populates on the next refresh.
+                  No on-chain data yet, slug <code className="text-makina-muted">{current.defillamaSlug}</code> populates on the next refresh.
                   {current.onchain?.lastError ? ` (${current.onchain.lastError})` : ""}
                 </p>
               )}

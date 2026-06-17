@@ -12,7 +12,7 @@ function emptyState(m: PlatformMetric): { text: string; cls: string; pulse?: boo
   if (m.lastError) return { text: "error", cls: "border-makina-red/40 text-makina-red bg-makina-red/5" };
   switch (m.presence) {
     case "none":
-      return { text: "—", cls: "border-dashed border-makina-border/50 text-makina-subtle bg-transparent" };
+      return { text: "-", cls: "border-dashed border-makina-border/50 text-makina-subtle bg-transparent" };
     case "inactive":
       return { text: "dormant", cls: "border-amber-500/30 text-amber-500 bg-amber-500/5" };
     case "external":
@@ -36,14 +36,14 @@ export default function PlatformBadge({ metric, trend }: Props) {
   if (metric.handle) titleParts.push(metric.handle);
   if (hasValue) titleParts.push(`${metric.value!.toLocaleString()} · ${metric.source}`);
   if (hasValue && metric.source === "auto") titleParts.push(`via ${PLATFORM_SOURCE[metric.platform].detail}`);
-  else if (state) titleParts.push(state.text === "—" ? "no presence" : state.text);
+  else if (state) titleParts.push(state.text === "-" ? "no presence" : state.text);
   if (metric.reachExcluded) titleParts.push("excluded from Community reach");
   if (metric.note) titleParts.push(metric.note);
   if (metric.lastError) titleParts.push(`⚠ ${metric.lastError}`);
 
   return (
     <span
-      title={titleParts.join(" — ")}
+      title={titleParts.join(", ")}
       className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[11px] ${
         hasValue ? "border-makina-border bg-makina-surface" : state!.cls
       }`}

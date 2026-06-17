@@ -133,7 +133,7 @@ function CompetitorsInner() {
     return out;
   }, [snapshots]);
 
-  // Per-source health from the last refresh — explains exactly what populated.
+  // Per-source health from the last refresh, explains exactly what populated.
   const sourceHealth = useMemo(() => {
     if (!sources) return null;
     const groups: Record<string, { ok: number; total: number; err: string | null }> = {};
@@ -176,9 +176,9 @@ function CompetitorsInner() {
 
   const stats = [
     { icon: Users, label: "Competitors tracked", value: String(peers.length) },
-    { icon: Database, label: "Total TVL tracked", value: totalTvl > 0 ? formatUsd(totalTvl) : "—" },
-    { icon: Trophy, label: "Largest community", value: strongest?.name ?? "—" },
-    { icon: TrendingUp, label: "Combined X reach", value: totalX > 0 ? formatCount(totalX) : "—" },
+    { icon: Database, label: "Total TVL tracked", value: totalTvl > 0 ? formatUsd(totalTvl) : "-" },
+    { icon: Trophy, label: "Largest community", value: strongest?.name ?? "-" },
+    { icon: TrendingUp, label: "Combined X reach", value: totalX > 0 ? formatCount(totalX) : "-" },
   ];
 
   return (
@@ -269,8 +269,8 @@ function CompetitorsInner() {
               ))}
             </div>
             <p className="mt-2 text-[10px] text-makina-subtle">
-              Fetched OK / attempted per source. Everything is collected automatically — DefiLlama, Discord,
-              Telegram, GitHub, plus X &amp; LinkedIn via syndication + search-snippet workarounds — on the cron or
+              Fetched OK / attempted per source. Everything is collected automatically, DefiLlama, Discord,
+              Telegram, GitHub, plus X &amp; LinkedIn via syndication + search-snippet workarounds, on the cron or
               “Refresh now” (needs a deploy with network egress).
             </p>
           </div>

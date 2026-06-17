@@ -83,7 +83,7 @@ export default function CompetitorComparisonChart({ competitors }: { competitors
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-makina-muted">Reach &amp; size comparison</p>
-          <h2 className="text-sm font-bold text-makina-text">{series?.label ?? "—"}</h2>
+          <h2 className="text-sm font-bold text-makina-text">{series?.label ?? "-"}</h2>
         </div>
         <div className="flex max-w-full flex-wrap gap-1">
           {available.map((s) => (
@@ -105,7 +105,7 @@ export default function CompetitorComparisonChart({ competitors }: { competitors
 
       {!series || data.length === 0 ? (
         <div className="flex h-40 items-center justify-center text-xs text-makina-muted">
-          No values yet for this metric — run a refresh.
+          No values yet for this metric, run a refresh.
         </div>
       ) : (
         <div style={{ height: Math.max(160, data.length * 38 + 24) }} className="mt-4">

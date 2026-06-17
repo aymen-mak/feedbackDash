@@ -31,7 +31,7 @@ export default function HistoryChart({ snapshots, color = "#5b9cf6" }: Props) {
   if (data.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-center text-xs text-makina-muted">
-        No history yet — a data point is captured on every refresh.
+        No history yet, a data point is captured on every refresh.
       </div>
     );
   }

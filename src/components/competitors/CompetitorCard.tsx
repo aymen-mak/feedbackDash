@@ -123,7 +123,7 @@ export default function CompetitorCard({
           <span className="text-[10px] font-medium uppercase tracking-wider text-makina-muted">
             Community reach
           </span>
-          <span className="text-[11px] font-bold text-makina-text">{aud > 0 ? formatCount(aud) : "—"}</span>
+          <span className="text-[11px] font-bold text-makina-text">{aud > 0 ? formatCount(aud) : "-"}</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-makina-surface">
           <div

@@ -199,7 +199,7 @@ export default function FeedbackPage() {
 
         {/* Centered logo + utility controls */}
         <div className="flex flex-col items-center gap-4 animate-fade-in-up">
-          {/* Logo — use trimmed images with natural proportions */}
+          {/* Logo, use trimmed images with natural proportions */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={theme === "light" ? "/makina_pulse_logo_trimmed_dark.png" : "/makina_pulse_logo_trimmed.png"}

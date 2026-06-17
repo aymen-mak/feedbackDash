@@ -34,7 +34,7 @@ async function fetchWithTimeout(
 /** Parse "12 345", "1,234", "12.3K", "1.2M" → integer. */
 export function parseHumanNumber(raw: string): number | null {
   const cleaned = raw.replace(/[  ]/g, " ").trim();
-  // Abbreviated form: 12.3K / 1.2M / 4B (letter glued to the number) — never
+  // Abbreviated form: 12.3K / 1.2M / 4B (letter glued to the number), never
   // a letter that merely starts a following word like "members".
   const abbr = cleaned.match(/(\d+(?:\.\d+)?)\s?([KkMmBb])\b/);
   if (abbr) {
@@ -45,7 +45,7 @@ export function parseHumanNumber(raw: string): number | null {
     else if (s === "b") n *= 1e9;
     return Math.round(n);
   }
-  // Full form: space/comma-grouped digits — take the first run.
+  // Full form: space/comma-grouped digits, take the first run.
   const full = cleaned.match(/\d[\d.,\s]*\d|\d/);
   if (!full) return null;
   const n = parseFloat(full[0].replace(/[,\s]/g, ""));
@@ -103,7 +103,7 @@ async function collectTelegram(channel: string): Promise<CollectorResult> {
       const res = await fetchWithTimeout(url, { headers: { "Accept-Language": "en" } }, 8000);
       if (!res.ok) continue;
       const v = parseTelegramCount(await res.text());
-      // Guard against gross misparses — no Telegram channel exceeds ~100M.
+      // Guard against gross misparses, no Telegram channel exceeds ~100M.
       if (v != null && v > 0 && v <= 100_000_000) return { value: v, error: null };
     } catch {
       // try next URL
@@ -322,7 +322,7 @@ async function xGraphqlFollowers(handle: string, guest: string): Promise<number 
   }
 }
 
-// ── X / Twitter follower count — layered so it works for free on a real
+// ── X / Twitter follower count, layered so it works for free on a real
 // network (this is what an anonymous browser tab does). ──
 async function collectTwitter(handle: string): Promise<CollectorResult> {
   const h = handle.replace(/^@/, "").replace(/^https?:\/\/(x|twitter)\.com\//, "").replace(/\/$/, "");
@@ -388,10 +388,10 @@ async function collectTwitter(handle: string): Promise<CollectorResult> {
     (await bingFollowers(`${h} x.com followers`));
   if (sv != null) return { value: sv, error: null };
 
-  return { value: null, error: "X: every source rate-limited/blocked — will retry next cycle" };
+  return { value: null, error: "X: every source rate-limited/blocked, will retry next cycle" };
 }
 
-// ── LinkedIn company followers — auto via reader proxy + search snippet.
+// ── LinkedIn company followers, auto via reader proxy + search snippet.
 // (LinkedIn auth-walls scraping, so the snippet workaround is the real win.) ──
 async function collectLinkedin(slug: string): Promise<CollectorResult> {
   const s = slug.replace(/^https?:\/\/(www\.)?linkedin\.com\/company\//, "").replace(/\/$/, "");
@@ -406,13 +406,13 @@ async function collectLinkedin(slug: string): Promise<CollectorResult> {
     }
   }
 
-  // 2) Search-snippet workaround — "<company> | LinkedIn ... N followers".
+  // 2) Search-snippet workaround, "<company> | LinkedIn ... N followers".
   const sv =
     (await ddgFollowers(`${s} site:linkedin.com/company followers`)) ??
     (await ddgFollowers(`${s} linkedin company followers`));
   if (sv != null) return { value: sv, error: null };
 
-  return { value: null, error: "LinkedIn: page walled & snippet missed — will retry next cycle" };
+  return { value: null, error: "LinkedIn: page walled & snippet missed, will retry next cycle" };
 }
 
 /** Strip protocol / www / path → bare registrable domain. */
@@ -425,10 +425,10 @@ function normalizeDomain(raw: string): string {
     .toLowerCase();
 }
 
-// ── Website traffic — best-effort estimated monthly visits via Similarweb's
+// ── Website traffic, best-effort estimated monthly visits via Similarweb's
 // public data endpoint (unofficial, no key). It is rate-limited and only
 // populated for domains Similarweb actually ranks, so smaller sites legitimately
-// return nothing — in which case the value stays blank, by design. ──
+// return nothing, in which case the value stays blank, by design. ──
 async function collectWebsite(domainOrUrl: string): Promise<CollectorResult> {
   const domain = normalizeDomain(domainOrUrl);
   if (!domain) return { value: null, error: "Website: no domain" };

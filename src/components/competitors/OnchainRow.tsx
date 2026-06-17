@@ -17,7 +17,7 @@ export default function OnchainRow({ c }: { c: Competitor }) {
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-baseline gap-2">
           <span className="text-[10px] uppercase tracking-wider text-makina-muted">TVL</span>
-          <span className="text-sm font-bold text-makina-text">{hasTvl ? formatUsd(oc!.tvl) : "—"}</span>
+          <span className="text-sm font-bold text-makina-text">{hasTvl ? formatUsd(oc!.tvl) : "-"}</span>
           {chg != null && (
             <span className={`text-[11px] font-medium ${chg >= 0 ? "text-makina-green" : "text-makina-red"}`}>
               {signedPct(chg)}

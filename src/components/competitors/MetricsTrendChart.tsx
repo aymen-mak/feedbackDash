@@ -37,7 +37,7 @@ export default function MetricsTrendChart({ labels, series, mode, valueFormat }:
   if (series.length === 0) {
     return (
       <div className="flex h-80 items-center justify-center text-center text-sm text-makina-muted">
-        Nothing selected — tick a protocol below to plot it.
+        Nothing selected, tick a protocol below to plot it.
       </div>
     );
   }
@@ -100,7 +100,7 @@ export default function MetricsTrendChart({ labels, series, mode, valueFormat }:
               color: c.tooltipText,
             }}
             labelStyle={{ color: c.tick, marginBottom: 2, fontSize: 11 }}
-            formatter={(v, name) => [typeof v === "number" ? fmtTip(v) : "—", name as string]}
+            formatter={(v, name) => [typeof v === "number" ? fmtTip(v) : "-", name as string]}
           />
 
           {mode === "area" ? (
