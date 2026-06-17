@@ -32,8 +32,8 @@ import {
 } from "@/lib/makina/journal";
 
 const ENV_HELP =
-  "X: X_AUTH_TOKEN + X_CT0 (or per-account X_MAKINAFI_AUTH_TOKEN/_CT0, X_MAKINTERN_AUTH_TOKEN/_CT0). " +
-  "Telegram: TELEGRAM_API_ID, TELEGRAM_API_HASH, TELEGRAM_SESSION. " +
+  "X: APIFY_TOKEN (Apify account token — scrapes public X data, no X login). " +
+  "Telegram: TELEGRAM_BOT_TOKEN (a @BotFather bot added as a channel admin). " +
   "Discord/Website counts come from the daily competitor refresh.";
 
 interface CollectSummary {

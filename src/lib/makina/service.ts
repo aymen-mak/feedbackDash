@@ -10,7 +10,7 @@ import {
   type JournalEntry,
   type MakinaJournal,
 } from "./journal";
-import { collectTelegramStats, collectXAnalytics } from "./collectors";
+import { collectTelegramViaBot, collectXViaApify } from "./collectors";
 
 export async function getJournal(): Promise<MakinaJournal> {
   return hasPostgres() ? pgGetMakinaJournal() : fileGetJournal();
@@ -119,11 +119,11 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     let error: string | null = null;
 
     if (acc.platform === "twitter") {
-      const r = await collectXAnalytics(acc.handle ?? acc.key, acc.key);
+      const r = await collectXViaApify(acc.handle ?? acc.key);
       Object.assign(collected, r.values);
       error = r.error;
     } else if (acc.key === "telegram") {
-      const r = await collectTelegramStats(acc.handle ?? "makinafinance");
+      const r = await collectTelegramViaBot(acc.handle ?? "makinafinance");
       Object.assign(collected, r.values);
       error = r.error;
     }

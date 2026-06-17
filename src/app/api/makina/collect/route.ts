@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { collectAndStore } from "@/lib/makina/service";
 
 export const dynamic = "force-dynamic";
-export const runtime = "nodejs"; // GramJS (Telegram) needs the Node runtime
-// Authenticated collectors connect to X / Telegram — give them room.
+export const runtime = "nodejs";
+// The Apify scrape can take a while to return — give the function room.
 export const maxDuration = 60;
 
 // In-app "Collect now".
