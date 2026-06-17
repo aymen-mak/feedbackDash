@@ -9,7 +9,6 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  Info,
   Pencil,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -31,11 +30,6 @@ import {
   type MakinaTweets,
   type MetricKind,
 } from "@/lib/makina/journal";
-
-const ENV_HELP =
-  "X: APIFY_TOKEN (Apify token; scrapes public X data, no X login). " +
-  "Telegram: TELEGRAM_BOT_TOKEN (a @BotFather bot, channel admin). " +
-  "Discord/Website come from the daily competitor refresh.";
 
 interface CollectSummary {
   periodStart: string;
@@ -168,12 +162,7 @@ function MetricsInner() {
             <h1 className="text-xl font-bold">
               Makina <span className="gradient-text">Analytics</span>
             </h1>
-            <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-makina-muted">
-              Auto-collected from Makina&apos;s accounts
-              <span title={ENV_HELP} className="cursor-help">
-                <Info size={12} className="text-makina-subtle" />
-              </span>
-            </p>
+            <p className="mt-1 text-xs text-makina-muted">Auto-collected from Makina&apos;s accounts</p>
           </div>
           <div className="flex items-center gap-2">
             <button
