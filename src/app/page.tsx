@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useTheme } from "@/lib/theme";
-import { ArrowRight, MessageSquare, Lightbulb, Sparkles, Zap, Image as ImageIcon, Eye } from "lucide-react";
+import { ArrowRight, Radar, BarChart3, TrendingUp, Users, Activity, Coins } from "lucide-react";
 
 export default function LandingPage() {
   const { theme } = useTheme();
@@ -27,7 +27,7 @@ export default function LandingPage() {
             {/* Central platform */}
             <div className="iso-platform" />
 
-            {/* Floating feedback cards */}
+            {/* Floating metric cards */}
             <div className="iso-card iso-card-1">
               <div className="iso-card-inner">
                 <div className="w-6 h-1 rounded-full bg-makina-accent/60 mb-1.5" />
@@ -77,24 +77,31 @@ export default function LandingPage() {
         {/* Headline */}
         <div className="relative text-center mt-8 max-w-2xl animate-fade-in-up" style={{ animationDelay: "200ms" }}>
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight leading-[1.1]">
-            Your feedback{" "}
-            <span className="gradient-text">shapes</span>
+            Every competitor&apos;s growth.{" "}
+            <span className="gradient-text">Our own pulse.</span>
             <br />
-            what we build next
+            One dashboard.
           </h1>
           <p className="text-base sm:text-lg text-makina-muted mt-5 max-w-lg mx-auto leading-relaxed">
-            Tell us what works, what doesn&apos;t, and what you wish existed. Every piece of feedback is read and acted on.
+            Makina Pulse auto-collects community size, engagement, and on-chain TVL across the protocols we watch — and
+            benchmarks our own accounts against the field.
           </p>
         </div>
 
         {/* CTA */}
-        <div className="relative flex items-center gap-4 mt-10 animate-fade-in-up" style={{ animationDelay: "350ms" }}>
+        <div className="relative flex flex-wrap items-center justify-center gap-4 mt-10 animate-fade-in-up" style={{ animationDelay: "350ms" }}>
           <Link
-            href="/feedback"
+            href="/competitors"
             className="group flex items-center gap-2.5 rounded-xl gradient-accent px-7 py-3.5 text-sm font-bold text-makina-bg shadow-lg shadow-makina-accent/20 hover:shadow-makina-accent/30 hover:brightness-110 transition-all"
           >
-            Share Your Feedback
+            Open the dashboard
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
+          </Link>
+          <Link
+            href="/metrics"
+            className="flex items-center gap-2 rounded-xl border border-makina-border bg-makina-surface px-6 py-3.5 text-sm font-semibold text-makina-muted hover:border-makina-accent/40 hover:text-makina-text transition-all"
+          >
+            Our metrics
           </Link>
         </div>
 
@@ -106,7 +113,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── How it works — from the user's perspective ── */}
+      {/* ── How it works ── */}
       <section className="relative px-4 py-24 overflow-hidden">
         {/* Isometric background — pulsating grid + glow */}
         <div className="absolute inset-0 pointer-events-none">
@@ -128,33 +135,33 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-5xl">
           <div className="text-center mb-16 animate-fade-in-up">
             <p className="text-xs font-semibold uppercase tracking-widest text-makina-accent mb-3">How it works</p>
-            <h2 className="text-3xl font-bold">Three steps. That&apos;s it.</h2>
+            <h2 className="text-3xl font-bold">Track. Compare. Act.</h2>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
-                icon: <MessageSquare size={22} />,
-                title: "Share",
-                desc: "Pick a category, describe what's on your mind, whether it's a suggestion, an issue, or a question. Add a screenshot if it helps.",
+                icon: <Radar size={22} />,
+                title: "Track",
+                desc: "Add the protocols you watch. Pulse auto-collects their X, Discord, Telegram, website and on-chain numbers — no manual tallying.",
                 color: "text-makina-accent",
                 bg: "bg-makina-accent-dim",
                 border: "border-makina-accent/20",
                 delay: "0ms",
               },
               {
-                icon: <Eye size={22} />,
-                title: "Get heard",
-                desc: "Your feedback goes straight to the people building the product. No black hole, no ticketing limbo.",
+                icon: <BarChart3 size={22} />,
+                title: "Compare",
+                desc: "See community reach, growth trends and TVL side by side, and benchmark our own accounts against the field.",
                 color: "text-amber-400",
                 bg: "bg-amber-400/10",
                 border: "border-amber-400/20",
                 delay: "100ms",
               },
               {
-                icon: <Sparkles size={22} />,
-                title: "Make a difference",
-                desc: "What you share directly influences what gets prioritized. Every voice counts, every detail matters.",
+                icon: <TrendingUp size={22} />,
+                title: "Act",
+                desc: "Spot who's accelerating, see what's landing in our own posts, and decide where to push next — backed by real numbers.",
                 color: "text-makina-green",
                 bg: "bg-green-500/10",
                 border: "border-green-500/20",
@@ -179,16 +186,17 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── What you can do ── */}
+      {/* ── What's inside ── */}
       <section className="relative px-4 py-20">
         <div className="mx-auto max-w-5xl">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
-              { icon: <Lightbulb size={18} />, title: "Suggest ideas", desc: "Have a feature in mind? Tell us. The best ideas come from real users." },
-              { icon: <Zap size={18} />, title: "Quick reactions", desc: "Short on time? Use one-tap labels like \"Love it!\" or \"Needs improvement\"." },
-              { icon: <ImageIcon size={18} />, title: "Attach screenshots", desc: "A picture is worth a thousand words. Show us exactly what you see." },
-              { icon: <MessageSquare size={18} />, title: "Report issues", desc: "Found a bug or something broken? Flag it so we can fix it fast." },
-              { icon: <Eye size={18} />, title: "Stay anonymous", desc: "Prefer not to share your name? Toggle anonymous mode. It's your call." },
+              { icon: <Users size={18} />, title: "Multi-platform reach", desc: "Followers and members across X, Discord, Telegram, LinkedIn and more — rolled into one number." },
+              { icon: <Activity size={18} />, title: "Our own performance", desc: "Per-post impressions, likes and engagement for our accounts — scraped from public data, never guessed." },
+              { icon: <TrendingUp size={18} />, title: "Trends over time", desc: "Week-over-week history and sparklines, so you see momentum — not just a snapshot." },
+              { icon: <Coins size={18} />, title: "On-chain TVL", desc: "Live TVL from DefiLlama sitting right next to the social signals." },
+              { icon: <Radar size={18} />, title: "Auto-collected", desc: "Numbers refresh on a schedule. No spreadsheets, no copy-paste, no manual entry." },
+              { icon: <BarChart3 size={18} />, title: "Export anytime", desc: "Pull any account's full history to CSV in a single click." },
             ].map((cap, i) => (
               <div
                 key={cap.title}
@@ -209,15 +217,15 @@ export default function LandingPage() {
       {/* ── Bottom CTA ── */}
       <section className="relative px-4 py-20 text-center">
         <div className="mx-auto max-w-lg animate-fade-in-up">
-          <h2 className="text-2xl font-bold mb-3">We&apos;re listening</h2>
+          <h2 className="text-2xl font-bold mb-3">See the whole field</h2>
           <p className="text-sm text-makina-muted mb-8">
-            It only takes a minute. Your feedback directly influences what gets built next.
+            Competitor intelligence and our own analytics, refreshed automatically — in one pulse.
           </p>
           <Link
-            href="/feedback"
+            href="/competitors"
             className="group inline-flex items-center gap-2.5 rounded-xl gradient-accent px-8 py-4 text-sm font-bold text-makina-bg shadow-lg shadow-makina-accent/20 hover:shadow-makina-accent/30 hover:brightness-110 transition-all"
           >
-            Share Your Feedback
+            Open the dashboard
             <ArrowRight size={16} className="transition-transform group-hover:translate-x-0.5" />
           </Link>
         </div>

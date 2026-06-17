@@ -1,16 +1,7 @@
 "use client";
 
 import { useMemo, useState, type ComponentType } from "react";
-import {
-  Eye,
-  Heart,
-  MessageCircle,
-  Repeat2,
-  Quote,
-  Bookmark,
-  ExternalLink,
-  ArrowUpDown,
-} from "lucide-react";
+import { Eye, Heart, MessageCircle, Repeat2, Quote, Bookmark, ExternalLink } from "lucide-react";
 import { formatCount } from "@/components/competitors/platformMeta";
 import { type TweetMetric } from "@/lib/makina/journal";
 
@@ -26,10 +17,20 @@ const METRICS: { key: MetricKey; label: string; Icon: ComponentType<{ size?: num
   { key: "bookmarks", label: "Bookmarks", Icon: Bookmark },
 ];
 
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: "createdAt", label: "Most recent" },
+  { key: "impressions", label: "Most impressions" },
+  { key: "likes", label: "Most likes" },
+  { key: "replies", label: "Most replies" },
+  { key: "reposts", label: "Most reposts" },
+  { key: "quotes", label: "Most quotes" },
+  { key: "bookmarks", label: "Most bookmarks" },
+];
+
 function relTime(iso: string): string {
-  if (!iso) return "";
+  if (!iso) return "—";
   const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return "";
+  if (Number.isNaN(t)) return "—";
   const s = Math.max(0, (Date.now() - t) / 1000);
   if (s < 3600) return `${Math.max(1, Math.round(s / 60))}m ago`;
   if (s < 86400) return `${Math.round(s / 3600)}h ago`;
@@ -37,9 +38,9 @@ function relTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
-const clamp2 = {
+const clamp3 = {
   display: "-webkit-box",
-  WebkitLineClamp: 2,
+  WebkitLineClamp: 3,
   WebkitBoxOrient: "vertical" as const,
   overflow: "hidden",
 };
@@ -70,54 +71,55 @@ export default function LatestTweets({
   }, [tweets, sort]);
 
   return (
-    <div className="rounded-xl border border-makina-border bg-makina-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+    <div>
+      <div className="mb-2 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h3 className="text-sm font-semibold text-makina-text">Latest posts &amp; their metrics</h3>
-          <p className="text-[11px] text-makina-subtle">
-            Each post from the most recent scrape{updatedAt ? ` · refreshed ${relTime(updatedAt)}` : ""}.
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-makina-muted">Latest posts</p>
+          <p className="mt-0.5 text-[11px] text-makina-subtle">
+            Real per-post numbers from the last scrape{updatedAt ? ` · ${relTime(updatedAt)}` : ""}.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-1">
-          <span className="mr-0.5 inline-flex items-center gap-1 text-[11px] text-makina-muted">
-            <ArrowUpDown size={11} /> Sort
-          </span>
-          <SortChip active={sort === "createdAt"} accent={accent} onClick={() => setSort("createdAt")}>
-            Recent
-          </SortChip>
-          {METRICS.map((m) => (
-            <SortChip key={m.key} active={sort === m.key} accent={accent} onClick={() => setSort(m.key)}>
-              {m.label}
-            </SortChip>
-          ))}
-        </div>
+        {tweets.length > 0 && (
+          <label className="inline-flex items-center gap-1.5 text-[11px] text-makina-muted">
+            Sort
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="rounded-md border border-makina-border bg-makina-surface px-2 py-1 text-[11px] text-makina-text outline-none transition-colors hover:border-makina-accent/40 focus:border-makina-accent/60"
+            >
+              {SORTS.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
 
-      {sorted.length === 0 ? (
-        <div className="border-t border-makina-border px-4 py-8 text-center text-sm text-makina-muted">
-          No posts captured yet — hit “Collect now”.
+      {tweets.length === 0 ? (
+        <div className="rounded-xl border border-makina-border bg-makina-card p-6 text-center text-sm text-makina-muted">
+          No posts captured yet — hit “Collect now” and they’ll appear here.
         </div>
       ) : (
-        <ul className="divide-y divide-makina-border/60 border-t border-makina-border">
-          {sorted.map((t) => (
-            <li key={t.id} className="px-4 py-3 transition-colors hover:bg-makina-surface/40">
-              <div className="mb-1 flex items-center gap-2 text-[11px] text-makina-subtle">
-                <span>{relTime(t.createdAt) || "—"}</span>
-                {t.url && (
-                  <a
-                    href={t.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 hover:text-makina-accent"
-                  >
-                    View on X <ExternalLink size={10} />
-                  </a>
-                )}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {sorted.map((t, i) => (
+            <a
+              key={t.id}
+              href={t.url || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex flex-col rounded-xl border border-makina-border bg-makina-card p-3.5 transition-all hover-lift hover:border-makina-accent/40 animate-fade-in-up"
+              style={{ animationDelay: `${Math.min(i * 30, 240)}ms` }}
+            >
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <span className="text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
+                <ExternalLink size={12} className="shrink-0 text-makina-subtle transition-colors group-hover:text-makina-accent" />
               </div>
-              <p className="mb-2 text-sm text-makina-text/90" style={clamp2}>
+              <p className="mb-3 text-[13px] leading-snug text-makina-text/90" style={clamp3}>
                 {t.text || "(no text)"}
               </p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-makina-border/50 pt-2.5">
                 {METRICS.map((m) => {
                   const on = sort === m.key;
                   return (
@@ -133,34 +135,10 @@ export default function LatestTweets({
                   );
                 })}
               </div>
-            </li>
+            </a>
           ))}
-        </ul>
+        </div>
       )}
     </div>
-  );
-}
-
-function SortChip({
-  active,
-  accent,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  accent: string;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition-colors ${
-        active ? "border-transparent text-makina-bg" : "border-makina-border text-makina-muted hover:text-makina-text"
-      }`}
-      style={active ? { backgroundColor: accent } : undefined}
-    >
-      {children}
-    </button>
   );
 }

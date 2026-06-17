@@ -174,7 +174,7 @@ export default function Navbar() {
           <button
             onClick={handleShare}
             className="relative rounded-lg p-2 text-makina-muted hover:text-makina-text hover:bg-makina-surface transition-all"
-            title="Copy feedback link"
+            title="Copy link"
           >
             {copied ? <Check size={16} className="text-makina-green" /> : <Link2 size={16} />}
           </button>

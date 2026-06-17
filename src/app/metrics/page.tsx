@@ -331,6 +331,15 @@ function MetricsInner() {
               </div>
             ))}
 
+            {/* Latest posts & their per-post metrics */}
+            {accDef.platform === "twitter" && (
+              <LatestTweets
+                tweets={tweets.byAccount[account]?.tweets ?? []}
+                accent={accentColor}
+                updatedAt={tweets.byAccount[account]?.updatedAt}
+              />
+            )}
+
             {/* Trend chart for the selected metric */}
             <div className="rounded-xl border border-makina-border bg-makina-card p-4">
               <div className="mb-3 text-sm">
@@ -344,15 +353,6 @@ function MetricsInner() {
                 valueFormat={chartDef?.kind === "ratio" ? "ratio" : "count"}
               />
             </div>
-
-            {/* Latest posts & their per-post metrics */}
-            {accDef.platform === "twitter" && (
-              <LatestTweets
-                tweets={tweets.byAccount[account]?.tweets ?? []}
-                accent={accentColor}
-                updatedAt={tweets.byAccount[account]?.updatedAt}
-              />
-            )}
 
             {/* History table */}
             <div className="rounded-xl border border-makina-border bg-makina-card">
