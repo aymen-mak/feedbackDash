@@ -1,20 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// TEMPORARY diagnostic — runs several Apify input shapes in parallel and reports
-// which one actually returns tweets (+ the real field names). Remove once X
-// collection works.
+// TEMPORARY diagnostic — apidojo's SEARCH path returns noResults in guest mode,
+// so test PROFILE-timeline scraping across actors/inputs and report which one
+// actually returns tweets (+ field names). Remove once X collection works.
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const ACTOR = process.env.APIFY_TWEET_ACTOR || "apidojo~tweet-scraper";
-
-async function runVariant(token: string, label: string, input: Record<string, unknown>) {
+async function runVariant(
+  token: string,
+  actor: string,
+  label: string,
+  input: Record<string, unknown>
+) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 55000);
   try {
     const res = await fetch(
-      `https://api.apify.com/v2/acts/${ACTOR}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&memory=1024`,
+      `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&memory=1024`,
       {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -31,6 +34,7 @@ async function runVariant(token: string, label: string, input: Record<string, un
     const first = real[0];
     const author = first && typeof first.author === "object" ? (first.author as Record<string, unknown>) : null;
     return {
+      actor,
       label,
       input,
       httpStatus: res.status,
@@ -38,11 +42,11 @@ async function runVariant(token: string, label: string, input: Record<string, un
       realCount: real.length,
       firstItemKeys: first ? Object.keys(first) : null,
       authorKeys: author ? Object.keys(author) : null,
-      sampleFirst: first ?? items[0] ?? null,
-      nonArrayResponse: Array.isArray(json) ? json : undefined,
+      sampleFirst: first ?? null,
+      nonArrayResponse: Array.isArray(json) ? undefined : json, // only surfaces error objects
     };
   } catch (e) {
-    return { label, input, error: e instanceof Error ? e.message : String(e) };
+    return { actor, label, input, error: e instanceof Error ? e.message : String(e) };
   } finally {
     clearTimeout(timer);
   }
@@ -53,14 +57,13 @@ export async function GET(req: NextRequest) {
   if (!token) return NextResponse.json({ error: "APIFY_TOKEN not set on this deployment/env" }, { status: 500 });
 
   const h = (req.nextUrl.searchParams.get("handle") || "makinafi").replace(/^@/, "").trim();
-  const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10); // widen to 30d
-  const until = new Date(Date.now() + 864e5).toISOString().slice(0, 10);
+  const profileUrl = `https://x.com/${h}`;
 
   const variants = await Promise.all([
-    runVariant(token, "search-nodate", { searchTerms: [`from:${h}`], sort: "Latest", maxItems: 5 }),
-    runVariant(token, "handles-nodate", { twitterHandles: [h], sort: "Latest", maxItems: 5 }),
-    runVariant(token, "search-dated-30d", { searchTerms: [`from:${h} since:${since} until:${until}`], sort: "Latest", maxItems: 5 }),
+    runVariant(token, "apidojo~tweet-scraper", "tweet-scraper+startUrls", { startUrls: [profileUrl], maxItems: 5 }),
+    runVariant(token, "apidojo~twitter-profile-scraper", "profile-scraper+handles", { twitterHandles: [h], maxItems: 5 }),
+    runVariant(token, "apidojo~twitter-profile-scraper", "profile-scraper+startUrls", { startUrls: [profileUrl], maxItems: 5 }),
   ]);
 
-  return NextResponse.json({ handle: h, actor: ACTOR, variants });
+  return NextResponse.json({ handle: h, variants });
 }
