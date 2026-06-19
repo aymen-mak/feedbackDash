@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const CHANNEL_FIELDS = ["channels", "channelUrls", "channelUsernames", "usernames", "channelInputCsv", "startUrls", "channel", "urls"];
+const CHANNEL_FIELDS = ["profiles", "profile", "channels", "channelUrls", "channelUsernames", "usernames", "channelInputCsv", "startUrls", "channel", "urls"];
 const LIMIT_FIELDS = ["maxPosts", "maxItems", "limit", "resultsLimit", "maxMessages", "postsCount", "maxResults"];
 
 interface Field {
@@ -66,6 +66,8 @@ export async function GET(req: NextRequest) {
   }
   const limField = LIMIT_FIELDS.find((n) => names.has(n));
   if (limField) input[limField] = 20;
+  if (names.has("scrapeLastNDays")) input.scrapeLastNDays = 14;
+  if (names.has("collectMessages")) input.collectMessages = true;
 
   // 3) Run it (if we found a channel field) and dump the output shape.
   let run: unknown = { skipped: "no recognizable channel field; see fields" };
