@@ -65,6 +65,9 @@ export const ACCOUNTS: AccountDef[] = [
     metrics: [
       { key: "members", label: "Member count", kind: "count", category: "Audience", auto: true, description: "Total members in the channel." },
       { key: "newMembers", label: "Net new members", kind: "count", category: "Audience", auto: true, description: "Net member change vs the previous period." },
+      { key: "views", label: "Views", kind: "count", category: "Reach", auto: true, description: "Total views on posts published this period." },
+      { key: "posts", label: "Posts", kind: "count", category: "Activity", auto: true, description: "Posts published this period." },
+      { key: "avgViews", label: "Avg views / post", kind: "count", category: "Reach", auto: true, description: "Average views per post this period." },
     ],
   },
   {

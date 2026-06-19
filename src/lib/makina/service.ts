@@ -11,7 +11,7 @@ import {
   type MakinaJournal,
   type MakinaTweets,
 } from "./journal";
-import { collectTelegramViaBot, collectXProfiles } from "./collectors";
+import { collectTelegram, collectXProfiles } from "./collectors";
 
 export async function getJournal(): Promise<MakinaJournal> {
   return hasPostgres() ? pgGetMakinaJournal() : fileGetJournal();
@@ -144,7 +144,7 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
         tweetsChanged = true;
       }
     } else if (acc.key === "telegram") {
-      const r = await collectTelegramViaBot(acc.handle ?? "makinafinance");
+      const r = await collectTelegram(acc.handle ?? "makinafinance");
       Object.assign(collected, r.values);
       error = r.error;
     }

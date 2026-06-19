@@ -6,11 +6,9 @@ import { type TweetMetric } from "./journal";
 //    profile-timeline data, so the only secret we hold is an Apify API token,
 //    it controls the Apify account, never X, can't post, and there is no X
 //    credential to leak.
-//  • Telegram → the Bot API with a revocable bot token (the bot must be a
-//    channel admin). Member count only, deep group stats have no secure API.
-//
-// Owner-only metrics with no public/secure source (X profile visits; Telegram
-// messages / viewing / posting members) are left blank for manual backfill.
+//  • Telegram → the public channel preview (t.me/s/<channel>) for member count
+//    and per-post views; an optional bot token (channel admin) refines the
+//    member count. No login required.
 
 export interface CollectResult {
   values: Record<string, number | null>;
@@ -139,26 +137,94 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
   }
 }
 
-// ── Telegram via Bot API (revocable bot token, bot must be channel admin) ──
-export async function collectTelegramViaBot(channel: string): Promise<CollectResult> {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  if (!token) return { values: {}, error: "Telegram bot not set (TELEGRAM_BOT_TOKEN)" };
+// ── Telegram: public channel preview (+ optional bot token) ──
+function parseHumanNum(s: string): number | undefined {
+  const m = s.replace(/[, ]/g, "").match(/([\d.]+)\s*([KMB]?)/i);
+  if (!m) return undefined;
+  let n = parseFloat(m[1]);
+  const u = (m[2] || "").toUpperCase();
+  if (u === "K") n *= 1e3;
+  else if (u === "M") n *= 1e6;
+  else if (u === "B") n *= 1e9;
+  return Number.isFinite(n) ? Math.round(n) : undefined;
+}
+
+function parseTelegramSubscribers(html: string): number | undefined {
+  // Preview: <span class="counter_value">12.3K</span><span class="counter_type">subscribers</span>
+  const pre = html.match(/counter_value"[^>]*>([^<]+)<\/span>\s*<span class="counter_type">\s*(?:subscribers|members)/i);
+  if (pre) { const v = parseHumanNum(pre[1]); if (v) return v; }
+  // Info page: <div class="tgme_page_extra">123 456 subscribers</div>
+  const extra = html.match(/tgme_page_extra"[^>]*>([^<]*(?:subscriber|member)[^<]*)</i);
+  if (extra) { const v = parseHumanNum(extra[1]); if (v) return v; }
+  return undefined;
+}
+
+function parseTelegramPosts(html: string): { views: number; createdAt: string }[] {
+  const out: { views: number; createdAt: string }[] = [];
+  for (const part of html.split("tgme_widget_message_wrap").slice(1)) {
+    const createdAt = part.match(/datetime="([^"]+)"/)?.[1];
+    if (!createdAt) continue;
+    const vRaw = part.match(/tgme_widget_message_views"[^>]*>([^<]+)</)?.[1];
+    out.push({ views: vRaw ? parseHumanNum(vRaw) ?? 0 : 0, createdAt });
+  }
+  return out;
+}
+
+export async function collectTelegram(channel: string): Promise<CollectResult> {
   const chan = (process.env.TELEGRAM_CHANNEL || channel)
     .replace(/^(?:https?:\/\/)?t\.me\//, "")
-    .replace(/^@/, "");
+    .replace(/^s\//, "")
+    .replace(/^@/, "")
+    .replace(/\/$/, "");
+
+  let members: number | undefined;
+  let posts: { views: number; createdAt: string }[] = [];
   try {
-    const res = await fetchWithTimeout(
-      `https://api.telegram.org/bot${token}/getChatMemberCount?chat_id=@${encodeURIComponent(chan)}`,
-      {},
-      12000
-    );
-    const data = (await res.json()) as { ok?: boolean; result?: number; description?: string };
-    if (!data.ok || typeof data.result !== "number") {
-      return { values: {}, error: `Telegram: ${data.description || "bot not admin / wrong channel"}` };
+    const res = await fetchWithTimeout(`https://t.me/s/${encodeURIComponent(chan)}`, { headers: { "Accept-Language": "en" } }, 12000);
+    if (res.ok) {
+      const html = await res.text();
+      members = parseTelegramSubscribers(html);
+      posts = parseTelegramPosts(html);
     }
-    // messages / viewing / posting members have no Bot-API source, backfill.
-    return { values: { members: data.result }, error: null };
-  } catch (e) {
-    return { values: {}, error: `Telegram: ${errMsg(e)}` };
+  } catch {
+    // fall through; the bot API may still provide the member count
   }
+
+  // A bot that's a channel admin gives a more authoritative member count.
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (token) {
+    try {
+      const res = await fetchWithTimeout(
+        `https://api.telegram.org/bot${token}/getChatMemberCount?chat_id=@${encodeURIComponent(chan)}`,
+        {},
+        10000
+      );
+      const data = (await res.json()) as { ok?: boolean; result?: number };
+      if (data.ok && typeof data.result === "number") members = data.result;
+    } catch {
+      // keep the preview's member count
+    }
+  }
+
+  // Weekly aggregates from posts published in the last 7 days.
+  const cutoff = Date.now() - WEEK_MS;
+  let views = 0, count = 0;
+  for (const p of posts) {
+    const t = Date.parse(p.createdAt);
+    if (!Number.isNaN(t) && t < cutoff) continue;
+    views += p.views;
+    count += 1;
+  }
+
+  const values: Record<string, number | null> = {};
+  if (members != null) values.members = members;
+  if (posts.length > 0) {
+    values.posts = count;
+    values.views = views;
+    values.avgViews = count > 0 ? Math.round(views / count) : null;
+  }
+  if (members == null && posts.length === 0) {
+    return { values: {}, error: "Telegram: no public data (private channel or wrong handle)" };
+  }
+  return { values, error: null };
 }
