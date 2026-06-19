@@ -66,7 +66,8 @@ export async function GET(req: NextRequest) {
   }
   const limField = LIMIT_FIELDS.find((n) => names.has(n));
   if (limField) input[limField] = 20;
-  if (names.has("scrapeLastNDays")) input.scrapeLastNDays = 14;
+  const daysParam = req.nextUrl.searchParams.get("days");
+  if (daysParam && names.has("scrapeLastNDays")) input.scrapeLastNDays = parseInt(daysParam, 10) || 7;
   if (names.has("collectMessages")) input.collectMessages = true;
 
   // 3) Run it (if we found a channel field) and dump the output shape.
