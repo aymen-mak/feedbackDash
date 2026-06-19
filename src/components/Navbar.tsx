@@ -91,21 +91,11 @@ export default function Navbar() {
       <div className="mx-auto flex h-14 max-w-7xl items-center px-4">
         {/* Brand */}
         <Link href="/" className="flex items-center shrink-0 mr-8">
-          <div
-            className="h-8 w-[128px]"
-            style={{
-              backgroundColor: theme === "light" ? "#0f172a" : "#eafcfe",
-              WebkitMaskImage: `url(/makina_pulse_logo_480x120.png)`,
-              maskImage: `url(/makina_pulse_logo_480x120.png)`,
-              WebkitMaskSize: "contain",
-              maskSize: "contain",
-              WebkitMaskRepeat: "no-repeat",
-              maskRepeat: "no-repeat",
-              WebkitMaskPosition: "left center",
-              maskPosition: "left center",
-            }}
-            role="img"
-            aria-label="Makina Pulse"
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={theme === "light" ? "/makina_pulse_logo_trimmed_dark.png" : "/makina_pulse_logo_trimmed.png"}
+            alt="Makina Pulse"
+            className="h-8 w-auto"
           />
         </Link>
 
