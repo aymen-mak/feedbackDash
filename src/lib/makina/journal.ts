@@ -64,9 +64,7 @@ export const ACCOUNTS: AccountDef[] = [
     autoMetric: "members",
     metrics: [
       { key: "members", label: "Member count", kind: "count", category: "Audience", auto: true, description: "Total members in the channel." },
-      { key: "messages", label: "Messages", kind: "count", category: "Activity", description: "Messages posted in the channel this period." },
-      { key: "viewingMembers", label: "Viewing members", kind: "count", category: "Activity", description: "Members who viewed content this period." },
-      { key: "postingMembers", label: "Posting members", kind: "count", category: "Activity", description: "Members who posted this period." },
+      { key: "newMembers", label: "Net new members", kind: "count", category: "Audience", auto: true, description: "Net member change vs the previous period." },
     ],
   },
   {

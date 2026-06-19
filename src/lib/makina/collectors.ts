@@ -144,7 +144,7 @@ export async function collectTelegramViaBot(channel: string): Promise<CollectRes
   const token = process.env.TELEGRAM_BOT_TOKEN;
   if (!token) return { values: {}, error: "Telegram bot not set (TELEGRAM_BOT_TOKEN)" };
   const chan = (process.env.TELEGRAM_CHANNEL || channel)
-    .replace(/^https?:\/\/t\.me\//, "")
+    .replace(/^(?:https?:\/\/)?t\.me\//, "")
     .replace(/^@/, "");
   try {
     const res = await fetchWithTimeout(

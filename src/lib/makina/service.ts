@@ -155,6 +155,12 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       if (prev?.values?.followers != null) collected.newFollows = collected.followers - prev.values.followers;
     }
 
+    // Derived: net new members = member delta vs the previous period.
+    if (acc.key === "telegram" && collected.members != null) {
+      const prev = prevOf(acc.key);
+      if (prev?.values?.members != null) collected.newMembers = collected.members - prev.values.members;
+    }
+
     const nonNull = Object.fromEntries(Object.entries(collected).filter(([, v]) => v != null));
     if (Object.keys(nonNull).length > 0) {
       await upsertEntry({ account: acc.key, periodStart: period, values: nonNull });
