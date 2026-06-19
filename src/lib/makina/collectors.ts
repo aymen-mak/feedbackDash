@@ -221,7 +221,9 @@ export async function collectTelegram(channel: string): Promise<CollectResult> {
   if (posts.length > 0) {
     values.posts = count;
     values.views = views;
-    values.avgViews = count > 0 ? Math.round(views / count) : null;
+    const avg = count > 0 ? Math.round(views / count) : null;
+    values.avgViews = avg;
+    values.reachRate = avg != null && members != null && members > 0 ? +((avg / members) * 100).toFixed(1) : null;
   }
   if (members == null && posts.length === 0) {
     return { values: {}, error: "Telegram: no public data (private channel or wrong handle)" };
