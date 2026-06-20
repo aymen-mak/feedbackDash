@@ -125,7 +125,15 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
   };
   try {
     const res = await apifyRunSync(actor, token, input);
-    if (!res.ok) return fail(`Apify HTTP ${res.status} (token/credit/rate-limit?)`);
+    if (!res.ok) {
+      let body = "";
+      try { body = await res.text(); } catch { /* ignore */ }
+      const approval = body.match(/"approvalUrl":"([^"]+)"/)?.[1];
+      if (approval || /not-approved|approvepermissions/i.test(body)) {
+        return fail(`Actor needs a one-time permission approval on this Apify account: ${approval ?? "open the actor in Apify and approve permissions"}`);
+      }
+      return fail(`Apify HTTP ${res.status} (token/credit/rate-limit?)`);
+    }
     const items = (await res.json()) as Array<Record<string, unknown>>;
     if (!Array.isArray(items)) return fail("Apify: unexpected response shape");
 
@@ -145,9 +153,10 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
   }
 }
 
-// ── Telegram via free reader/CORS proxies (t.me blocks datacenter IPs) ──
-// Fetch the public channel preview (t.me/s/<channel>) through a free proxy and
-// parse subscribers + per-post views from the HTML. No Apify, no login.
+// ── Telegram via Apify (automation-lab/telegram-scraper, proxied) ──
+// Direct t.me fetches are blocked from datacenter IPs, so scrape through Apify.
+// Returns one channel-info record (subscriberCount) + message records (views,
+// reactions, date).
 function parseHumanNum(s: string): number | undefined {
   const m = s.replace(/[, ]/g, "").match(/([\d.]+)\s*([KMB]?)/i);
   if (!m) return undefined;
@@ -159,82 +168,65 @@ function parseHumanNum(s: string): number | undefined {
   return Number.isFinite(n) ? Math.round(n) : undefined;
 }
 
-function parseTelegramSubscribers(text: string): number | undefined {
-  // Preview HTML: <span class="counter_value">12.3K</span><span class="counter_type">subscribers</span>
-  const pre = text.match(/counter_value"[^>]*>([^<]+)<\/span>\s*<span class="counter_type">\s*(?:subscribers|members)/i);
-  if (pre) { const v = parseHumanNum(pre[1]); if (v) return v; }
-  // Info page: <div class="tgme_page_extra">123 456 subscribers</div>
-  const extra = text.match(/tgme_page_extra"[^>]*>([^<]*(?:subscriber|member)[^<]*)</i);
-  if (extra) { const v = parseHumanNum(extra[1]); if (v) return v; }
-  // Plain text (reader markdown): "12.3K subscribers"
-  const plain = text.match(/([\d][\d.,\s]*[KMB]?)\s*(?:subscribers|members)/i);
-  if (plain) { const v = parseHumanNum(plain[1]); if (v) return v; }
-  return undefined;
-}
-
-function parseTelegramPosts(html: string): { views: number; createdAt: string }[] {
-  const out: { views: number; createdAt: string }[] = [];
-  for (const part of html.split("tgme_widget_message_wrap").slice(1)) {
-    const createdAt = part.match(/datetime="([^"]+)"/)?.[1];
-    if (!createdAt) continue;
-    const vRaw = part.match(/tgme_widget_message_views"[^>]*>([^<]+)</)?.[1];
-    out.push({ views: vRaw ? parseHumanNum(vRaw) ?? 0 : 0, createdAt });
+function reactionTotal(rx: unknown): number {
+  if (!Array.isArray(rx)) return 0;
+  let total = 0;
+  for (const r of rx) {
+    const o = (r ?? {}) as Record<string, unknown>;
+    total += num(o.count) ?? num(o.total) ?? num(o.value) ?? 0;
   }
-  return out;
-}
-
-/** Fetch a t.me page through free proxies (t.me blocks datacenter IPs directly). */
-async function fetchViaProxy(url: string): Promise<string | null> {
-  const proxies = [
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-    `https://r.jina.ai/${url}`,
-  ];
-  for (const p of proxies) {
-    try {
-      const res = await fetchWithTimeout(p, { headers: { "Accept-Language": "en" } }, 15000);
-      if (res.ok) {
-        const t = await res.text();
-        if (t && t.length > 200) return t;
-      }
-    } catch {
-      /* try the next proxy */
-    }
-  }
-  return null;
+  return total;
 }
 
 export async function collectTelegram(channel: string): Promise<CollectResult> {
+  const token = process.env.APIFY_TOKEN;
+  if (!token) return { values: {}, error: "Apify not set (APIFY_TOKEN)" };
+  const actor = process.env.APIFY_TELEGRAM_ACTOR || "automation-lab~telegram-scraper";
   const chan = (process.env.TELEGRAM_CHANNEL || channel)
     .replace(/^(?:https?:\/\/)?t\.me\//, "")
     .replace(/^s\//, "")
     .replace(/^@/, "")
     .replace(/\/$/, "");
-  const html = await fetchViaProxy(`https://t.me/s/${encodeURIComponent(chan)}`);
-  if (!html) return { values: {}, error: "Telegram: all free proxies blocked; will retry next run" };
+  const input = { channels: [chan], maxMessages: 50, includeChannelInfo: true };
+  try {
+    const res = await apifyRunSync(actor, token, input);
+    if (!res.ok) return { values: {}, error: `Apify HTTP ${res.status} (token/credit?)` };
+    const items = (await res.json()) as Array<Record<string, unknown>>;
+    if (!Array.isArray(items)) return { values: {}, error: "Apify: unexpected response shape" };
 
-  const members = parseTelegramSubscribers(html);
-  const posts = parseTelegramPosts(html);
-  const cutoff = Date.now() - WEEK_MS;
-  let views = 0, count = 0;
-  for (const p of posts) {
-    const t = Date.parse(p.createdAt);
-    if (!Number.isNaN(t) && t < cutoff) continue;
-    views += p.views;
-    count += 1;
-  }
+    const cutoff = Date.now() - WEEK_MS;
+    let members: number | undefined;
+    let views = 0, reactions = 0, count = 0;
+    for (const it of items) {
+      // Channel-info record carries the subscriber count.
+      const sub = it.subscriberCount ?? it.subscribers;
+      if (sub != null) {
+        const v = parseHumanNum(String(sub)) ?? num(sub);
+        if (v != null) members = v;
+        continue;
+      }
+      // Message records: only those from the last 7 days.
+      const created = Date.parse(String(it.date ?? it.createdAt ?? ""));
+      if (!Number.isNaN(created) && created < cutoff) continue;
+      views += num(it.views) ?? parseHumanNum(String(it.viewsRaw ?? "")) ?? 0;
+      reactions += reactionTotal(it.reactions);
+      count += 1;
+    }
 
-  const values: Record<string, number | null> = {};
-  if (members != null) values.members = members;
-  if (posts.length > 0) {
+    const values: Record<string, number | null> = {};
+    if (members != null) values.members = members;
     values.posts = count;
     values.views = views;
     const avg = count > 0 ? Math.round(views / count) : null;
     values.avgViews = avg;
     values.reachRate = avg != null && members != null && members > 0 ? +((avg / members) * 100).toFixed(1) : null;
+    values.reactions = reactions;
+    values.avgReactions = count > 0 ? Math.round(reactions / count) : null;
+    if (members == null && count === 0) {
+      return { values: {}, error: "Telegram: no data (private channel or wrong handle)" };
+    }
+    return { values, error: null };
+  } catch (e) {
+    return { values: {}, error: `Apify: ${errMsg(e)}` };
   }
-  if (members == null && posts.length === 0) {
-    return { values: {}, error: "Telegram: no public data (private channel or wrong handle)" };
-  }
-  return { values, error: null };
 }

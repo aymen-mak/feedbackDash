@@ -150,10 +150,13 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
         tweetsChanged = true;
       }
     } else if (acc.key === "telegram") {
-      // Telegram uses free proxies, not Apify, so it runs regardless of credit.
-      const r = await collectTelegram(acc.handle ?? "makinafinance");
-      Object.assign(collected, r.values);
-      error = r.error;
+      if (!apify.ok) {
+        error = apifyMsg;
+      } else {
+        const r = await collectTelegram(acc.handle ?? "makinafinance");
+        Object.assign(collected, r.values);
+        error = r.error;
+      }
     }
 
     // Derived: new follows = followers delta vs the previous period.

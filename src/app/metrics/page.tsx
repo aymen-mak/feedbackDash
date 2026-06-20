@@ -46,6 +46,7 @@ interface Diag {
 function suggestFor(err: string): string {
   const e = err.toLowerCase();
   if (e.includes("not set")) return "Env var missing on this deployment. Add it in Vercel and redeploy.";
+  if (e.includes("approval") || e.includes("approve") || e.includes("permission")) return "Approve the actor's permissions on this Apify account using the link.";
   if (e.includes("402") || e.includes("credit") || e.includes("payment") || e.includes("usage limit"))
     return "Apify monthly credit is used up. Add a payment method or wait for the cycle reset.";
   if (e.includes("401") || e.includes("403") || e.includes("token")) return "Token rejected. Regenerate APIFY_TOKEN and redeploy.";
@@ -53,6 +54,22 @@ function suggestFor(err: string): string {
   if (e.includes("timed out")) return "Scrape timed out. Usually transient; retry.";
   if (e.includes("no tweets") || e.includes("no posts") || e.includes("no data")) return "Connected fine, nothing in the window. Not a failure.";
   return "Retry; if it persists, check the Apify token and credit.";
+}
+
+/** Render text, turning the first URL into a clickable link. */
+function Linkify({ text }: { text: string }) {
+  const m = text.match(/(https?:\/\/[^\s]+)/);
+  if (!m) return <>{text}</>;
+  const [before, after] = text.split(m[1]);
+  return (
+    <>
+      {before}
+      <a href={m[1]} target="_blank" rel="noopener noreferrer" className="text-makina-accent underline">
+        {m[1]}
+      </a>
+      {after}
+    </>
+  );
 }
 
 function fmtMetric(v: number | null | undefined, kind: MetricKind): string {
@@ -81,10 +98,9 @@ const clampDesc = {
   overflow: "hidden",
 };
 
-/** Plain-language one-liner summarizing the week for an account. */
-function weekSummary(accDef: AccountDef, latest: JournalEntry): string | null {
+/** Plain-language one-liner summarizing the latest known figures for an account. */
+function weekSummary(accDef: AccountDef, v: Record<string, number | null>): string | null {
   if (accDef.platform !== "twitter") return null;
-  const v = latest.values;
   const imp = v.impressions;
   if (imp == null) return null;
   const eng = (v.likes ?? 0) + (v.replies ?? 0) + (v.reposts ?? 0) + (v.bookmarks ?? 0) + (v.shares ?? 0);
@@ -93,7 +109,33 @@ function weekSummary(accDef: AccountDef, latest: JournalEntry): string | null {
     `${formatCount(eng)} engagements${v.engagementRate != null ? ` (${Math.round(v.engagementRate * 10) / 10}% rate)` : ""}`,
   ];
   if (v.newFollows != null) parts.push(`${v.newFollows >= 0 ? "+" : "−"}${formatCount(Math.abs(v.newFollows))} followers`);
-  return `This week, ${parts.join(", ")}.`;
+  return `${parts.join(", ")}.`;
+}
+
+/** Latest non-null value for a metric across periods, with its period and the prior non-null (for deltas). */
+function stickyMetric(entries: JournalEntry[], key: string): { value: number | null; asOf: string | null; prev: number | null } {
+  let value: number | null = null;
+  let asOf: string | null = null;
+  let prev: number | null = null;
+  for (let i = entries.length - 1; i >= 0; i--) {
+    const v = entries[i].values[key];
+    if (v == null) continue;
+    if (value === null) {
+      value = v;
+      asOf = entries[i].periodStart;
+    } else {
+      prev = v;
+      break;
+    }
+  }
+  return { value, asOf, prev };
+}
+
+/** Short UTC stamp for a collection timestamp. */
+function fmtStamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return `${d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`;
 }
 
 function MetricsInner() {
@@ -164,7 +206,14 @@ function MetricsInner() {
   const labels = accEntries.map((e) => periodLabel(e.periodStart));
   const latest = accEntries[accEntries.length - 1];
   const prev = accEntries[accEntries.length - 2];
-  const summaryText = latest ? weekSummary(accDef, latest) : null;
+  // Carry-forward the latest known value per metric so nothing goes blank when a collection fails.
+  const stickyVals: Record<string, number | null> = {};
+  for (const m of accDef.metrics) stickyVals[m.key] = stickyMetric(accEntries, m.key).value;
+  const summaryText = latest ? weekSummary(accDef, stickyVals) : null;
+  const lastCollectAt = accEntries.reduce<string | null>(
+    (mx, e) => (e.updatedAt && (!mx || e.updatedAt > mx) ? e.updatedAt : mx),
+    null
+  );
 
   // Keep the charted metric valid for the account.
   useEffect(() => {
@@ -285,7 +334,7 @@ function MetricsInner() {
                   <div key={a.key} className="flex items-start gap-2">
                     <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-makina-red" />
                     <p className="text-makina-text/90">
-                      <span className="font-semibold">{a.label}:</span> {a.error}.{" "}
+                      <span className="font-semibold">{a.label}:</span> <Linkify text={a.error || ""} />.{" "}
                       <span className="text-makina-muted">{suggestFor(a.error || "")}</span>
                     </p>
                   </div>
@@ -334,10 +383,17 @@ function MetricsInner() {
             {/* Period + plain-language summary, one cohesive band */}
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
-                <h2 className="text-sm font-semibold text-makina-text">
-                  Latest: <span className="text-makina-accent">{periodLabel(latest.periodStart)}</span>
-                  {prev && <span className="ml-2 text-xs font-normal text-makina-subtle">vs {periodLabel(prev.periodStart)}</span>}
-                </h2>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-semibold text-makina-text">
+                    Latest: <span className="text-makina-accent">{periodLabel(latest.periodStart)}</span>
+                    {prev && <span className="ml-2 text-xs font-normal text-makina-subtle">vs {periodLabel(prev.periodStart)}</span>}
+                  </h2>
+                  {lastCollectAt && (
+                    <span className="rounded-md bg-makina-accent-dim px-2 py-0.5 text-[11px] font-medium text-makina-accent">
+                      Data as of {fmtStamp(lastCollectAt)}
+                    </span>
+                  )}
+                </div>
                 {summaryText && <p className="mt-1 max-w-3xl text-xs leading-relaxed text-makina-muted">{summaryText}</p>}
               </div>
               <button
@@ -352,11 +408,11 @@ function MetricsInner() {
             {/* KPIs, one dense grid; click a card to chart it */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {accDef.metrics.map((m) => {
-                const cur = latest.values[m.key] ?? null;
-                const pv = prev?.values[m.key] ?? null;
+                const { value: cur, asOf, prev: pv } = stickyMetric(accEntries, m.key);
                 const on = chartMetric === m.key;
                 const spark = seriesOf(m.key).filter((v): v is number => v != null);
                 const hasHistory = spark.length >= 2;
+                const stale = asOf != null && asOf < latest.periodStart;
                 return (
                   <button
                     key={m.key}
@@ -372,14 +428,14 @@ function MetricsInner() {
                     </div>
                     <p className="mt-1 text-xl font-bold tabular-nums text-makina-text">{fmtMetric(cur, m.kind)}</p>
                     <div className="mt-0.5 flex h-[18px] items-center justify-between gap-1">
-                      {hasHistory ? (
-                        <>
-                          <Delta pct={pctChange(cur, pv)} />
-                          <Sparkline data={spark} width={56} height={18} color={on ? accentColor : undefined} />
-                        </>
+                      {stale ? (
+                        <span className="text-[10px] font-medium text-amber-500">as of {periodLabel(asOf!)}</span>
+                      ) : hasHistory ? (
+                        <Delta pct={pctChange(cur, pv)} />
                       ) : (
                         <span className="text-[10px] text-makina-subtle">first tracked week</span>
                       )}
+                      {hasHistory && <Sparkline data={spark} width={56} height={18} color={on ? accentColor : undefined} />}
                     </div>
                     <p className="mt-1.5 text-[10px] leading-snug text-makina-subtle" style={clampDesc}>
                       {m.description}
