@@ -10,6 +10,8 @@ import {
   TrendingDown,
   Minus,
   Pencil,
+  Wrench,
+  AlertTriangle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Sparkline from "@/components/competitors/Sparkline";
@@ -34,6 +36,23 @@ import {
 interface CollectSummary {
   periodStart: string;
   accounts: { key: string; label: string; ok: boolean; error: string | null; filled: number }[];
+}
+
+interface Diag {
+  apify: { ok: boolean; message: string; fix?: string };
+}
+
+/** Map a collector error string to a one-line suggested fix. */
+function suggestFor(err: string): string {
+  const e = err.toLowerCase();
+  if (e.includes("not set")) return "Env var missing on this deployment. Add it in Vercel and redeploy.";
+  if (e.includes("402") || e.includes("credit") || e.includes("payment") || e.includes("usage limit"))
+    return "Apify monthly credit is used up. Add a payment method or wait for the cycle reset.";
+  if (e.includes("401") || e.includes("403") || e.includes("token")) return "Token rejected. Regenerate APIFY_TOKEN and redeploy.";
+  if (e.includes("429") || e.includes("rate")) return "Rate-limited; retried automatically and should clear shortly.";
+  if (e.includes("timed out")) return "Scrape timed out. Usually transient; retry.";
+  if (e.includes("no tweets") || e.includes("no posts") || e.includes("no data")) return "Connected fine, nothing in the window. Not a failure.";
+  return "Retry; if it persists, check the Apify token and credit.";
 }
 
 function fmtMetric(v: number | null | undefined, kind: MetricKind): string {
@@ -88,6 +107,8 @@ function MetricsInner() {
   const [showHistory, setShowHistory] = useState(false);
   const [modal, setModal] = useState<{ entry: JournalEntry | null } | null>(null);
   const [tweets, setTweets] = useState<MakinaTweets>({ byAccount: {} });
+  const [diag, setDiag] = useState<Diag | null>(null);
+  const [diagBusy, setDiagBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -103,6 +124,17 @@ function MetricsInner() {
     setLoading(false);
   }, []);
 
+  const runDiagnostics = useCallback(async () => {
+    setDiagBusy(true);
+    try {
+      const d = (await fetch("/api/makina/diagnose").then((r) => (r.ok ? r.json() : null))) as Diag | null;
+      if (d) setDiag(d);
+    } catch {
+      /* ignore */
+    }
+    setDiagBusy(false);
+  }, []);
+
   useEffect(() => {
     load();
   }, [load]);
@@ -113,7 +145,10 @@ function MetricsInner() {
     try {
       const res = await fetch("/api/makina/collect", { method: "POST" });
       const data = (await res.json().catch(() => null)) as CollectSummary | null;
-      if (data?.accounts) setSummary(data);
+      if (data?.accounts) {
+        setSummary(data);
+        if (data.accounts.some((a) => !a.ok)) runDiagnostics();
+      }
       await load();
     } catch {
       setError("Collection failed.");
@@ -166,6 +201,15 @@ function MetricsInner() {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={runDiagnostics}
+              disabled={diagBusy}
+              className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text btn-tactile disabled:opacity-50"
+              title="Check why collection failed"
+            >
+              <Wrench size={14} className={diagBusy ? "animate-pulse" : ""} />
+              Diagnose
+            </button>
+            <button
               onClick={() => setModal({ entry: null })}
               className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text btn-tactile"
             >
@@ -210,6 +254,47 @@ function MetricsInner() {
                   <span className="text-makina-subtle">{a.ok ? `${a.filled}` : a.error ? "needs setup" : `${a.filled}`}</span>
                 </span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Diagnostics (auto-runs on a failed collection) */}
+        {(diag || summary?.accounts.some((a) => !a.ok)) && (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 animate-fade-in-up">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-500">
+                <AlertTriangle size={12} /> Diagnostics
+              </span>
+              <button onClick={() => setDiag(null)} className="text-[11px] text-makina-subtle transition-colors hover:text-makina-text">
+                dismiss
+              </button>
+            </div>
+            <div className="space-y-1.5 text-xs">
+              {diag && (
+                <div className="flex items-start gap-2">
+                  <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${diag.apify.ok ? "bg-makina-green" : "bg-makina-red"}`} />
+                  <p className="text-makina-text/90">
+                    <span className="font-semibold">Apify:</span> {diag.apify.message}
+                    {diag.apify.fix && <span className="text-makina-muted"> {diag.apify.fix}</span>}
+                  </p>
+                </div>
+              )}
+              {summary?.accounts
+                .filter((a) => !a.ok && a.error)
+                .map((a) => (
+                  <div key={a.key} className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-makina-red" />
+                    <p className="text-makina-text/90">
+                      <span className="font-semibold">{a.label}:</span> {a.error}.{" "}
+                      <span className="text-makina-muted">{suggestFor(a.error || "")}</span>
+                    </p>
+                  </div>
+                ))}
+              {!diag && (
+                <button onClick={runDiagnostics} disabled={diagBusy} className="text-[11px] font-medium text-makina-accent hover:underline disabled:opacity-50">
+                  {diagBusy ? "Checking Apify…" : "Run Apify health check"}
+                </button>
+              )}
             </div>
           </div>
         )}

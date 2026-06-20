@@ -43,6 +43,18 @@ function num(v: unknown): number | undefined {
   return undefined;
 }
 
+/** POST run-sync-get-dataset-items with one auto-retry on transient 429/5xx. */
+async function apifyRunSync(actor: string, token: string, input: unknown, ms = 58000): Promise<Response> {
+  const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&memory=1024`;
+  const opts: RequestInit = { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) };
+  let res = await fetchWithTimeout(url, opts, ms);
+  if (res.status === 429 || res.status >= 500) {
+    await new Promise((r) => setTimeout(r, 2000));
+    res = await fetchWithTimeout(url, opts, ms);
+  }
+  return res;
+}
+
 // ── X via Apify + altimis/scweet (public profile scrape, no X login) ──
 // A single scrape can cover several handles at once (scweet accepts multiple
 // profile_urls), keeping us to one run per collection, which matters on the
@@ -112,11 +124,7 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
     search_sort: "Latest",
   };
   try {
-    const res = await fetchWithTimeout(
-      `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&memory=1024`,
-      { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) },
-      58000
-    );
+    const res = await apifyRunSync(actor, token, input);
     if (!res.ok) return fail(`Apify HTTP ${res.status} (token/credit/rate-limit?)`);
     const items = (await res.json()) as Array<Record<string, unknown>>;
     if (!Array.isArray(items)) return fail("Apify: unexpected response shape");
@@ -173,11 +181,7 @@ export async function collectTelegram(channel: string): Promise<CollectResult> {
     .replace(/\/$/, "");
   const input = { channels: [chan], maxMessages: 50, includeChannelInfo: true };
   try {
-    const res = await fetchWithTimeout(
-      `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&memory=1024`,
-      { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(input) },
-      58000
-    );
+    const res = await apifyRunSync(actor, token, input);
     if (!res.ok) return { values: {}, error: `Apify HTTP ${res.status} (token/credit?)` };
     const items = (await res.json()) as Array<Record<string, unknown>>;
     if (!Array.isArray(items)) return { values: {}, error: "Apify: unexpected response shape" };
