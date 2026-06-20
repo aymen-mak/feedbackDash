@@ -12,6 +12,7 @@ import {
   type MakinaTweets,
 } from "./journal";
 import { collectTelegram, collectXProfiles } from "./collectors";
+import { diagnoseApify } from "./diagnostics";
 
 export async function getJournal(): Promise<MakinaJournal> {
   return hasPostgres() ? pgGetMakinaJournal() : fileGetJournal();
@@ -126,9 +127,14 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   const tweetsStore = await getLatestTweets();
   let tweetsChanged = false;
 
+  // Pre-flight: check Apify health once, so we skip wasteful failing runs and
+  // report the real reason (e.g. exhausted credit) instead of per-actor errors.
+  const apify = await diagnoseApify();
+  const apifyMsg = apify.fix ? `${apify.message} ${apify.fix}` : apify.message;
+
   // One scweet run covers every X handle (avoids the free tier's run limit).
   const twHandles = ACCOUNTS.filter((a) => a.platform === "twitter").map((a) => a.handle ?? a.key);
-  const xResults = twHandles.length ? await collectXProfiles(twHandles) : {};
+  const xResults = apify.ok && twHandles.length ? await collectXProfiles(twHandles) : {};
 
   for (const acc of ACCOUNTS) {
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
@@ -138,15 +144,19 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       const key = (acc.handle ?? acc.key).replace(/^@/, "").toLowerCase();
       const r = xResults[key] ?? { values: {}, error: "scweet: no data" };
       Object.assign(collected, r.values);
-      error = r.error;
+      error = apify.ok ? r.error : apifyMsg;
       if (r.tweets && r.tweets.length > 0) {
         tweetsStore.byAccount[acc.key] = { tweets: r.tweets, updatedAt: new Date().toISOString() };
         tweetsChanged = true;
       }
     } else if (acc.key === "telegram") {
-      const r = await collectTelegram(acc.handle ?? "makinafinance");
-      Object.assign(collected, r.values);
-      error = r.error;
+      if (!apify.ok) {
+        error = apifyMsg;
+      } else {
+        const r = await collectTelegram(acc.handle ?? "makinafinance");
+        Object.assign(collected, r.values);
+        error = r.error;
+      }
     }
 
     // Derived: new follows = followers delta vs the previous period.
