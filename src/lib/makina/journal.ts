@@ -69,6 +69,8 @@ export const ACCOUNTS: AccountDef[] = [
       { key: "posts", label: "Posts", kind: "count", category: "Activity", auto: true, description: "Posts published this period." },
       { key: "avgViews", label: "Avg views / post", kind: "count", category: "Reach", auto: true, description: "Average views per post this period." },
       { key: "reachRate", label: "Reach rate", kind: "ratio", category: "Reach", auto: true, description: "Average post views as a share of members." },
+      { key: "reactions", label: "Reactions", kind: "count", category: "Engagement", auto: true, description: "Total reactions on posts this period." },
+      { key: "avgReactions", label: "Avg reactions / post", kind: "count", category: "Engagement", auto: true, description: "Average reactions per post this period." },
     ],
   },
   {
