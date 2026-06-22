@@ -39,7 +39,7 @@ interface CollectSummary {
 }
 
 interface Diag {
-  apify: { ok: boolean; message: string; fix?: string };
+  apify: { ok: boolean; message: string; fix?: string; detail?: { usage?: number; limit?: number; resetAt?: string } };
 }
 
 /** Map a collector error string to a one-line suggested fix. */
@@ -138,6 +138,21 @@ function fmtStamp(iso: string): string {
   return `${d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" })} UTC`;
 }
 
+/** Always-on pill showing Apify usage this billing cycle. */
+function ApifyPill({ usage, limit }: { usage: number; limit: number }) {
+  const pct = limit > 0 ? usage / limit : 0;
+  const color = pct >= 1 ? "#f87171" : pct >= 0.8 ? "#f59e0b" : "#34d399";
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-lg border border-makina-border bg-makina-surface px-2.5 py-2 text-xs font-medium text-makina-muted"
+      title={`Apify usage this billing cycle: $${usage.toFixed(2)} of $${limit}`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+      Apify ${usage.toFixed(2)}/${limit}
+    </span>
+  );
+}
+
 function MetricsInner() {
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,7 +164,8 @@ function MetricsInner() {
   const [showHistory, setShowHistory] = useState(false);
   const [modal, setModal] = useState<{ entry: JournalEntry | null } | null>(null);
   const [tweets, setTweets] = useState<MakinaTweets>({ byAccount: {} });
-  const [diag, setDiag] = useState<Diag | null>(null);
+  const [apifyHealth, setApifyHealth] = useState<Diag["apify"] | null>(null);
+  const [diagOpen, setDiagOpen] = useState(false);
   const [diagBusy, setDiagBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -166,20 +182,22 @@ function MetricsInner() {
     setLoading(false);
   }, []);
 
-  const runDiagnostics = useCallback(async () => {
+  const runDiagnostics = useCallback(async (open = true) => {
     setDiagBusy(true);
     try {
       const d = (await fetch("/api/makina/diagnose").then((r) => (r.ok ? r.json() : null))) as Diag | null;
-      if (d) setDiag(d);
+      if (d?.apify) setApifyHealth(d.apify);
     } catch {
       /* ignore */
     }
+    if (open) setDiagOpen(true);
     setDiagBusy(false);
   }, []);
 
   useEffect(() => {
     load();
-  }, [load]);
+    runDiagnostics(false);
+  }, [load, runDiagnostics]);
 
   const collectNow = async () => {
     setCollecting(true);
@@ -189,7 +207,7 @@ function MetricsInner() {
       const data = (await res.json().catch(() => null)) as CollectSummary | null;
       if (data?.accounts) {
         setSummary(data);
-        if (data.accounts.some((a) => !a.ok)) runDiagnostics();
+        runDiagnostics(data.accounts.some((a) => !a.ok));
       }
       await load();
     } catch {
@@ -249,8 +267,11 @@ function MetricsInner() {
             <p className="mt-1 text-xs text-makina-muted">Auto-collected from Makina&apos;s accounts</p>
           </div>
           <div className="flex items-center gap-2">
+            {apifyHealth?.detail?.usage != null && apifyHealth.detail.limit != null && (
+              <ApifyPill usage={apifyHealth.detail.usage} limit={apifyHealth.detail.limit} />
+            )}
             <button
-              onClick={runDiagnostics}
+              onClick={() => runDiagnostics()}
               disabled={diagBusy}
               className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text btn-tactile disabled:opacity-50"
               title="Check why collection failed"
@@ -308,23 +329,23 @@ function MetricsInner() {
         )}
 
         {/* Diagnostics (auto-runs on a failed collection) */}
-        {(diag || summary?.accounts.some((a) => !a.ok)) && (
+        {(diagOpen || summary?.accounts.some((a) => !a.ok)) && (
           <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 animate-fade-in-up">
             <div className="mb-2 flex items-center justify-between">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-500">
                 <AlertTriangle size={12} /> Diagnostics
               </span>
-              <button onClick={() => setDiag(null)} className="text-[11px] text-makina-subtle transition-colors hover:text-makina-text">
+              <button onClick={() => setDiagOpen(false)} className="text-[11px] text-makina-subtle transition-colors hover:text-makina-text">
                 dismiss
               </button>
             </div>
             <div className="space-y-1.5 text-xs">
-              {diag && (
+              {apifyHealth && (
                 <div className="flex items-start gap-2">
-                  <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${diag.apify.ok ? "bg-makina-green" : "bg-makina-red"}`} />
+                  <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${apifyHealth.ok ? "bg-makina-green" : "bg-makina-red"}`} />
                   <p className="text-makina-text/90">
-                    <span className="font-semibold">Apify:</span> {diag.apify.message}
-                    {diag.apify.fix && <span className="text-makina-muted"> {diag.apify.fix}</span>}
+                    <span className="font-semibold">Apify:</span> {apifyHealth.message}
+                    {apifyHealth.fix && <span className="text-makina-muted"> {apifyHealth.fix}</span>}
                   </p>
                 </div>
               )}
@@ -339,8 +360,8 @@ function MetricsInner() {
                     </p>
                   </div>
                 ))}
-              {!diag && (
-                <button onClick={runDiagnostics} disabled={diagBusy} className="text-[11px] font-medium text-makina-accent hover:underline disabled:opacity-50">
+              {!apifyHealth && (
+                <button onClick={() => runDiagnostics()} disabled={diagBusy} className="text-[11px] font-medium text-makina-accent hover:underline disabled:opacity-50">
                   {diagBusy ? "Checking Apify…" : "Run Apify health check"}
                 </button>
               )}
