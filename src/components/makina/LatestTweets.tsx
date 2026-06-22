@@ -37,6 +37,12 @@ function relTime(iso: string): string {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
+/** Author handle from a tweet URL (x.com/<handle>/status/...). */
+function handleFromUrl(url: string): string | null {
+  const m = url.match(/(?:twitter|x)\.com\/([A-Za-z0-9_]{1,15})(?:[/?#]|$)/i);
+  return m ? m[1] : null;
+}
+
 const clamp2 = {
   display: "-webkit-box",
   WebkitLineClamp: 2,
@@ -99,7 +105,9 @@ export default function LatestTweets({
         </div>
       ) : (
         <ul className="divide-y divide-makina-border/60 overflow-y-auto" style={{ maxHeight: 380 }}>
-          {sorted.map((t) => (
+          {sorted.map((t) => {
+            const handle = handleFromUrl(t.url || "");
+            return (
             <li key={t.id}>
               <a
                 href={t.url || undefined}
@@ -108,7 +116,15 @@ export default function LatestTweets({
                 className="group block px-4 py-3 transition-colors hover:bg-makina-surface/40"
               >
                 <div className="mb-1.5 flex items-center justify-between gap-2">
-                  <span className="text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
+                  <div className="flex min-w-0 items-center gap-2">
+                    {handle && (
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-makina-surface px-1.5 py-0.5 text-[10px] font-semibold text-makina-text/80">
+                        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: accent }} />
+                        @{handle}
+                      </span>
+                    )}
+                    <span className="truncate text-[11px] text-makina-subtle">{relTime(t.createdAt)}</span>
+                  </div>
                   <ExternalLink size={12} className="shrink-0 text-makina-subtle transition-colors group-hover:text-makina-accent" />
                 </div>
                 <p className="mb-2.5 text-[13px] leading-snug text-makina-text/90" style={clamp2}>
@@ -146,7 +162,8 @@ export default function LatestTweets({
                 </div>
               </a>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
     </div>
