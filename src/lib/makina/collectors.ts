@@ -187,81 +187,73 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
   return { values, error: null, tweets, evidence };
 }
 
-/** Scrape one or more handles in a single scweet run; keyed by lowercase handle (no @). */
+/** Scrape each handle in its OWN scweet run — profiles mode returns data for a
+ *  single profile_url per run (batching multiple yields an empty dataset). Runs
+ *  are sequential to respect the free tier's one-run-at-a-time limit. Keyed by
+ *  lowercase handle (no @). */
 export async function collectXProfiles(handles: string[]): Promise<Record<string, CollectResult>> {
   const clean = [...new Set(handles.map((h) => h.replace(/^@/, "").trim().toLowerCase()).filter(Boolean))];
-  const fail = (error: string): Record<string, CollectResult> =>
-    Object.fromEntries(clean.map((h) => [h, { values: {}, error }]));
-
   const token = process.env.APIFY_TOKEN;
-  if (!token) return fail("Apify not set (APIFY_TOKEN)");
+  if (!token) return Object.fromEntries(clean.map((h) => [h, { values: {}, error: "Apify not set (APIFY_TOKEN)" }]));
   if (clean.length === 0) return {};
   const actor = process.env.APIFY_TWEET_ACTOR || "altimis~scweet";
-  // scweet's "profiles" mode is the one meant for recent activity per account.
-  // NOTE: source_mode "auto" is NOT a valid value — the run succeeds but scrapes
-  // nothing (empty dataset), which is what silently broke X collection.
-  const input = {
-    source_mode: "profiles",
-    profile_urls: clean.map((h) => `@${h}`),
-    max_items: Math.max(100, clean.length * 100), // scweet's schema minimum is 100
-  };
-  try {
-    const res = await apifyRunSync(actor, token, input);
-    if (!res.ok) {
-      let body = "";
-      try { body = await res.text(); } catch { /* ignore */ }
-      const approval = body.match(/"approvalUrl":"([^"]+)"/)?.[1];
-      if (approval || /not-approved|approvepermissions/i.test(body)) {
-        return fail(`Actor needs a one-time permission approval on this Apify account: ${approval ?? "open the actor in Apify and approve permissions"}`);
+
+  const out: Record<string, CollectResult> = {};
+  for (const h of clean) {
+    try {
+      // One profile per run — this is the shape that actually returns data.
+      const res = await apifyRunSync(actor, token, {
+        source_mode: "profiles",
+        profile_urls: [`@${h}`],
+        max_items: 100, // scweet's schema minimum
+      });
+      if (!res.ok) {
+        let body = "";
+        try { body = await res.text(); } catch { /* ignore */ }
+        const approval = body.match(/"approvalUrl":"([^"]+)"/)?.[1];
+        out[h] = {
+          values: {},
+          error:
+            approval || /not-approved|approvepermissions/i.test(body)
+              ? `Actor needs a one-time permission approval on this Apify account: ${approval ?? "open the actor in Apify and approve permissions"}`
+              : `Apify HTTP ${res.status} (token/credit/rate-limit?)`,
+        };
+        continue;
       }
-      return fail(`Apify HTTP ${res.status} (token/credit/rate-limit?)`);
+      const items = (await res.json()) as Array<Record<string, unknown>>;
+      if (!Array.isArray(items)) {
+        out[h] = { values: {}, error: "Apify: unexpected response shape" };
+        continue;
+      }
+
+      // profiles mode returns this profile's timeline; keep its own posts (drop
+      // demo rows and retweets of other accounts).
+      const mine = items.filter((it) => {
+        if (it.noResults || it.demo) return false;
+        const user = (it.user ?? {}) as Record<string, unknown>;
+        const author = String(
+          user.handle ?? user.username ?? user.screen_name ?? user.userName ?? it.handle ?? it.username ?? it.screen_name ?? ""
+        )
+          .replace(/^@/, "")
+          .trim()
+          .toLowerCase();
+        return author === h || !author; // matches this handle, or has no author field
+      });
+
+      const r = aggregateHandle(mine, h);
+      r.evidence = { ...(r.evidence ?? {}), itemsReturned: items.length };
+      if (mine.length === 0 && r.error) {
+        r.error =
+          items.length === 0
+            ? `scweet returned 0 items for @${h} (no posts in the scrape range)`
+            : `scweet returned ${items.length} items but none authored by @${h}`;
+      }
+      out[h] = r;
+    } catch (e) {
+      out[h] = { values: {}, error: `Apify: ${errMsg(e)}` };
     }
-    const items = (await res.json()) as Array<Record<string, unknown>>;
-    if (!Array.isArray(items)) return fail("Apify: unexpected response shape");
-
-    // Group posts by author handle (drops demo rows and retweets of others).
-    // scweet has shipped a few output shapes, so accept several handle fields.
-    const byHandle: Record<string, Array<Record<string, unknown>>> = {};
-    for (const it of items) {
-      if (it.noResults || it.demo) continue;
-      const user = (it.user ?? {}) as Record<string, unknown>;
-      const author = String(
-        user.handle ?? user.username ?? user.screen_name ?? user.userName ?? it.handle ?? it.username ?? it.screen_name ?? ""
-      )
-        .replace(/^@/, "")
-        .trim()
-        .toLowerCase();
-      if (!author) continue;
-      (byHandle[author] = byHandle[author] ?? []).push(it);
-    }
-
-    const authorsSeen = Object.keys(byHandle);
-    const sampleKeys = Object.keys(
-      (items.find((x) => !x.noResults && !x.demo) ?? {}) as Record<string, unknown>
-    ).slice(0, 8);
-
-    return Object.fromEntries(
-      clean.map((h) => {
-        const res = aggregateHandle(byHandle[h] ?? [], h);
-        res.evidence = { ...(res.evidence ?? {}), itemsReturned: items.length, authorsSeen: authorsSeen.join(", ") || null };
-        // Turn an empty result into an actionable diagnostic: "nothing was posted"
-        // vs "the scraper returned data we no longer recognize" vs "wrong author".
-        if ((byHandle[h] ?? []).length === 0) {
-          if (items.length === 0) {
-            res.error = `scweet returned 0 items for @${h} (no posts in the scrape range)`;
-          } else if (authorsSeen.length === 0) {
-            res.error = `scweet returned ${items.length} items but none had a recognizable author handle; the output schema may have changed (fields: ${sampleKeys.join(", ") || "none"})`;
-            res.evidence = { ...res.evidence, sampleKeys: sampleKeys.join(", ") || null };
-          } else {
-            res.error = `scweet returned posts for ${authorsSeen.map((a) => "@" + a).join(", ")} but not @${h}`;
-          }
-        }
-        return [h, res];
-      })
-    );
-  } catch (e) {
-    return fail(`Apify: ${errMsg(e)}`);
   }
+  return out;
 }
 
 // ── Telegram via the direct t.me preview (free; no proxy, no Apify) ──
