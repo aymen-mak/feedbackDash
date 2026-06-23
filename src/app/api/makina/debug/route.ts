@@ -4,9 +4,10 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Debug-only: run a single scweet scrape and return its RAW shape so we can map
-// field names when metrics stop reading (the scraper occasionally renames them).
-// Returns public tweet data only. Visit /api/makina/debug?handle=makinafi.
+// Debug-only: run scweet once and report the RUN object (status + statusMessage
+// + stats), not just the dataset. An empty dataset with a successful run vs. a
+// failed/rental-blocked run look identical downstream; this tells them apart.
+// Visit /api/makina/debug?handle=makinafi   (or &mode=search&q=from:makinafi)
 export async function GET(req: Request) {
   const token = process.env.APIFY_TOKEN;
   if (!token) return NextResponse.json({ error: "APIFY_TOKEN not set on this deployment" }, { status: 200 });
@@ -21,45 +22,57 @@ export async function GET(req: Request) {
       ? { source_mode: "search", search_query: q || `from:${handle}`, max_items: 100, search_sort: "Latest" }
       : { source_mode: "profiles", profile_urls: [`@${handle}`], max_items: 100 };
 
+  const t = encodeURIComponent(token);
   try {
-    const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&memory=1024`;
-    const res = await fetch(url, {
+    // Start the run and wait (≤55s) for it to finish so we get its real status.
+    const runRes = await fetch(`https://api.apify.com/v2/acts/${actor}/runs?token=${t}&waitForFinish=55`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify(input),
       cache: "no-store",
     });
-    const text = await res.text();
-    let parsed: unknown;
+    const runText = await runRes.text();
+    let run: Record<string, unknown> | null = null;
     try {
-      parsed = JSON.parse(text);
+      run = (JSON.parse(runText) as { data?: Record<string, unknown> }).data ?? null;
     } catch {
-      parsed = null;
+      /* non-JSON */
     }
-    const items = Array.isArray(parsed) ? (parsed as Array<Record<string, unknown>>) : [];
+    if (!run) {
+      return NextResponse.json({ stage: "start-run", httpStatus: runRes.status, actor, input, body: runText.slice(0, 1500) });
+    }
+
+    const dsId = run.defaultDatasetId as string | undefined;
+    let datasetItemCount: number | null = null;
+    let items: Array<Record<string, unknown>> = [];
+    if (dsId) {
+      const meta = await fetch(`https://api.apify.com/v2/datasets/${dsId}?token=${t}`, { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null);
+      datasetItemCount = (meta?.data?.itemCount as number) ?? null;
+      const got = await fetch(`https://api.apify.com/v2/datasets/${dsId}/items?token=${t}&clean=true&limit=2`, { cache: "no-store" })
+        .then((r) => r.json())
+        .catch(() => null);
+      if (Array.isArray(got)) items = got;
+    }
     const first = items[0] ?? null;
     const keysOf = (o: unknown) => (o && typeof o === "object" ? Object.keys(o as object) : []);
 
     return NextResponse.json({
-      ok: res.ok,
-      status: res.status,
-      count: items.length,
-      handle,
+      actor,
       mode,
-      // Where the fields live, so the collector mapping can be matched exactly.
+      input,
+      httpStatus: runRes.status,
+      runStatus: run.status, // SUCCEEDED / FAILED / ABORTED / TIMED-OUT
+      statusMessage: run.statusMessage ?? null, // the human reason
+      exitCode: run.exitCode ?? null,
+      stats: run.stats ?? null,
+      datasetItemCount,
       firstItemKeys: keysOf(first),
       nestedKeys: first
-        ? {
-            user: keysOf((first as Record<string, unknown>).user),
-            tweet: keysOf((first as Record<string, unknown>).tweet),
-            legacy: keysOf((first as Record<string, unknown>).legacy),
-            views: keysOf((first as Record<string, unknown>).views),
-          }
+        ? { user: keysOf(first.user), tweet: keysOf(first.tweet), legacy: keysOf(first.legacy) }
         : null,
-      // One full raw item so exact field names + nesting are visible.
       sample: items.slice(0, 1),
-      // If Apify returned an error (not an array), show it (truncated).
-      rawIfNotArray: Array.isArray(parsed) ? undefined : text.slice(0, 1500),
     });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 200 });
