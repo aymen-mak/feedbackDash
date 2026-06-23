@@ -172,6 +172,13 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       error = r.error;
     }
 
+    // Never store an impossible member count, whatever its source (the direct
+    // collector or the competitor row). Drop it so the dashboard keeps the last
+    // sane figure instead of persisting garbage like 1,801,000,000.
+    if (acc.key === "telegram" && typeof collected.members === "number" && collected.members > 100_000_000) {
+      collected.members = null;
+    }
+
     // Derived: new follows = followers delta vs the previous period.
     if (acc.platform === "twitter" && collected.followers != null) {
       const prev = prevOf(acc.key);
