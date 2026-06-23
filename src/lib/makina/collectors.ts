@@ -1,4 +1,5 @@
 import { type TweetMetric } from "./journal";
+import { parseHumanNumber, parseTelegramCount } from "@/lib/competitors/collectors";
 
 // Metric collectors for our OWN accounts that store NO account logins:
 //
@@ -155,26 +156,28 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
 
 // ── Telegram via the direct t.me preview (free; no proxy, no Apify) ──
 // t.me is reachable from this deployment (the competitor tracker scrapes it the
-// same way), so fetch the public channel preview and parse subscribers + views.
-function parseHumanNum(s: string): number | undefined {
-  const m = s.replace(/[, ]/g, "").match(/([\d.]+)\s*([KMB]?)/i);
-  if (!m) return undefined;
-  let n = parseFloat(m[1]);
-  const u = (m[2] || "").toUpperCase();
-  if (u === "K") n *= 1e3;
-  else if (u === "M") n *= 1e6;
-  else if (u === "B") n *= 1e9;
-  return Number.isFinite(n) ? Math.round(n) : undefined;
-}
+// same way). We reuse the competitor tracker's hardened number/count parsers so
+// the two can't drift, the bug where "1 801 members" parsed as 1801M came from a
+// weaker local parser whose [KMB] suffix greedily ate the "m" in "members".
+const TG_UA =
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 MakinaPulse/1.0";
 
-function parseTelegramSubscribers(html: string): number | undefined {
-  // Preview: <span class="counter_value">12.3K</span><span class="counter_type">subscribers</span>
-  const pre = html.match(/counter_value"[^>]*>([^<]+)<\/span>\s*<span class="counter_type">\s*(?:subscribers|members)/i);
-  if (pre) { const v = parseHumanNum(pre[1]); if (v) return v; }
-  // Info page: <div class="tgme_page_extra">1 804 subscribers</div>
-  const extra = html.match(/tgme_page_extra"[^>]*>([^<]*(?:subscriber|member)[^<]*)</i);
-  if (extra) { const v = parseHumanNum(extra[1]); if (v) return v; }
-  return undefined;
+// No real Telegram channel exceeds ~100M subscribers; anything above is a misparse.
+const TG_MAX = 100_000_000;
+const saneCount = (v: number | null): number | undefined =>
+  v != null && v > 0 && v <= TG_MAX ? v : undefined;
+
+async function fetchTelegramHtml(url: string): Promise<string | null> {
+  try {
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": TG_UA, "Accept-Language": "en" } }, 12000);
+    if (res.ok) {
+      const t = await res.text();
+      if (t && t.length > 200) return t;
+    }
+  } catch {
+    /* caller falls back to the other page */
+  }
+  return null;
 }
 
 function parseTelegramPosts(html: string): { views: number; createdAt: string }[] {
@@ -183,7 +186,8 @@ function parseTelegramPosts(html: string): { views: number; createdAt: string }[
     const createdAt = part.match(/datetime="([^"]+)"/)?.[1];
     if (!createdAt) continue;
     const vRaw = part.match(/tgme_widget_message_views"[^>]*>([^<]+)</)?.[1];
-    out.push({ views: vRaw ? parseHumanNum(vRaw) ?? 0 : 0, createdAt });
+    const v = vRaw ? parseHumanNumber(vRaw) : null;
+    out.push({ views: v ?? 0, createdAt });
   }
   return out;
 }
@@ -194,26 +198,20 @@ export async function collectTelegram(channel: string): Promise<CollectResult> {
     .replace(/^s\//, "")
     .replace(/^@/, "")
     .replace(/\/$/, "");
-  // s/ carries the message preview (views + dates); the bare page has the exact count.
-  let html: string | null = null;
-  for (const url of [`https://t.me/s/${encodeURIComponent(chan)}`, `https://t.me/${encodeURIComponent(chan)}`]) {
-    try {
-      const res = await fetchWithTimeout(url, { headers: { "Accept-Language": "en" } }, 12000);
-      if (res.ok) {
-        const t = await res.text();
-        if (t && t.length > 200) {
-          html = t;
-          if (t.includes("tgme_widget_message")) break;
-        }
-      }
-    } catch {
-      /* try the next URL */
-    }
-  }
-  if (!html) return { values: {}, error: "Telegram: t.me unreachable; will retry next run" };
 
-  const members = parseTelegramSubscribers(html);
-  const posts = parseTelegramPosts(html);
+  // s/ carries the message preview (views + dates); the bare page has the exact
+  // subscriber count. Neither is required on its own, so fetch both in parallel.
+  const [preview, info] = await Promise.all([
+    fetchTelegramHtml(`https://t.me/s/${encodeURIComponent(chan)}`),
+    fetchTelegramHtml(`https://t.me/${encodeURIComponent(chan)}`),
+  ]);
+  if (!preview && !info) return { values: {}, error: "Telegram: t.me unreachable; will retry next run" };
+
+  // Prefer the exact info-page count; fall back to the (possibly abbreviated) preview header.
+  const members =
+    saneCount(info ? parseTelegramCount(info) : null) ?? saneCount(preview ? parseTelegramCount(preview) : null);
+  const posts = preview ? parseTelegramPosts(preview) : [];
+
   const cutoff = Date.now() - WEEK_MS;
   let views = 0, count = 0;
   for (const p of posts) {

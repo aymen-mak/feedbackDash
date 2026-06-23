@@ -117,6 +117,22 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   const comp = await getCompetitor("makina");
   const journal = await getJournal();
 
+  // Self-heal: an earlier parser bug stored impossible Telegram member counts
+  // (e.g. 1,801,000,000). Scrub them from history so they can't poison deltas,
+  // sticky figures or the trend sparkline. Only physically impossible values go.
+  let healed = false;
+  for (const e of journal.entries) {
+    if (e.account !== "telegram") continue;
+    for (const k of ["members", "newMembers"] as const) {
+      const v = e.values[k];
+      if (typeof v === "number" && Math.abs(v) > 100_000_000) {
+        e.values[k] = null;
+        healed = true;
+      }
+    }
+  }
+  if (healed) await saveJournal(journal);
+
   // Previous entry per account (latest before this period) for derived deltas.
   const prevOf = (account: string) =>
     journal.entries
@@ -162,10 +178,11 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       if (prev?.values?.followers != null) collected.newFollows = collected.followers - prev.values.followers;
     }
 
-    // Derived: net new members = member delta vs the previous period.
-    if (acc.key === "telegram" && collected.members != null) {
-      const prev = prevOf(acc.key);
-      if (prev?.values?.members != null) collected.newMembers = collected.members - prev.values.members;
+    // Derived: net new members = member delta vs the previous period. Guard both
+    // sides against impossible values so a stray misparse can't yield a junk delta.
+    if (acc.key === "telegram" && collected.members != null && collected.members <= 100_000_000) {
+      const pv = prevOf(acc.key)?.values?.members;
+      if (pv != null && pv <= 100_000_000) collected.newMembers = collected.members - pv;
     }
 
     const nonNull = Object.fromEntries(Object.entries(collected).filter(([, v]) => v != null));
