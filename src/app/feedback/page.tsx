@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Upload, Inbox, ChevronUp, ChevronDown, Sun, Moon, Droplets, Link2 } from "lucide-react";
+import { Send, Check, EyeOff, Zap, User, Image as ImageIcon, X, Inbox, ChevronUp, ChevronDown, Sun, Moon, Droplets, Link2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import LiveFeed from "@/components/LiveFeed";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { useLoadingBar } from "@/components/LoadingBar";
+import { Spinner } from "@/components/Spinner";
 import { useTheme } from "@/lib/theme";
 
 type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI";
@@ -388,7 +389,7 @@ export default function FeedbackPage() {
                   >
                     {uploading ? (
                       <>
-                        <Upload size={13} className="animate-pulse" />
+                        <Spinner size={13} />
                         Uploading...
                       </>
                     ) : (
@@ -429,7 +430,7 @@ export default function FeedbackPage() {
                   disabled={!canSubmit}
                   className="w-full flex items-center justify-center gap-2 rounded-lg gradient-accent py-3 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 disabled:opacity-30 disabled:cursor-not-allowed glow-accent"
                 >
-                  <Send size={14} />
+                  {submitting ? <Spinner size={14} /> : <Send size={14} />}
                   {submitting ? "Submitting..." : "Submit Feedback"}
                 </button>
               )}

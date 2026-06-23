@@ -14,6 +14,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { PageLoader } from "@/components/Spinner";
+import { useLoadingBar } from "@/components/LoadingBar";
 import Sparkline from "@/components/competitors/Sparkline";
 import MetricsTrendChart from "@/components/competitors/MetricsTrendChart";
 import WeekEntryModal from "@/components/makina/WeekEntryModal";
@@ -199,9 +201,11 @@ function MetricsInner() {
     runDiagnostics(false);
   }, [load, runDiagnostics]);
 
+  const { start: lbStart, done: lbDone } = useLoadingBar();
   const collectNow = async () => {
     setCollecting(true);
     setError("");
+    lbStart();
     try {
       const res = await fetch("/api/makina/collect", { method: "POST" });
       const data = (await res.json().catch(() => null)) as CollectSummary | null;
@@ -212,8 +216,10 @@ function MetricsInner() {
       await load();
     } catch {
       setError("Collection failed.");
+    } finally {
+      lbDone();
+      setCollecting(false);
     }
-    setCollecting(false);
   };
 
   const accDef = accountDef(account)!;
@@ -390,7 +396,7 @@ function MetricsInner() {
         </div>
 
         {loading ? (
-          <div className="flex h-[50vh] items-center justify-center text-sm text-makina-muted animate-pulse">Loading…</div>
+          <div className="flex h-[50vh] items-center justify-center"><PageLoader label="Loading metrics…" /></div>
         ) : accEntries.length === 0 ? (
           <div className="rounded-xl border border-makina-border bg-makina-card p-10 text-center">
             <p className="text-sm text-makina-muted">No data yet for {accDef.label}.</p>

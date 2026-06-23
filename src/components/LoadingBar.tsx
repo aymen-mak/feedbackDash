@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 interface LoadingBarCtx {
   start: () => void;
@@ -30,6 +31,18 @@ export function LoadingBarProvider({ children }: { children: React.ReactNode }) 
       }, 200);
     }
   }, []);
+
+  // Show the bar on every route change, app-wide. Living in the provider (not the
+  // navbar) means it also fires from pages without a navbar, e.g. the landing page.
+  const pathname = usePathname();
+  const prevPath = useRef(pathname);
+  useEffect(() => {
+    if (prevPath.current === pathname) return;
+    prevPath.current = pathname;
+    start();
+    const t = setTimeout(done, 400);
+    return () => clearTimeout(t);
+  }, [pathname, start, done]);
 
   return (
     <Ctx.Provider value={{ start, done }}>

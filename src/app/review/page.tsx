@@ -7,6 +7,7 @@ import FeedbackCard, { type FeedbackItemData } from "@/components/FeedbackCard";
 import { AnalyticsChart } from "@/components/Charts";
 import Tooltip from "@/components/Tooltip";
 import { useLoadingBar } from "@/components/LoadingBar";
+import { PageLoader } from "@/components/Spinner";
 import { useNotifications } from "@/components/Notifications";
 import { useReviewer } from "@/lib/reviewer";
 import {
@@ -520,7 +521,7 @@ export default function ReviewPage() {
       <div className="min-h-screen">
         <Navbar />
         <main className="mx-auto max-w-7xl px-4 py-6 flex items-center justify-center h-[80vh]">
-          <div className="text-sm text-makina-muted animate-pulse">Loading review inbox...</div>
+          <PageLoader label="Loading review inbox…" />
         </main>
       </div>
     );

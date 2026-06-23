@@ -6,6 +6,7 @@ import ReviewerNamePrompt from "@/components/ReviewerNamePrompt";
 import Tooltip from "@/components/Tooltip";
 import { type FeedbackItemData } from "@/components/FeedbackCard";
 import { useLoadingBar } from "@/components/LoadingBar";
+import { PageLoader } from "@/components/Spinner";
 import { useNotifications } from "@/components/Notifications";
 import { useReviewer } from "@/lib/reviewer";
 import {
@@ -236,7 +237,7 @@ export default function TeamPage() {
   const urgentCount = feedback.filter((f) => f.priority === "high" || f.type === "issue").length;
   const actionableCount = feedback.filter((f) => f.type === "issue" || f.type === "suggestion").length;
 
-  if (loading) return (<div className="min-h-screen"><Navbar /><main className="mx-auto max-w-7xl px-4 py-6 flex items-center justify-center h-[80vh]"><div className="text-sm text-makina-muted animate-pulse">Loading team board...</div></main></div>);
+  if (loading) return (<div className="min-h-screen"><Navbar /><main className="mx-auto max-w-7xl px-4 py-6 flex items-center justify-center h-[80vh]"><PageLoader label="Loading team board…" /></main></div>);
 
   const renderItem = (item: TeamItem) => {
     const CatIcon = categoryIcons[item.category] || Box;

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Pencil, Trash2, ExternalLink, AlertTriangle, Eye, EyeOff, Pin } from "lucide-react";
+import { Spinner } from "@/components/Spinner";
 import {
   type Competitor,
   type Snapshot,
@@ -269,7 +270,8 @@ export default function CompetitorDetail({
           {confirmDelete ? (
             <div className="flex items-center gap-2">
               <span className="text-xs text-makina-red">Delete {current.name}?</span>
-              <button onClick={handleDelete} disabled={deleting} className="rounded-md bg-makina-red/90 px-2.5 py-1 text-xs font-semibold text-white hover:bg-makina-red disabled:opacity-50">
+              <button onClick={handleDelete} disabled={deleting} className="inline-flex items-center gap-1.5 rounded-md bg-makina-red/90 px-2.5 py-1 text-xs font-semibold text-white hover:bg-makina-red disabled:opacity-50">
+                {deleting && <Spinner size={11} />}
                 {deleting ? "Deleting…" : "Confirm"}
               </button>
               <button onClick={() => setConfirmDelete(false)} className="text-xs text-makina-muted hover:text-makina-text">

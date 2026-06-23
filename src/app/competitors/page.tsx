@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import { PageLoader } from "@/components/Spinner";
+import { useLoadingBar } from "@/components/LoadingBar";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
 import MonitoringTable from "@/components/competitors/MonitoringTable";
 import CompetitorDetail from "@/components/competitors/CompetitorDetail";
@@ -45,6 +47,7 @@ function CompetitorsInner() {
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [sources, setSources] = useState<RefreshResponse | null>(null);
+  const { start: lbStart, done: lbDone } = useLoadingBar();
 
   const load = useCallback(async () => {
     try {
@@ -74,6 +77,7 @@ function CompetitorsInner() {
   const handleRefresh = async () => {
     setRefreshing(true);
     setError("");
+    lbStart();
     try {
       const res = await fetch("/api/competitors/refresh", { method: "POST" });
       const data = (await res.json().catch(() => null)) as RefreshResponse | null;
@@ -81,8 +85,10 @@ function CompetitorsInner() {
       await load();
     } catch {
       setError("Refresh failed.");
+    } finally {
+      lbDone();
+      setRefreshing(false);
     }
-    setRefreshing(false);
   };
 
   const toggleHidden = useCallback(
@@ -276,8 +282,8 @@ function CompetitorsInner() {
         )}
 
         {loading ? (
-          <div className="flex h-[60vh] items-center justify-center text-sm text-makina-muted animate-pulse">
-            Loading competitors…
+          <div className="flex h-[60vh] items-center justify-center">
+            <PageLoader label="Loading competitors…" />
           </div>
         ) : (
           <>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X, Plus, Trash2, Save } from "lucide-react";
+import { Spinner } from "@/components/Spinner";
 import {
   type Competitor,
   type PlatformMetric,
@@ -310,7 +311,7 @@ export default function CompetitorEditor({ initial, onClose, onSaved }: Props) {
             disabled={saving}
             className="inline-flex items-center gap-2 rounded-md gradient-accent px-4 py-1.5 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 disabled:opacity-50"
           >
-            <Save size={14} />
+            {saving ? <Spinner size={14} /> : <Save size={14} />}
             {saving ? "Saving…" : initial ? "Save changes" : "Add competitor"}
           </button>
         </div>

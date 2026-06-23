@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { X } from "lucide-react";
+import { Spinner } from "@/components/Spinner";
 import {
   type AccountDef,
   type JournalEntry,
@@ -133,8 +134,9 @@ export default function WeekEntryModal({ account, entry, defaultPeriodStart, onC
           <button
             onClick={save}
             disabled={saving}
-            className="rounded-lg gradient-accent px-4 py-2 text-sm font-semibold text-makina-bg disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-lg gradient-accent px-4 py-2 text-sm font-semibold text-makina-bg disabled:opacity-50"
           >
+            {saving && <Spinner size={14} />}
             {saving ? "Saving…" : "Save"}
           </button>
         </div>

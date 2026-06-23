@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/lib/theme";
 import { useReviewer } from "@/lib/reviewer";
-import { useLoadingBar } from "@/components/LoadingBar";
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -23,19 +22,6 @@ export default function Navbar() {
   const [copied, setCopied] = useState(false);
   const { theme, toggle, textSize, textSizeLabel, maxTextSize, cycleTextSize } = useTheme();
   const { name: reviewerName, openPrompt } = useReviewer();
-  const { start: lbStart, done: lbDone } = useLoadingBar();
-  const prevPath = useRef(pathname);
-
-  // Trigger loading bar on page navigation
-  useEffect(() => {
-    if (prevPath.current !== pathname) {
-      lbStart();
-      // Done after a short delay to simulate page load
-      const t = setTimeout(() => lbDone(), 300);
-      prevPath.current = pathname;
-      return () => clearTimeout(t);
-    }
-  }, [pathname, lbStart, lbDone]);
 
   const handleShare = async () => {
     const url = window.location.origin;

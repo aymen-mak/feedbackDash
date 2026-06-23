@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { PageLoader } from "@/components/Spinner";
 import {
   ComposedChart,
   Area,
@@ -108,7 +109,7 @@ export function AnalyticsChart({ data: externalData }: AnalyticsChartProps) {
   if (loading) {
     return (
       <div className="rounded-lg bg-makina-card border border-makina-border p-5 h-96 flex items-center justify-center">
-        <div className="text-sm text-makina-muted animate-pulse">Loading chart data...</div>
+        <PageLoader label="Loading chart data…" />
       </div>
     );
   }
