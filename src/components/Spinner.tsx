@@ -31,7 +31,7 @@ export function PageLoader({ label = "Loading…", className = "" }: { label?: s
   return (
     <div className={`flex flex-col items-center justify-center gap-3 ${className}`}>
       <Spinner size={26} className="text-makina-accent" />
-      <span className="text-sm text-makina-muted animate-pulse">{label}</span>
+      <span className="text-sm text-makina-muted">{label}</span>
     </div>
   );
 }

@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff, Wrench } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { PageLoader } from "@/components/Spinner";
+import { Spinner } from "@/components/Spinner";
+import CompetitorsSkeleton from "@/components/competitors/CompetitorsSkeleton";
 import { useLoadingBar } from "@/components/LoadingBar";
 import DiagnosticsPanel, { useDiagnostics } from "@/components/DiagnosticsPanel";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
@@ -238,7 +239,7 @@ function CompetitorsInner() {
               className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text btn-tactile disabled:opacity-50"
               title="Run full diagnostics across every data source"
             >
-              <Wrench size={14} className={diagBusy ? "animate-pulse" : ""} />
+              {diagBusy ? <Spinner size={14} /> : <Wrench size={14} />}
               Diagnose
             </button>
             <button
@@ -306,9 +307,7 @@ function CompetitorsInner() {
         )}
 
         {loading ? (
-          <div className="flex h-[60vh] items-center justify-center">
-            <PageLoader label="Loading competitors…" />
-          </div>
+          <CompetitorsSkeleton />
         ) : (
           <>
             {/* Summary tiles */}

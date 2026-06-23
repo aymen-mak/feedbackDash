@@ -252,7 +252,6 @@ html.light .hover-lift:hover {
   );
   background-size: 40% 100%;
   background-repeat: no-repeat;
-  box-shadow: 0 0 8px rgba(91, 156, 246, 0.5);
   animation: loading-bar-slide 0.9s ease-in-out infinite;
   will-change: background-position;
 }
@@ -264,6 +263,30 @@ html.light .hover-lift:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .loading-bar { animation-duration: 1.8s; }
+}
+
+/* ── Skeleton placeholder: a slow, low-contrast sweep (no pulse, no glow) ── */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background-color: var(--color-makina-border);
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.06), transparent);
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+html.light .skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.05), transparent);
+}
+@keyframes skeleton-sweep {
+  100% { transform: translateX(100%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after { animation: none; }
 }
 
 /* ── Granular text sizing (levels 1–4; level 0 = base/compact) ──

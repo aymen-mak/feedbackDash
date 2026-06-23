@@ -13,7 +13,8 @@ import {
   Wrench,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { PageLoader } from "@/components/Spinner";
+import { Spinner } from "@/components/Spinner";
+import MetricsSkeleton from "@/components/makina/MetricsSkeleton";
 import { useLoadingBar } from "@/components/LoadingBar";
 import DiagnosticsPanel, { useDiagnostics } from "@/components/DiagnosticsPanel";
 import Sparkline from "@/components/competitors/Sparkline";
@@ -255,7 +256,7 @@ function MetricsInner() {
               className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text btn-tactile disabled:opacity-50"
               title="Check why collection failed"
             >
-              <Wrench size={14} className={diagBusy ? "animate-pulse" : ""} />
+              {diagBusy ? <Spinner size={14} /> : <Wrench size={14} />}
               Diagnose
             </button>
             <button
@@ -338,7 +339,7 @@ function MetricsInner() {
         </div>
 
         {loading ? (
-          <div className="flex h-[50vh] items-center justify-center"><PageLoader label="Loading metrics…" /></div>
+          <MetricsSkeleton />
         ) : accEntries.length === 0 ? (
           <div className="rounded-xl border border-makina-border bg-makina-card p-10 text-center">
             <p className="text-sm text-makina-muted">No data yet for {accDef.label}.</p>
