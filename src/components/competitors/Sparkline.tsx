@@ -4,12 +4,14 @@ interface Props {
   height?: number;
   /** Override the direction-based color. */
   color?: string;
+  /** Draw a soft gradient area under the line. */
+  fill?: boolean;
 }
 
 // Tiny dependency-free SVG sparkline. Colors by direction (up = green,
 // down = red) unless an explicit color is given. Used per-row in the
-// monitoring table, so it must stay cheap.
-export default function Sparkline({ data, width = 84, height = 24, color }: Props) {
+// monitoring table and the on-chain board, so it must stay cheap.
+export default function Sparkline({ data, width = 84, height = 24, color, fill = false }: Props) {
   if (!data || data.length < 2) {
     return (
       <svg width={width} height={height} aria-hidden>
@@ -38,9 +40,25 @@ export default function Sparkline({ data, width = 84, height = 24, color }: Prop
   const stroke = color ?? (up ? "#22c55e" : "#ef4444");
   const lastX = x(n - 1);
   const lastY = y(data[n - 1]);
+  const gid = `sf-${stroke.replace(/[^a-zA-Z0-9]/g, "")}-${width}x${height}-${n}-${Math.round(min)}-${Math.round(max)}`;
 
   return (
     <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden>
+      {fill && (
+        <>
+          <defs>
+            <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={stroke} stopOpacity={0.3} />
+              <stop offset="100%" stopColor={stroke} stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <polygon
+            points={`${x(0).toFixed(1)},${(height - 0.5).toFixed(1)} ${points} ${lastX.toFixed(1)},${(height - 0.5).toFixed(1)}`}
+            fill={`url(#${gid})`}
+            stroke="none"
+          />
+        </>
+      )}
       <polyline
         points={points}
         fill="none"

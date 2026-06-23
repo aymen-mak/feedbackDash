@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import CompetitorComparisonChart from "@/components/competitors/CompetitorComparisonChart";
+import OnChainBoard from "@/components/competitors/OnChainBoard";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
 import MonitoringTable from "@/components/competitors/MonitoringTable";
 import CompetitorDetail from "@/components/competitors/CompetitorDetail";
@@ -356,8 +356,8 @@ function CompetitorsInner() {
               </div>
             </div>
 
-            {/* Comparison chart */}
-            <CompetitorComparisonChart competitors={active} />
+            {/* On-chain momentum board */}
+            <OnChainBoard competitors={active} />
 
             {/* Monitoring view */}
             {view === "table" ? (
