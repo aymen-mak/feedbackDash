@@ -1,18 +1,41 @@
 import { hasPostgres } from "@/lib/db";
-import { fileGetJournal, fileSetJournal, fileGetMakinaTweets, fileSetMakinaTweets } from "@/lib/competitors/store";
-import { pgGetMakinaJournal, pgSetMakinaJournal, pgGetMakinaTweets, pgSetMakinaTweets } from "@/lib/competitors/db";
+import {
+  fileGetJournal,
+  fileSetJournal,
+  fileGetMakinaTweets,
+  fileSetMakinaTweets,
+  fileGetMakinaDiag,
+  fileSetMakinaDiag,
+} from "@/lib/competitors/store";
+import {
+  pgGetMakinaJournal,
+  pgSetMakinaJournal,
+  pgGetMakinaTweets,
+  pgSetMakinaTweets,
+  pgGetMakinaDiag,
+  pgSetMakinaDiag,
+} from "@/lib/competitors/db";
 import { getCompetitor } from "@/lib/competitors/service";
 import { type Competitor } from "@/lib/competitors/types";
 import {
   ACCOUNTS,
   accountDef,
   defaultWeekStart,
+  type AccountDef,
   type JournalEntry,
   type MakinaJournal,
   type MakinaTweets,
 } from "./journal";
 import { collectTelegram, collectXProfiles } from "./collectors";
-import { diagnoseApify } from "./diagnostics";
+import {
+  apifyDiag,
+  classify,
+  envDiag,
+  worstLevel,
+  type DiagItem,
+  type DiagReport,
+  type MakinaDiag,
+} from "./diagnostics";
 
 export async function getJournal(): Promise<MakinaJournal> {
   return hasPostgres() ? pgGetMakinaJournal() : fileGetJournal();
@@ -30,6 +53,30 @@ export async function getLatestTweets(): Promise<MakinaTweets> {
 async function saveLatestTweets(tweets: MakinaTweets): Promise<void> {
   if (hasPostgres()) await pgSetMakinaTweets(tweets);
   else fileSetMakinaTweets(tweets);
+}
+
+export async function getDiag(): Promise<MakinaDiag | null> {
+  return hasPostgres() ? pgGetMakinaDiag() : fileGetMakinaDiag();
+}
+
+async function saveDiag(diag: MakinaDiag): Promise<void> {
+  if (hasPostgres()) await pgSetMakinaDiag(diag);
+  else fileSetMakinaDiag(diag);
+}
+
+/** A friendly "all good" line for a source's diagnostic, from its evidence. */
+function okSummaryFor(acc: AccountDef, ev: Record<string, unknown>, filled: number): string | undefined {
+  if (acc.platform === "twitter") {
+    const posts = Number(ev.postsInWindow ?? 0);
+    const f = ev.followers;
+    return `${posts} post(s) in the 7-day window${f != null ? `, ${Number(f).toLocaleString()} followers` : ""}.`;
+  }
+  if (acc.key === "telegram") {
+    const subs = ev.subscribers;
+    const posts = Number(ev.postsInWindow ?? 0);
+    return `${subs != null ? Number(subs).toLocaleString() + " subscribers" : "subscriber count unavailable"}, ${posts} post(s) in the window.`;
+  }
+  return filled > 0 ? `${filled} metric(s) via the competitor tracker.` : undefined;
 }
 
 /** Keep only known metric keys; coerce to finite numbers or null. */
@@ -117,17 +164,36 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   const comp = await getCompetitor("makina");
   const journal = await getJournal();
 
-  // Self-heal: an earlier parser bug stored impossible Telegram member counts
-  // (e.g. 1,801,000,000). Scrub them from history so they can't poison deltas,
-  // sticky figures or the trend sparkline. Only physically impossible values go.
+  // ── Self-heal stored data that an earlier bug recorded misleadingly ──
   let healed = false;
   for (const e of journal.entries) {
-    if (e.account !== "telegram") continue;
-    for (const k of ["members", "newMembers"] as const) {
-      const v = e.values[k];
-      if (typeof v === "number" && Math.abs(v) > 100_000_000) {
-        e.values[k] = null;
-        healed = true;
+    // Telegram: scrub impossible member counts (e.g. 1,801,000,000) so they
+    // can't poison deltas, sticky figures or the trend sparkline.
+    if (e.account === "telegram") {
+      for (const k of ["members", "newMembers"] as const) {
+        const v = e.values[k];
+        if (typeof v === "number" && Math.abs(v) > 100_000_000) {
+          e.values[k] = null;
+          healed = true;
+        }
+      }
+      continue;
+    }
+    // X: an old collection wrote all-zero engagement when the account simply did
+    // not post that week, which renders as a 0 / -100% cliff while the derived
+    // engagement rate goes stale. Drop that no-posts fingerprint so every
+    // post-derived metric carries forward its last real value ("as of <date>").
+    if (accountDef(e.account)?.platform === "twitter") {
+      const zero = (k: string) => e.values[k] == null || e.values[k] === 0;
+      const noPosts =
+        e.values.impressions === 0 && zero("likes") && zero("replies") && zero("reposts") && zero("shares");
+      if (noPosts) {
+        for (const k of ["impressions", "likes", "replies", "reposts", "shares", "bookmarks", "engagementRate"]) {
+          if (e.values[k] != null) {
+            e.values[k] = null;
+            healed = true;
+          }
+        }
       }
     }
   }
@@ -142,25 +208,29 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   const summary: CollectSummary = { periodStart: period, accounts: [] };
   const tweetsStore = await getLatestTweets();
   let tweetsChanged = false;
+  const diagItems: DiagItem[] = [];
 
-  // Pre-flight: check Apify health once, so we skip wasteful failing runs and
-  // report the real reason (e.g. exhausted credit) instead of per-actor errors.
-  const apify = await diagnoseApify();
-  const apifyMsg = apify.fix ? `${apify.message} ${apify.fix}` : apify.message;
+  // Pre-flight: one live Apify check, so we skip wasteful failing runs and report
+  // the real reason (e.g. exhausted credit) instead of vague per-actor errors.
+  const { item: apifyItem, apify: apifyUsage } = await apifyDiag();
+  const apifyOk = apifyItem.level !== "error";
+  diagItems.push(apifyItem, envDiag());
 
   // One scweet run covers every X handle (avoids the free tier's run limit).
   const twHandles = ACCOUNTS.filter((a) => a.platform === "twitter").map((a) => a.handle ?? a.key);
-  const xResults = apify.ok && twHandles.length ? await collectXProfiles(twHandles) : {};
+  const xResults = apifyOk && twHandles.length ? await collectXProfiles(twHandles) : {};
 
   for (const acc of ACCOUNTS) {
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
     let error: string | null = null;
+    let evidence: Record<string, unknown> = {};
 
     if (acc.platform === "twitter") {
       const key = (acc.handle ?? acc.key).replace(/^@/, "").toLowerCase();
-      const r = xResults[key] ?? { values: {}, error: "scweet: no data" };
+      const r = xResults[key] ?? { values: {}, error: null, evidence: {} };
       Object.assign(collected, r.values);
-      error = apify.ok ? r.error : apifyMsg;
+      evidence = r.evidence ?? {};
+      error = apifyOk ? r.error ?? null : "skipped — Apify is unavailable (see the Apify check above)";
       if (r.tweets && r.tweets.length > 0) {
         tweetsStore.byAccount[acc.key] = { tweets: r.tweets, updatedAt: new Date().toISOString() };
         tweetsChanged = true;
@@ -169,6 +239,7 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       // Telegram uses a direct t.me fetch (free), so it runs regardless of Apify credit.
       const r = await collectTelegram(acc.handle ?? "makinafinance");
       Object.assign(collected, r.values);
+      evidence = r.evidence ?? {};
       error = r.error;
     }
 
@@ -196,6 +267,13 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     if (Object.keys(nonNull).length > 0) {
       await upsertEntry({ account: acc.key, periodStart: period, values: nonNull });
     }
+
+    // Build the per-source diagnostic from the real outcome of this run.
+    if (!error && acc.platform !== "twitter" && acc.key !== "telegram" && Object.keys(nonNull).length === 0) {
+      error = "nothing collected yet (sourced from the competitor tracker)";
+    }
+    diagItems.push(classify(`src:${acc.key}`, acc.label, error, evidence, okSummaryFor(acc, evidence, Object.keys(nonNull).length)));
+
     summary.accounts.push({
       key: acc.key,
       label: acc.label,
@@ -206,5 +284,16 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   }
 
   if (tweetsChanged) await saveLatestTweets(tweetsStore);
+
+  // Persist the full report so the Diagnose button reflects this real run.
+  const report: DiagReport = {
+    at: new Date().toISOString(),
+    items: diagItems,
+    level: worstLevel(diagItems),
+    apify: apifyUsage,
+    fromRun: true,
+  };
+  await saveDiag(report);
+
   return summary;
 }

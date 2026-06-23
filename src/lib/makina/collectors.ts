@@ -16,6 +16,8 @@ export interface CollectResult {
   error: string | null;
   /** Latest per-post metrics (X only), newest first. */
   tweets?: TweetMetric[];
+  /** Raw counts behind the result, for accurate diagnostics. */
+  evidence?: Record<string, unknown>;
 }
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
@@ -99,13 +101,34 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
     .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
     .slice(0, 12);
 
-  const values: Record<string, number | null> = { impressions, likes, replies, reposts, bookmarks, shares };
-  if (followers != null) values.followers = followers;
+  const evidence: Record<string, unknown> = {
+    matched: own.length,
+    postsInWindow: count,
+    followers: followers ?? null,
+  };
+
+  // Followers is a profile-level figure, valid even with no posts this week.
+  const base: Record<string, number | null> = {};
+  if (followers != null) base.followers = followers;
+
+  // No posts at all, or none inside the 7-day window: leave the per-post metrics
+  // absent (rather than recording 0) so the dashboard carries forward the last
+  // real values "as of <date>" instead of showing a misleading 0 / -100% drop.
+  if (own.length === 0) return { values: base, error: `scweet: no posts found for @${handle}`, tweets, evidence };
+  if (count === 0) return { values: base, error: `scweet: no posts in the last 7 days for @${handle}`, tweets, evidence };
+
   const engagements = likes + replies + reposts + bookmarks + shares;
-  values.engagementRate = impressions > 0 ? +((engagements / impressions) * 100).toFixed(2) : null;
-  if (own.length === 0) return { values, error: `scweet: no posts found for @${handle}`, tweets };
-  if (count === 0) return { values, error: "scweet: no posts in the last 7 days", tweets };
-  return { values, error: null, tweets };
+  const values: Record<string, number | null> = {
+    ...base,
+    impressions,
+    likes,
+    replies,
+    reposts,
+    bookmarks,
+    shares,
+    engagementRate: impressions > 0 ? +((engagements / impressions) * 100).toFixed(2) : null,
+  };
+  return { values, error: null, tweets, evidence };
 }
 
 /** Scrape one or more handles in a single scweet run; keyed by lowercase handle (no @). */
@@ -139,16 +162,45 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
     if (!Array.isArray(items)) return fail("Apify: unexpected response shape");
 
     // Group posts by author handle (drops demo rows and retweets of others).
+    // scweet has shipped a few output shapes, so accept several handle fields.
     const byHandle: Record<string, Array<Record<string, unknown>>> = {};
     for (const it of items) {
       if (it.noResults || it.demo) continue;
       const user = (it.user ?? {}) as Record<string, unknown>;
-      const author = String(user.handle ?? it.handle ?? "").toLowerCase();
+      const author = String(
+        user.handle ?? user.username ?? user.screen_name ?? user.userName ?? it.handle ?? it.username ?? it.screen_name ?? ""
+      )
+        .replace(/^@/, "")
+        .trim()
+        .toLowerCase();
       if (!author) continue;
       (byHandle[author] = byHandle[author] ?? []).push(it);
     }
 
-    return Object.fromEntries(clean.map((h) => [h, aggregateHandle(byHandle[h] ?? [], h)]));
+    const authorsSeen = Object.keys(byHandle);
+    const sampleKeys = Object.keys(
+      (items.find((x) => !x.noResults && !x.demo) ?? {}) as Record<string, unknown>
+    ).slice(0, 8);
+
+    return Object.fromEntries(
+      clean.map((h) => {
+        const res = aggregateHandle(byHandle[h] ?? [], h);
+        res.evidence = { ...(res.evidence ?? {}), itemsReturned: items.length, authorsSeen: authorsSeen.join(", ") || null };
+        // Turn an empty result into an actionable diagnostic: "nothing was posted"
+        // vs "the scraper returned data we no longer recognize" vs "wrong author".
+        if ((byHandle[h] ?? []).length === 0) {
+          if (items.length === 0) {
+            res.error = `scweet returned 0 items for @${h} (no posts in the scrape range)`;
+          } else if (authorsSeen.length === 0) {
+            res.error = `scweet returned ${items.length} items but none had a recognizable author handle; the output schema may have changed (fields: ${sampleKeys.join(", ") || "none"})`;
+            res.evidence = { ...res.evidence, sampleKeys: sampleKeys.join(", ") || null };
+          } else {
+            res.error = `scweet returned posts for ${authorsSeen.map((a) => "@" + a).join(", ")} but not @${h}`;
+          }
+        }
+        return [h, res];
+      })
+    );
   } catch (e) {
     return fail(`Apify: ${errMsg(e)}`);
   }
@@ -205,7 +257,8 @@ export async function collectTelegram(channel: string): Promise<CollectResult> {
     fetchTelegramHtml(`https://t.me/s/${encodeURIComponent(chan)}`),
     fetchTelegramHtml(`https://t.me/${encodeURIComponent(chan)}`),
   ]);
-  if (!preview && !info) return { values: {}, error: "Telegram: t.me unreachable; will retry next run" };
+  if (!preview && !info)
+    return { values: {}, error: "Telegram: t.me unreachable; will retry next run", evidence: { previewOk: false, infoOk: false } };
 
   // Prefer the exact info-page count; fall back to the (possibly abbreviated) preview header.
   const members =
@@ -221,6 +274,14 @@ export async function collectTelegram(channel: string): Promise<CollectResult> {
     count += 1;
   }
 
+  const evidence: Record<string, unknown> = {
+    subscribers: members ?? null,
+    postsFound: posts.length,
+    postsInWindow: count,
+    previewOk: !!preview,
+    infoOk: !!info,
+  };
+
   const values: Record<string, number | null> = {};
   if (members != null) values.members = members;
   if (posts.length > 0) {
@@ -231,7 +292,7 @@ export async function collectTelegram(channel: string): Promise<CollectResult> {
     values.reachRate = avg != null && members != null && members > 0 ? +((avg / members) * 100).toFixed(1) : null;
   }
   if (members == null && posts.length === 0) {
-    return { values: {}, error: "Telegram: no public preview (private channel or wrong handle)" };
+    return { values: {}, error: "Telegram: no public preview (private channel or wrong handle)", evidence };
   }
-  return { values, error: null };
+  return { values, error: null, evidence };
 }

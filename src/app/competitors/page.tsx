@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff } from "lucide-react";
+import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff, Wrench } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { PageLoader } from "@/components/Spinner";
 import { useLoadingBar } from "@/components/LoadingBar";
+import DiagnosticsPanel, { useDiagnostics } from "@/components/DiagnosticsPanel";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
 import MonitoringTable from "@/components/competitors/MonitoringTable";
 import CompetitorDetail from "@/components/competitors/CompetitorDetail";
@@ -48,6 +49,8 @@ function CompetitorsInner() {
   const [showHidden, setShowHidden] = useState(false);
   const [sources, setSources] = useState<RefreshResponse | null>(null);
   const { start: lbStart, done: lbDone } = useLoadingBar();
+  const { report, loading: diagBusy, run: runDiag } = useDiagnostics();
+  const [diagOpen, setDiagOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -227,6 +230,18 @@ function CompetitorsInner() {
               Add
             </button>
             <button
+              onClick={() => {
+                setDiagOpen(true);
+                runDiag();
+              }}
+              disabled={diagBusy}
+              className="inline-flex items-center gap-2 rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text btn-tactile disabled:opacity-50"
+              title="Run full diagnostics across every data source"
+            >
+              <Wrench size={14} className={diagBusy ? "animate-pulse" : ""} />
+              Diagnose
+            </button>
+            <button
               onClick={handleRefresh}
               disabled={refreshing}
               className="inline-flex items-center gap-2 rounded-lg gradient-accent px-4 py-2 text-sm font-semibold text-makina-bg transition-all hover:brightness-110 disabled:opacity-50 btn-tactile"
@@ -241,6 +256,15 @@ function CompetitorsInner() {
           <div className="rounded-md border border-makina-red/20 bg-makina-red/10 px-4 py-2 text-sm text-makina-red">
             {error}
           </div>
+        )}
+
+        {diagOpen && (
+          <DiagnosticsPanel
+            report={report}
+            loading={diagBusy}
+            onRefresh={() => runDiag()}
+            onClose={() => setDiagOpen(false)}
+          />
         )}
 
         {sourceHealth && (

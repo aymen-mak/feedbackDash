@@ -11,11 +11,11 @@ import {
   Minus,
   Pencil,
   Wrench,
-  AlertTriangle,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { PageLoader } from "@/components/Spinner";
 import { useLoadingBar } from "@/components/LoadingBar";
+import DiagnosticsPanel, { useDiagnostics } from "@/components/DiagnosticsPanel";
 import Sparkline from "@/components/competitors/Sparkline";
 import MetricsTrendChart from "@/components/competitors/MetricsTrendChart";
 import WeekEntryModal from "@/components/makina/WeekEntryModal";
@@ -40,38 +40,16 @@ interface CollectSummary {
   accounts: { key: string; label: string; ok: boolean; error: string | null; filled: number }[];
 }
 
-interface Diag {
-  apify: { ok: boolean; message: string; fix?: string; detail?: { usage?: number; limit?: number; resetAt?: string } };
-}
-
-/** Map a collector error string to a one-line suggested fix. */
-function suggestFor(err: string): string {
+/** Short, accurate chip label for the last-collection summary (full detail lives in the diagnostics panel). */
+function chipLabel(err: string): string {
   const e = err.toLowerCase();
-  if (e.includes("not set")) return "Env var missing on this deployment. Add it in Vercel and redeploy.";
-  if (e.includes("approval") || e.includes("approve") || e.includes("permission")) return "Approve the actor's permissions on this Apify account using the link.";
-  if (e.includes("402") || e.includes("credit") || e.includes("payment") || e.includes("usage limit"))
-    return "Apify monthly credit is used up. Add a payment method or wait for the cycle reset.";
-  if (e.includes("401") || e.includes("403") || e.includes("token")) return "Token rejected. Regenerate APIFY_TOKEN and redeploy.";
-  if (e.includes("429") || e.includes("rate")) return "Rate-limited; retried automatically and should clear shortly.";
-  if (e.includes("timed out")) return "Scrape timed out. Usually transient; retry.";
-  if (e.includes("no tweets") || e.includes("no posts") || e.includes("no data")) return "Connected fine, nothing in the window. Not a failure.";
-  return "Retry; if it persists, check the Apify token and credit.";
-}
-
-/** Render text, turning the first URL into a clickable link. */
-function Linkify({ text }: { text: string }) {
-  const m = text.match(/(https?:\/\/[^\s]+)/);
-  if (!m) return <>{text}</>;
-  const [before, after] = text.split(m[1]);
-  return (
-    <>
-      {before}
-      <a href={m[1]} target="_blank" rel="noopener noreferrer" className="text-makina-accent underline">
-        {m[1]}
-      </a>
-      {after}
-    </>
-  );
+  if (e.includes("no posts") || e.includes("0 items") || e.includes("no data") || e.includes("nothing") || e.includes("skipped"))
+    return "no posts";
+  if (e.includes("credit") || e.includes("usage limit") || e.includes("402")) return "no credit";
+  if (e.includes("token") || e.includes("401") || e.includes("403")) return "token";
+  if (e.includes("approval") || e.includes("permission")) return "approve actor";
+  if (e.includes("schema") || e.includes("recognizable")) return "check scraper";
+  return "issue";
 }
 
 function fmtMetric(v: number | null | undefined, kind: MetricKind): string {
@@ -166,9 +144,8 @@ function MetricsInner() {
   const [showHistory, setShowHistory] = useState(false);
   const [modal, setModal] = useState<{ entry: JournalEntry | null } | null>(null);
   const [tweets, setTweets] = useState<MakinaTweets>({ byAccount: {} });
-  const [apifyHealth, setApifyHealth] = useState<Diag["apify"] | null>(null);
+  const { report, loading: diagBusy, run: runDiag } = useDiagnostics();
   const [diagOpen, setDiagOpen] = useState(false);
-  const [diagBusy, setDiagBusy] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -184,17 +161,13 @@ function MetricsInner() {
     setLoading(false);
   }, []);
 
-  const runDiagnostics = useCallback(async (open = true) => {
-    setDiagBusy(true);
-    try {
-      const d = (await fetch("/api/makina/diagnose").then((r) => (r.ok ? r.json() : null))) as Diag | null;
-      if (d?.apify) setApifyHealth(d.apify);
-    } catch {
-      /* ignore */
-    }
-    if (open) setDiagOpen(true);
-    setDiagBusy(false);
-  }, []);
+  const runDiagnostics = useCallback(
+    async (open = true) => {
+      if (open) setDiagOpen(true);
+      await runDiag();
+    },
+    [runDiag]
+  );
 
   useEffect(() => {
     load();
@@ -273,8 +246,8 @@ function MetricsInner() {
             <p className="mt-1 text-xs text-makina-muted">Auto-collected from Makina&apos;s accounts</p>
           </div>
           <div className="flex items-center gap-2">
-            {apifyHealth?.detail?.usage != null && apifyHealth.detail.limit != null && (
-              <ApifyPill usage={apifyHealth.detail.usage} limit={apifyHealth.detail.limit} />
+            {report?.apify && report.apify.usage != null && report.apify.limit != null && (
+              <ApifyPill usage={report.apify.usage} limit={report.apify.limit} />
             )}
             <button
               onClick={() => runDiagnostics()}
@@ -327,52 +300,21 @@ function MetricsInner() {
                 >
                   <span className={`h-1.5 w-1.5 rounded-full ${a.ok ? "bg-makina-green" : a.filled > 0 ? "bg-amber-500" : "bg-makina-red"}`} />
                   <span className="font-medium text-makina-text/80">{a.label}</span>
-                  <span className="text-makina-subtle">{a.ok ? `${a.filled}` : a.error ? "needs setup" : `${a.filled}`}</span>
+                  <span className="text-makina-subtle">{a.ok ? `${a.filled}` : a.error ? chipLabel(a.error) : `${a.filled}`}</span>
                 </span>
               ))}
             </div>
           </div>
         )}
 
-        {/* Diagnostics (auto-runs on a failed collection) */}
-        {(diagOpen || summary?.accounts.some((a) => !a.ok)) && (
-          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 animate-fade-in-up">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-500">
-                <AlertTriangle size={12} /> Diagnostics
-              </span>
-              <button onClick={() => setDiagOpen(false)} className="text-[11px] text-makina-subtle transition-colors hover:text-makina-text">
-                dismiss
-              </button>
-            </div>
-            <div className="space-y-1.5 text-xs">
-              {apifyHealth && (
-                <div className="flex items-start gap-2">
-                  <span className={`mt-1 h-1.5 w-1.5 shrink-0 rounded-full ${apifyHealth.ok ? "bg-makina-green" : "bg-makina-red"}`} />
-                  <p className="text-makina-text/90">
-                    <span className="font-semibold">Apify:</span> {apifyHealth.message}
-                    {apifyHealth.fix && <span className="text-makina-muted"> {apifyHealth.fix}</span>}
-                  </p>
-                </div>
-              )}
-              {summary?.accounts
-                .filter((a) => !a.ok && a.error)
-                .map((a) => (
-                  <div key={a.key} className="flex items-start gap-2">
-                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-makina-red" />
-                    <p className="text-makina-text/90">
-                      <span className="font-semibold">{a.label}:</span> <Linkify text={a.error || ""} />.{" "}
-                      <span className="text-makina-muted">{suggestFor(a.error || "")}</span>
-                    </p>
-                  </div>
-                ))}
-              {!apifyHealth && (
-                <button onClick={() => runDiagnostics()} disabled={diagBusy} className="text-[11px] font-medium text-makina-accent hover:underline disabled:opacity-50">
-                  {diagBusy ? "Checking Apify…" : "Run Apify health check"}
-                </button>
-              )}
-            </div>
-          </div>
+        {/* App-wide diagnostics: system + Makina metrics + competitor tracker */}
+        {diagOpen && (
+          <DiagnosticsPanel
+            report={report}
+            loading={diagBusy}
+            onRefresh={() => runDiagnostics(true)}
+            onClose={() => setDiagOpen(false)}
+          />
         )}
 
         {/* Account tabs */}
