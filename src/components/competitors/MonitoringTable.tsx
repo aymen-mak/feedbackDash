@@ -154,9 +154,9 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
           <tr className="border-b border-makina-border">
             <Th k="name" label="Protocol" />
             <Th k="audience" label="Community reach" />
-            <Th k="tvl" label="TVL" right hl="bg-makina-accent/[0.06] border-l border-makina-accent/20" />
-            <Th k="fees" label="Fees 24h · 7d" right hl="bg-makina-accent/[0.06]" />
-            <Th k="rev" label="Rev 24h · 7d" right hl="bg-makina-accent/[0.06] border-r border-makina-accent/20" />
+            <Th k="tvl" label="TVL · 7d" right hl="bg-makina-accent/[0.06] border-l border-makina-accent/20" />
+            <Th k="fees" label="Fees 24h" right hl="bg-makina-accent/[0.06]" />
+            <Th k="rev" label="Rev 24h" right hl="bg-makina-accent/[0.06] border-r border-makina-accent/20" />
             <Th k="twitter" label="X" right />
             <Th k="linkedin" label="LinkedIn" right />
             <Th k="discord" label="Discord" right />
@@ -229,38 +229,47 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                   })()}
                 </td>
 
-                <td className="border-l border-makina-accent/20 bg-makina-accent/[0.06] px-2 py-2.5 text-right">
+                <td
+                  className="border-l border-makina-accent/20 bg-makina-accent/[0.06] px-2 py-2.5 text-right"
+                  title={oc?.tvlChange1d != null ? `24h ${signedPct(oc.tvlChange1d)}` : undefined}
+                >
                   <div className="flex items-center justify-end gap-2">
                     {(oc?.tvlSeries?.length ?? 0) >= 2 && (
-                      <Sparkline data={oc!.tvlSeries.map((p) => p.v)} width={48} height={16} />
+                      <Sparkline
+                        data={oc!.tvlSeries.map((p) => p.v)}
+                        width={48}
+                        height={16}
+                        color={oc?.tvlChange7d != null ? (oc.tvlChange7d >= 0 ? "#22c55e" : "#ef4444") : undefined}
+                      />
                     )}
-                    <div>
+                    <div className="leading-tight">
                       <div className="font-semibold tabular-nums text-makina-text">
                         {oc?.tvl != null ? formatUsd(oc.tvl) : "-"}
                       </div>
-                      <div className="flex items-center justify-end gap-2 leading-tight">
-                        {oc?.tvlChange1d != null && (
-                          <span className={`text-[10px] tabular-nums ${oc.tvlChange1d >= 0 ? "text-makina-green" : "text-makina-red"}`}>
-                            24h {signedPct(oc.tvlChange1d)}
-                          </span>
-                        )}
-                        {oc?.tvlChange7d != null && (
-                          <span className={`text-[10px] tabular-nums ${oc.tvlChange7d >= 0 ? "text-makina-green" : "text-makina-red"}`}>
-                            7d {signedPct(oc.tvlChange7d)}
-                          </span>
-                        )}
-                      </div>
+                      {oc?.tvlChange7d != null && (
+                        <div
+                          className={`flex items-center justify-end gap-0.5 text-[11px] font-medium tabular-nums ${oc.tvlChange7d >= 0 ? "text-makina-green" : "text-makina-red"}`}
+                        >
+                          {oc.tvlChange7d >= 0 ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+                          {Math.abs(Math.round(oc.tvlChange7d * 10) / 10)}%
+                          <span className="font-normal text-makina-subtle">7d</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </td>
 
-                <td className="bg-makina-accent/[0.06] px-2 py-2.5 text-right tabular-nums text-makina-text/80">
-                  <div>{oc?.fees24h != null ? formatUsd(oc.fees24h) : <span className="text-makina-subtle">-</span>}</div>
-                  {oc?.fees7d != null && <div className="text-[10px] text-makina-subtle">7d {formatUsd(oc.fees7d)}</div>}
+                <td
+                  className="bg-makina-accent/[0.06] px-2 py-2.5 text-right tabular-nums text-makina-text/80"
+                  title={[oc?.fees24h != null ? `24h ${formatUsd(oc.fees24h)}` : null, oc?.fees7d != null ? `7d ${formatUsd(oc.fees7d)}` : null].filter(Boolean).join(" · ") || undefined}
+                >
+                  {oc?.fees24h != null ? formatUsd(oc.fees24h) : <span className="text-makina-subtle">-</span>}
                 </td>
-                <td className="border-r border-makina-accent/20 bg-makina-accent/[0.06] px-2 py-2.5 text-right tabular-nums text-makina-text/80">
-                  <div>{oc?.revenue24h != null ? formatUsd(oc.revenue24h) : <span className="text-makina-subtle">-</span>}</div>
-                  {oc?.revenue7d != null && <div className="text-[10px] text-makina-subtle">7d {formatUsd(oc.revenue7d)}</div>}
+                <td
+                  className="border-r border-makina-accent/20 bg-makina-accent/[0.06] px-2 py-2.5 text-right tabular-nums text-makina-text/80"
+                  title={[oc?.revenue24h != null ? `24h ${formatUsd(oc.revenue24h)}` : null, oc?.revenue7d != null ? `7d ${formatUsd(oc.revenue7d)}` : null].filter(Boolean).join(" · ") || undefined}
+                >
+                  {oc?.revenue24h != null ? formatUsd(oc.revenue24h) : <span className="text-makina-subtle">-</span>}
                 </td>
 
                 {SOCIAL_COLS.map((p) => (
