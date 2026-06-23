@@ -51,6 +51,7 @@ function applyDefillama(
   oc.fees7d = res.fees7d;
   oc.fees30d = res.fees30d;
   oc.revenue24h = res.revenue24h;
+  oc.revenue7d = res.revenue7d;
   oc.revenue30d = res.revenue30d;
   oc.lastUpdated = now;
   oc.lastError = res.error; // may carry a soft note like "no TVL history"

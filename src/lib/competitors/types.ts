@@ -135,6 +135,7 @@ export interface OnchainMetrics {
   fees7d: number | null;
   fees30d: number | null;
   revenue24h: number | null;
+  revenue7d: number | null;
   revenue30d: number | null;
   /** Recent daily TVL points for the sparkline (capped, oldest→newest). */
   tvlSeries: { t: string; v: number }[];
@@ -152,6 +153,7 @@ export function emptyOnchain(): OnchainMetrics {
     fees7d: null,
     fees30d: null,
     revenue24h: null,
+    revenue7d: null,
     revenue30d: null,
     tvlSeries: [],
     lastUpdated: null,

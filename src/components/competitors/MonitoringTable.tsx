@@ -132,8 +132,8 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
     }
   };
 
-  const Th = ({ k, label, right }: { k: SortKey; label: string; right?: boolean }) => (
-    <th className={`px-2 py-2 ${right ? "text-right" : "text-left"}`}>
+  const Th = ({ k, label, right, hl }: { k: SortKey; label: string; right?: boolean; hl?: string }) => (
+    <th className={`px-2 py-2 ${right ? "text-right" : "text-left"} ${hl ?? ""}`}>
       <button
         onClick={() => toggle(k)}
         className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
@@ -154,9 +154,9 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
           <tr className="border-b border-makina-border">
             <Th k="name" label="Protocol" />
             <Th k="audience" label="Community reach" />
-            <Th k="tvl" label="TVL" right />
-            <Th k="fees" label="Fees 24h" right />
-            <Th k="rev" label="Rev 24h" right />
+            <Th k="tvl" label="TVL" right hl="bg-makina-accent/[0.06] border-l border-makina-accent/20" />
+            <Th k="fees" label="Fees 24h · 7d" right hl="bg-makina-accent/[0.06]" />
+            <Th k="rev" label="Rev 24h · 7d" right hl="bg-makina-accent/[0.06] border-r border-makina-accent/20" />
             <Th k="twitter" label="X" right />
             <Th k="linkedin" label="LinkedIn" right />
             <Th k="discord" label="Discord" right />
@@ -229,7 +229,7 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                   })()}
                 </td>
 
-                <td className="px-2 py-2.5 text-right">
+                <td className="border-l border-makina-accent/20 bg-makina-accent/[0.06] px-2 py-2.5 text-right">
                   <div className="flex items-center justify-end gap-2">
                     {(oc?.tvlSeries?.length ?? 0) >= 2 && (
                       <Sparkline data={oc!.tvlSeries.map((p) => p.v)} width={48} height={16} />
@@ -238,22 +238,29 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                       <div className="font-semibold tabular-nums text-makina-text">
                         {oc?.tvl != null ? formatUsd(oc.tvl) : "-"}
                       </div>
-                      {oc?.tvlChange1d != null && (
-                        <div
-                          className={`text-[10px] tabular-nums ${oc.tvlChange1d >= 0 ? "text-makina-green" : "text-makina-red"}`}
-                        >
-                          {signedPct(oc.tvlChange1d)}
-                        </div>
-                      )}
+                      <div className="flex items-center justify-end gap-2 leading-tight">
+                        {oc?.tvlChange1d != null && (
+                          <span className={`text-[10px] tabular-nums ${oc.tvlChange1d >= 0 ? "text-makina-green" : "text-makina-red"}`}>
+                            24h {signedPct(oc.tvlChange1d)}
+                          </span>
+                        )}
+                        {oc?.tvlChange7d != null && (
+                          <span className={`text-[10px] tabular-nums ${oc.tvlChange7d >= 0 ? "text-makina-green" : "text-makina-red"}`}>
+                            7d {signedPct(oc.tvlChange7d)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </td>
 
-                <td className="px-2 py-2.5 text-right tabular-nums text-makina-text/80">
-                  {oc?.fees24h != null ? formatUsd(oc.fees24h) : <span className="text-makina-subtle">-</span>}
+                <td className="bg-makina-accent/[0.06] px-2 py-2.5 text-right tabular-nums text-makina-text/80">
+                  <div>{oc?.fees24h != null ? formatUsd(oc.fees24h) : <span className="text-makina-subtle">-</span>}</div>
+                  {oc?.fees7d != null && <div className="text-[10px] text-makina-subtle">7d {formatUsd(oc.fees7d)}</div>}
                 </td>
-                <td className="px-2 py-2.5 text-right tabular-nums text-makina-text/80">
-                  {oc?.revenue24h != null ? formatUsd(oc.revenue24h) : <span className="text-makina-subtle">-</span>}
+                <td className="border-r border-makina-accent/20 bg-makina-accent/[0.06] px-2 py-2.5 text-right tabular-nums text-makina-text/80">
+                  <div>{oc?.revenue24h != null ? formatUsd(oc.revenue24h) : <span className="text-makina-subtle">-</span>}</div>
+                  {oc?.revenue7d != null && <div className="text-[10px] text-makina-subtle">7d {formatUsd(oc.revenue7d)}</div>}
                 </td>
 
                 {SOCIAL_COLS.map((p) => (

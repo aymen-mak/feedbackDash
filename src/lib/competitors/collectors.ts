@@ -488,6 +488,7 @@ export interface DefillamaFetch {
   fees7d: number | null;
   fees30d: number | null;
   revenue24h: number | null;
+  revenue7d: number | null;
   revenue30d: number | null;
   history: { t: string; v: number }[];
 }
@@ -504,6 +505,7 @@ function blankDefillama(error: string): DefillamaFetch {
     fees7d: null,
     fees30d: null,
     revenue24h: null,
+    revenue7d: null,
     revenue30d: null,
     history: [],
   };
@@ -594,6 +596,7 @@ export async function fetchDefillama(slug: string): Promise<DefillamaFetch> {
       fees7d: fees.t7,
       fees30d: fees.t30,
       revenue24h: rev.t24,
+      revenue7d: rev.t7,
       revenue30d: rev.t30,
       history,
     };
