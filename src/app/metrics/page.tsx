@@ -13,8 +13,7 @@ import {
   Wrench,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { Spinner } from "@/components/Spinner";
-import MetricsSkeleton from "@/components/makina/MetricsSkeleton";
+import { PageLoader, Spinner } from "@/components/Spinner";
 import { useLoadingBar } from "@/components/LoadingBar";
 import DiagnosticsPanel, { useDiagnostics } from "@/components/DiagnosticsPanel";
 import Sparkline from "@/components/competitors/Sparkline";
@@ -339,7 +338,9 @@ function MetricsInner() {
         </div>
 
         {loading ? (
-          <MetricsSkeleton />
+          <div className="flex min-h-[50vh] items-center justify-center">
+            <PageLoader label="Loading metrics…" />
+          </div>
         ) : accEntries.length === 0 ? (
           <div className="rounded-xl border border-makina-border bg-makina-card p-10 text-center">
             <p className="text-sm text-makina-muted">No data yet for {accDef.label}.</p>

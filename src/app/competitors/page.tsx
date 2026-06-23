@@ -3,8 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff, Wrench } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import { Spinner } from "@/components/Spinner";
-import CompetitorsSkeleton from "@/components/competitors/CompetitorsSkeleton";
+import { PageLoader, Spinner } from "@/components/Spinner";
 import { useLoadingBar } from "@/components/LoadingBar";
 import DiagnosticsPanel, { useDiagnostics } from "@/components/DiagnosticsPanel";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
@@ -307,7 +306,9 @@ function CompetitorsInner() {
         )}
 
         {loading ? (
-          <CompetitorsSkeleton />
+          <div className="flex min-h-[60vh] items-center justify-center">
+            <PageLoader label="Loading competitors…" />
+          </div>
         ) : (
           <>
             {/* Summary tiles */}
