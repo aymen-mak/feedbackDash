@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { RefreshCw, Trophy, Users, TrendingUp, Database, Plus, Download, Eye, EyeOff } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import OnChainBoard from "@/components/competitors/OnChainBoard";
 import CompetitorCard from "@/components/competitors/CompetitorCard";
 import MonitoringTable from "@/components/competitors/MonitoringTable";
 import CompetitorDetail from "@/components/competitors/CompetitorDetail";
@@ -355,9 +354,6 @@ function CompetitorsInner() {
                 </button>
               </div>
             </div>
-
-            {/* On-chain momentum board */}
-            <OnChainBoard competitors={active} />
 
             {/* Monitoring view */}
             {view === "table" ? (

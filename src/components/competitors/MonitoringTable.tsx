@@ -155,8 +155,8 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
             <Th k="name" label="Protocol" />
             <Th k="audience" label="Community reach" />
             <Th k="tvl" label="TVL · 7d" right hl="bg-makina-accent/[0.06] border-l border-makina-accent/20" />
-            <Th k="fees" label="Fees 24h" right hl="bg-makina-accent/[0.06]" />
-            <Th k="rev" label="Rev 24h" right hl="bg-makina-accent/[0.06] border-r border-makina-accent/20" />
+            <Th k="fees" label="Fees 24h · 7d" right hl="bg-makina-accent/[0.06]" />
+            <Th k="rev" label="Rev 24h · 7d" right hl="bg-makina-accent/[0.06] border-r border-makina-accent/20" />
             <Th k="twitter" label="X" right />
             <Th k="linkedin" label="LinkedIn" right />
             <Th k="discord" label="Discord" right />
@@ -260,16 +260,38 @@ export default function MonitoringTable({ competitors, trends, onSelect, onToggl
                 </td>
 
                 <td
-                  className="bg-makina-accent/[0.06] px-2 py-2.5 text-right tabular-nums text-makina-text/80"
-                  title={[oc?.fees24h != null ? `24h ${formatUsd(oc.fees24h)}` : null, oc?.fees7d != null ? `7d ${formatUsd(oc.fees7d)}` : null].filter(Boolean).join(" · ") || undefined}
+                  className="bg-makina-accent/[0.06] px-2 py-2.5 text-right"
+                  title={oc?.fees30d != null ? `30d ${formatUsd(oc.fees30d)}` : undefined}
                 >
-                  {oc?.fees24h != null ? formatUsd(oc.fees24h) : <span className="text-makina-subtle">-</span>}
+                  {oc?.fees24h != null ? (
+                    <div className="leading-tight">
+                      <div className="font-semibold tabular-nums text-makina-text">{formatUsd(oc.fees24h)}</div>
+                      {oc?.fees7d != null && (
+                        <div className="text-[10px] tabular-nums text-makina-muted">
+                          {formatUsd(oc.fees7d)} <span className="text-makina-subtle">7d</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="tabular-nums text-makina-subtle">-</span>
+                  )}
                 </td>
                 <td
-                  className="border-r border-makina-accent/20 bg-makina-accent/[0.06] px-2 py-2.5 text-right tabular-nums text-makina-text/80"
-                  title={[oc?.revenue24h != null ? `24h ${formatUsd(oc.revenue24h)}` : null, oc?.revenue7d != null ? `7d ${formatUsd(oc.revenue7d)}` : null].filter(Boolean).join(" · ") || undefined}
+                  className="border-r border-makina-accent/20 bg-makina-accent/[0.06] px-2 py-2.5 text-right"
+                  title={oc?.revenue30d != null ? `30d ${formatUsd(oc.revenue30d)}` : undefined}
                 >
-                  {oc?.revenue24h != null ? formatUsd(oc.revenue24h) : <span className="text-makina-subtle">-</span>}
+                  {oc?.revenue24h != null ? (
+                    <div className="leading-tight">
+                      <div className="font-semibold tabular-nums text-makina-text">{formatUsd(oc.revenue24h)}</div>
+                      {oc?.revenue7d != null && (
+                        <div className="text-[10px] tabular-nums text-makina-muted">
+                          {formatUsd(oc.revenue7d)} <span className="text-makina-subtle">7d</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="tabular-nums text-makina-subtle">-</span>
+                  )}
                 </td>
 
                 {SOCIAL_COLS.map((p) => (
