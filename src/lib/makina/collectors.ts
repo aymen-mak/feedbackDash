@@ -197,11 +197,13 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
   if (!token) return fail("Apify not set (APIFY_TOKEN)");
   if (clean.length === 0) return {};
   const actor = process.env.APIFY_TWEET_ACTOR || "altimis~scweet";
+  // scweet's "profiles" mode is the one meant for recent activity per account.
+  // NOTE: source_mode "auto" is NOT a valid value — the run succeeds but scrapes
+  // nothing (empty dataset), which is what silently broke X collection.
   const input = {
-    source_mode: "auto",
+    source_mode: "profiles",
     profile_urls: clean.map((h) => `@${h}`),
     max_items: Math.max(100, clean.length * 100), // scweet's schema minimum is 100
-    search_sort: "Latest",
   };
   try {
     const res = await apifyRunSync(actor, token, input);
