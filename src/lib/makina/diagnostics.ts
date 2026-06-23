@@ -77,7 +77,7 @@ export function classify(
     return { ...base, level: "error", summary: error, fix: "Apify credit is used up. Add a payment method or wait for the cycle reset." };
   if (e.includes("approval") || e.includes("approve") || e.includes("permission"))
     return { ...base, level: "error", summary: error, fix: "Approve the actor's permissions on this Apify account using the link." };
-  if (e.includes("schema") || e.includes("recognizable author"))
+  if (e.includes("schema") || e.includes("recognizable author") || e.includes("field name"))
     return { ...base, level: "error", summary: error, fix: "The scraper's output format changed; update the field mapping in collectors.ts." };
 
   // Soft problems (worth a look, often self-clearing or config).

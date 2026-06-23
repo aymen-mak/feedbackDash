@@ -46,6 +46,31 @@ function num(v: unknown): number | undefined {
   return undefined;
 }
 
+/** First finite number found under any of `keys`, across the given objects. */
+function pickNum(sources: Array<Record<string, unknown> | undefined>, keys: string[]): number | undefined {
+  for (const s of sources) {
+    if (!s) continue;
+    for (const k of keys) {
+      const v = num(s[k]);
+      if (v != null) return v;
+    }
+  }
+  return undefined;
+}
+
+/** First non-empty string (or number coerced to string) found under any of `keys`. */
+function pickStr(sources: Array<Record<string, unknown> | undefined>, keys: string[]): string | undefined {
+  for (const s of sources) {
+    if (!s) continue;
+    for (const k of keys) {
+      const v = s[k];
+      if (typeof v === "string" && v.trim()) return v;
+      if (typeof v === "number") return String(v);
+    }
+  }
+  return undefined;
+}
+
 /** POST run-sync-get-dataset-items with one auto-retry on transient 429/5xx. */
 async function apifyRunSync(actor: string, token: string, input: unknown, ms = 58000): Promise<Response> {
   const url = `https://api.apify.com/v2/acts/${actor}/run-sync-get-dataset-items?token=${encodeURIComponent(token)}&memory=1024`;
@@ -70,22 +95,33 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
   const own: TweetMetric[] = [];
   for (const it of items) {
     const user = (it.user ?? {}) as Record<string, unknown>;
-    const f = num(user.followers_count);
-    if (f != null) followers = f; // captured regardless of tweet date
+    const userLegacy = (user.legacy ?? {}) as Record<string, unknown>;
     const tw = (it.tweet ?? {}) as Record<string, unknown>;
-    const imp = num(it.view_count) ?? num(tw.view_count) ?? 0;
-    const lk = num(it.favorite_count) ?? num(tw.favorite_count) ?? 0;
-    const rp = num(it.reply_count) ?? num(tw.reply_count) ?? 0;
-    const rt = num(it.retweet_count) ?? num(tw.retweet_count) ?? 0;
-    const qt = num(it.quote_count) ?? num(tw.quote_count) ?? 0;
-    const bm = num(it.bookmark_count) ?? num(tw.bookmark_count) ?? 0;
-    const createdMs = Date.parse(String(it.created_at ?? tw.created_at ?? ""));
+    const legacy = (tw.legacy ?? it.legacy ?? {}) as Record<string, unknown>;
+    const src = [it, tw, legacy];
+
+    const f = pickNum([user, userLegacy], ["followers_count", "followersCount", "followers"]);
+    if (f != null) followers = f; // captured regardless of tweet date
+
+    // scweet has shipped several output shapes, so read each metric across the
+    // common field-name variants (snake/camel, abbreviations, GraphQL legacy).
+    const imp =
+      pickNum(src, ["view_count", "views_count", "viewCount", "views", "impressions", "impression_count"]) ??
+      num((it.views as Record<string, unknown> | undefined)?.count) ??
+      num((tw.views as Record<string, unknown> | undefined)?.count) ??
+      0;
+    const lk = pickNum(src, ["favorite_count", "favoriteCount", "favourites_count", "likes", "like_count", "likeCount"]) ?? 0;
+    const rp = pickNum(src, ["reply_count", "replyCount", "replies"]) ?? 0;
+    const rt = pickNum(src, ["retweet_count", "retweetCount", "retweets", "repost_count", "reposts"]) ?? 0;
+    const qt = pickNum(src, ["quote_count", "quoteCount", "quotes"]) ?? 0;
+    const bm = pickNum(src, ["bookmark_count", "bookmarkCount", "bookmarks"]) ?? 0;
+    const createdMs = Date.parse(pickStr(src, ["created_at", "createdAt", "date", "time", "timestamp", "created"]) ?? "");
 
     // Per-post record for the latest-posts view (any date).
-    const rawText = String(it.text ?? tw.text ?? "").trim();
+    const rawText = (pickStr(src, ["text", "full_text", "fullText", "content", "rawContent", "tweet"]) ?? "").trim();
     own.push({
-      id: String(it.id ?? tw.rest_id ?? it.tweet_url ?? own.length),
-      url: String(it.tweet_url ?? tw.tweet_url ?? ""),
+      id: String(pickStr(src, ["id", "id_str", "rest_id", "tweet_id", "tweetId"]) ?? pickStr(src, ["tweet_url", "url"]) ?? own.length),
+      url: pickStr(src, ["tweet_url", "url", "twitterUrl", "link", "permalink"]) ?? "",
       text: rawText.length > 280 ? `${rawText.slice(0, 277)}…` : rawText,
       createdAt: Number.isNaN(createdMs) ? "" : new Date(createdMs).toISOString(),
       impressions: imp, likes: lk, replies: rp, reposts: rt, quotes: qt, bookmarks: bm,
@@ -101,10 +137,17 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
     .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
     .slice(0, 12);
 
+  // Field names scweet actually returned, surfaced so a schema change can be
+  // pinned straight from the Diagnose panel without guessing.
+  const first = (items[0] ?? {}) as Record<string, unknown>;
+  const firstTweet = (first.tweet ?? first.legacy ?? {}) as Record<string, unknown>;
+
   const evidence: Record<string, unknown> = {
     matched: own.length,
     postsInWindow: count,
     followers: followers ?? null,
+    sampleKeys: Object.keys(first).slice(0, 12).join(", ") || null,
+    sampleTweetKeys: Object.keys(firstTweet).slice(0, 12).join(", ") || null,
   };
 
   // Followers is a profile-level figure, valid even with no posts this week.
@@ -118,6 +161,19 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
   if (count === 0) return { values: base, error: `scweet: no posts in the last 7 days for @${handle}`, tweets, evidence };
 
   const engagements = likes + replies + reposts + bookmarks + shares;
+
+  // Posts exist in the window but every engagement field read 0 — almost always a
+  // renamed metric field in scweet's output, not a real zero. Flag it (with the
+  // field names in evidence) and keep the last good figures instead of storing 0s.
+  if (impressions === 0 && engagements === 0) {
+    return {
+      values: base,
+      error: `scweet returned ${count} post(s) for @${handle} but every engagement field read 0; the metric field names may have changed`,
+      tweets,
+      evidence,
+    };
+  }
+
   const values: Record<string, number | null> = {
     ...base,
     impressions,
