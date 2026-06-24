@@ -85,6 +85,7 @@ function StablecoinsInner() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("deviation");
   const [autoRefresh, setAutoRefresh] = useState(false);
+  const [showAll, setShowAll] = useState(false);
   const { start: lbStart, done: lbDone } = useLoadingBar();
 
   const load = useCallback(
@@ -128,7 +129,8 @@ function StablecoinsInner() {
   const rows = useMemo(() => {
     if (!data) return [];
     const q = query.trim().toLowerCase();
-    const filtered = data.assets.filter((a) => {
+    const source = showAll ? data.assets : data.assets.filter((a) => a.significant);
+    const filtered = source.filter((a) => {
       if (q && !a.name.toLowerCase().includes(q) && !a.symbol.toLowerCase().includes(q)) return false;
       if (statusFilter === "offpeg") return a.status === "depegged" || a.status === "watch";
       if (statusFilter === "onpeg") return a.status === "on-peg";
@@ -142,12 +144,12 @@ function StablecoinsInner() {
       return dev(b) - dev(a);
     });
     return filtered;
-  }, [data, query, statusFilter, sortKey]);
+  }, [data, query, statusFilter, sortKey, showAll]);
 
   const s = data?.summary;
   const tiles = s
     ? [
-        { label: "Tracked", value: String(s.total), color: undefined },
+        { label: "Monitored", value: String(s.total), color: undefined },
         { label: "Depegged", value: String(s.depegged), color: s.depegged > 0 ? "#ef4444" : undefined },
         { label: "Watching", value: String(s.watch), color: s.watch > 0 ? "#f59e0b" : undefined },
         { label: "On peg", value: String(s.onPeg), color: "#22c55e" },
@@ -195,8 +197,8 @@ function StablecoinsInner() {
               Stablecoin <span className="gradient-text">Depeg</span> Monitor
             </h1>
             <p className="mt-1 text-xs text-makina-muted">
-              Peg status across {data ? data.summary.total : "200+"} stablecoins · DefiLlama · last data{" "}
-              {timeAgo(data?.at)}
+              Peg status across {data ? data.summary.total : "200+"} monitored stablecoins
+              {data ? ` (of ${data.summary.catalog})` : ""} · DefiLlama · last data {timeAgo(data?.at)}
             </p>
           </div>
           <button
@@ -293,6 +295,19 @@ function StablecoinsInner() {
                   <option value="name">Sort: symbol A–Z</option>
                 </select>
                 <button
+                  onClick={() => setShowAll((v) => !v)}
+                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    showAll
+                      ? "border-makina-accent/40 bg-makina-accent-dim text-makina-accent"
+                      : "border-makina-border text-makina-muted hover:text-makina-text"
+                  }`}
+                  title="Include stablecoins below the $10M monitoring threshold"
+                >
+                  {showAll
+                    ? `Showing all ${data?.summary.catalog ?? ""}`
+                    : `Show all${data && data.summary.hidden ? ` (+${data.summary.hidden})` : ""}`}
+                </button>
+                <button
                   onClick={() => setAutoRefresh((v) => !v)}
                   className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
                     autoRefresh ? "border-makina-green/40 bg-makina-green/5 text-makina-green" : "border-makina-border text-makina-muted hover:text-makina-text"
@@ -380,6 +395,8 @@ function StablecoinsInner() {
             </div>
 
             <p className="px-1 text-[10px] leading-relaxed text-makina-subtle">
+              Monitoring stablecoins with at least $10M market cap
+              {data && data.summary.hidden ? `; ${data.summary.hidden} smaller / inactive ones hidden (use “Show all”)` : ""}.
               Peg status from DefiLlama prices. USD pegs are measured against $1; other fiat pegs against the median
               price of their peg group (no FX feed needed). On peg ≤ 0.5% · Watch 0.5–2% · Depegged &gt; 2%.
               Variable-peg assets (e.g. floating or algorithmic) are shown but not flagged.

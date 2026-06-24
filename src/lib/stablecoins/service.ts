@@ -4,6 +4,7 @@ import {
   type DepegStatus,
   DEPEG_THRESHOLD,
   WATCH_THRESHOLD,
+  SIGNIFICANT_MCAP,
 } from "./types";
 
 // DefiLlama stablecoins API (free, no key) — the same provider already used for
@@ -100,6 +101,7 @@ export async function getStablecoins(): Promise<StablecoinReport> {
     else status = "on-peg";
 
     const mcap = circulating != null ? circulating * (price ?? 1) : null;
+    const significant = price != null && mcap != null && mcap >= SIGNIFICANT_MCAP;
 
     return {
       id: String(a.id ?? a.symbol ?? a.name ?? Math.random()),
@@ -115,11 +117,16 @@ export async function getStablecoins(): Promise<StablecoinReport> {
       mcap,
       circulating,
       chains: Array.isArray(a.chains) ? a.chains.map(String) : [],
+      significant,
     };
   });
 
-  const count = (s: DepegStatus) => assets.filter((a) => a.status === s).length;
-  const worst = assets
+  // Headline + tiles describe the MONITORED set (≥ $10M mcap), so a dead coin's
+  // illiquid "depeg" can't pollute the summary. The full catalogue is still
+  // returned (flagged) so the page's "Show all" toggle can reveal it.
+  const monitored = assets.filter((a) => a.significant);
+  const count = (s: DepegStatus) => monitored.filter((a) => a.status === s).length;
+  const worst = monitored
     .filter((a) => a.deviation != null && a.status !== "variable")
     .sort((a, b) => Math.abs(b.deviation!) - Math.abs(a.deviation!))
     .slice(0, 5)
@@ -129,13 +136,15 @@ export async function getStablecoins(): Promise<StablecoinReport> {
     at: new Date().toISOString(),
     assets,
     summary: {
-      total: assets.length,
+      total: monitored.length,
       onPeg: count("on-peg"),
       watch: count("watch"),
       depegged: count("depegged"),
       variable: count("variable"),
       noPrice: count("unknown"),
-      totalMcap: assets.reduce((s, a) => s + (a.mcap ?? 0), 0),
+      totalMcap: monitored.reduce((s, a) => s + (a.mcap ?? 0), 0),
+      catalog: assets.length,
+      hidden: assets.length - monitored.length,
       worst,
     },
   };

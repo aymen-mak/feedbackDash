@@ -23,6 +23,8 @@ export interface StablecoinRow {
   mcap: number | null;
   circulating: number | null;
   chains: string[];
+  /** Passes the market-cap relevance bar (monitored by default). */
+  significant: boolean;
 }
 
 export interface StablecoinReport {
@@ -36,10 +38,17 @@ export interface StablecoinReport {
     variable: number;
     noPrice: number;
     totalMcap: number;
+    /** Full DefiLlama catalogue size, before the relevance filter. */
+    catalog: number;
+    /** How many were filtered out as too small / inactive. */
+    hidden: number;
     /** Largest absolute deviations (excluding variable-peg), for the headline. */
     worst: { symbol: string; name: string; deviation: number }[];
   };
 }
+
+/** Minimum market cap to be monitored by default (drops the dead long tail). */
+export const SIGNIFICANT_MCAP = 10_000_000; // $10M
 
 /** Off the peg by more than this fraction = a real depeg. */
 export const DEPEG_THRESHOLD = 0.02; // 2%
