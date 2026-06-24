@@ -96,9 +96,12 @@ export async function getStablecoins(): Promise<StablecoinReport> {
     let status: DepegStatus;
     if (pegType === "peggedVAR") status = "variable";
     else if (price == null || deviation == null) status = "unknown";
-    else if (Math.abs(deviation) > DEPEG_THRESHOLD) status = "depegged";
+    else if (deviation > DEPEG_THRESHOLD) status = "depegged-above";
+    else if (deviation < -DEPEG_THRESHOLD) status = "depegged-below";
     else if (Math.abs(deviation) > WATCH_THRESHOLD) status = "watch";
     else status = "on-peg";
+    const direction: StablecoinRow["direction"] =
+      deviation == null ? null : deviation > 0.0005 ? "above" : deviation < -0.0005 ? "below" : "flat";
 
     const mcap = circulating != null ? circulating * (price ?? 1) : null;
     const significant = price != null && mcap != null && mcap >= SIGNIFICANT_MCAP;
@@ -114,6 +117,7 @@ export async function getStablecoins(): Promise<StablecoinReport> {
       target,
       deviation,
       status,
+      direction,
       mcap,
       circulating,
       chains: Array.isArray(a.chains) ? a.chains.map(String) : [],
@@ -139,7 +143,8 @@ export async function getStablecoins(): Promise<StablecoinReport> {
       total: monitored.length,
       onPeg: count("on-peg"),
       watch: count("watch"),
-      depegged: count("depegged"),
+      depeggedBelow: count("depegged-below"),
+      depeggedAbove: count("depegged-above"),
       variable: count("variable"),
       noPrice: count("unknown"),
       totalMcap: monitored.reduce((s, a) => s + (a.mcap ?? 0), 0),

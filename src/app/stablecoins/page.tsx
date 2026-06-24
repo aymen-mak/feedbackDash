@@ -1,20 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { RefreshCw, Search, AlertTriangle, ShieldCheck, ArrowUp, ArrowDown } from "lucide-react";
+import { RefreshCw, Search, AlertTriangle, ShieldCheck, ArrowUp, ArrowDown, ChevronDown } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { PageLoader, Spinner } from "@/components/Spinner";
 import { useLoadingBar } from "@/components/LoadingBar";
 import { formatUsd, timeAgo } from "@/components/competitors/platformMeta";
-import {
-  type StablecoinReport,
-  type StablecoinRow,
-  type DepegStatus,
-  DEPEG_THRESHOLD,
-} from "@/lib/stablecoins/types";
+import { type StablecoinReport, type StablecoinRow, type DepegStatus } from "@/lib/stablecoins/types";
 
 const STATUS_META: Record<DepegStatus, { label: string; color: string }> = {
-  depegged: { label: "Depegged", color: "#ef4444" },
+  "depegged-below": { label: "Below peg", color: "#ef4444" },
+  "depegged-above": { label: "Above peg", color: "#22d3ee" },
   watch: { label: "Watch", color: "#f59e0b" },
   "on-peg": { label: "On peg", color: "#22c55e" },
   variable: { label: "Variable", color: "#a78bfa" },
@@ -27,8 +23,8 @@ const MECH_COLOR: Record<string, string> = {
   Algorithmic: "#f59e0b",
 };
 
-type SortKey = "deviation" | "mcap" | "name";
-type StatusFilter = "all" | "offpeg" | "onpeg" | "variable";
+const SEV_RANK: Record<string, number> = { "depegged-below": 0, "depegged-above": 1, watch: 2 };
+const MAX_DEV = 0.03; // gauge / band span: ±3%
 
 function fmtPrice(p: number | null): string {
   if (p == null) return "—";
@@ -43,22 +39,18 @@ function fmtDev(d: number | null): string {
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
 }
 
-function DeviationCell({ row }: { row: StablecoinRow }) {
-  const { deviation, status } = row;
-  if (deviation == null) return <span className="text-makina-subtle">—</span>;
-  const color = STATUS_META[status].color;
-  const up = deviation >= 0;
-  // Bar fills toward 3% (1.5× the depeg threshold) = full width.
-  const pct = Math.min(1, Math.abs(deviation) / (DEPEG_THRESHOLD * 1.5)) * 100;
+/** Peg-centered position bar with a marker for one coin's deviation. */
+function Gauge({ deviation, color }: { deviation: number | null; color: string }) {
+  const pos = deviation == null ? 50 : 50 + (Math.max(-MAX_DEV, Math.min(MAX_DEV, deviation)) / MAX_DEV) * 50;
   return (
-    <div className="flex flex-col items-end gap-1">
-      <span className="inline-flex items-center gap-0.5 text-xs font-semibold tabular-nums" style={{ color }}>
-        {Math.abs(deviation) < 0.0005 ? null : up ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
-        {fmtDev(deviation)}
-      </span>
-      <div className="h-1 w-16 overflow-hidden rounded-full bg-makina-surface">
-        <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
-      </div>
+    <div className="relative mt-3 h-1.5 w-full rounded-full bg-makina-surface">
+      <div className="absolute left-1/2 top-1/2 h-3 w-px -translate-x-1/2 -translate-y-1/2 bg-makina-subtle/60" />
+      {deviation != null && (
+        <div
+          className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-makina-card"
+          style={{ left: `${pos}%`, backgroundColor: color }}
+        />
+      )}
     </div>
   );
 }
@@ -67,12 +59,136 @@ function StatusPill({ status }: { status: DepegStatus }) {
   const { label, color } = STATUS_META[status];
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold"
+      className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold"
       style={{ backgroundColor: `${color}1f`, color }}
     >
       <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
       {label}
     </span>
+  );
+}
+
+function AttentionCard({ a }: { a: StablecoinRow }) {
+  const m = STATUS_META[a.status];
+  const up = (a.deviation ?? 0) >= 0;
+  return (
+    <div className="rounded-xl border bg-makina-card p-4 transition-colors hover:bg-makina-card-hover" style={{ borderColor: `${m.color}40` }}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-semibold text-makina-text">{a.symbol}</div>
+          <div className="truncate text-[11px] text-makina-subtle">{a.name}</div>
+        </div>
+        <StatusPill status={a.status} />
+      </div>
+      <div className="mt-3 flex items-end justify-between gap-2">
+        <div>
+          <div className="text-lg font-bold tabular-nums text-makina-text">{fmtPrice(a.price)}</div>
+          <div className="text-[10px] uppercase tracking-wider text-makina-subtle">price · {a.pegLabel} peg</div>
+        </div>
+        <div className="inline-flex items-center gap-1 text-lg font-bold tabular-nums" style={{ color: m.color }}>
+          {up ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
+          {fmtDev(a.deviation)}
+        </div>
+      </div>
+      <Gauge deviation={a.deviation} color={m.color} />
+      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-makina-subtle">
+        <span className="tabular-nums">{a.mcap && a.mcap > 0 ? `${formatUsd(a.mcap)} mcap` : "—"}</span>
+        <span className="truncate">
+          {a.mechanism !== "—" ? a.mechanism : ""}
+          {a.chains.length ? ` · ${a.chains.length} chain${a.chains.length > 1 ? "s" : ""}` : ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function Chip({ a }: { a: StablecoinRow }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-md border border-makina-border bg-makina-surface px-2 py-1 text-[11px]"
+      title={`${a.name} · ${fmtPrice(a.price)}${a.mcap ? ` · ${formatUsd(a.mcap)}` : ""}`}
+    >
+      <span className="font-semibold text-makina-text/90">{a.symbol}</span>
+      <span className="tabular-nums text-makina-subtle">{fmtDev(a.deviation)}</span>
+    </span>
+  );
+}
+
+function HealthBar({ s }: { s: StablecoinReport["summary"] }) {
+  const segs = [
+    { key: "depegged-below" as DepegStatus, n: s.depeggedBelow },
+    { key: "watch" as DepegStatus, n: s.watch },
+    { key: "on-peg" as DepegStatus, n: s.onPeg },
+    { key: "depegged-above" as DepegStatus, n: s.depeggedAbove },
+    { key: "variable" as DepegStatus, n: s.variable },
+    { key: "unknown" as DepegStatus, n: s.noPrice },
+  ];
+  const total = Math.max(1, segs.reduce((acc, x) => acc + x.n, 0));
+  return (
+    <div className="rounded-xl border border-makina-border bg-makina-card p-5 animate-fade-in-up">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-makina-muted">
+          Peg health · {s.total} monitored
+        </p>
+        <p className="text-[11px] text-makina-subtle">{s.totalMcap > 0 ? `${formatUsd(s.totalMcap)} total market cap` : ""}</p>
+      </div>
+      <div className="flex h-3 w-full overflow-hidden rounded-full bg-makina-surface">
+        {segs
+          .filter((x) => x.n > 0)
+          .map((x) => (
+            <div
+              key={x.key}
+              title={`${x.n} ${STATUS_META[x.key].label}`}
+              style={{ width: `${(x.n / total) * 100}%`, minWidth: 4, backgroundColor: STATUS_META[x.key].color }}
+            />
+          ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+        {segs.map((x) => (
+          <span
+            key={x.key}
+            className={`inline-flex items-center gap-1.5 text-[11px] ${x.n > 0 ? "text-makina-muted" : "text-makina-subtle/40"}`}
+          >
+            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: STATUS_META[x.key].color }} />
+            {STATUS_META[x.key].label} <span className="tabular-nums font-semibold text-makina-text">{x.n}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Collapsible({
+  label,
+  color,
+  items,
+  defaultOpen,
+}: {
+  label: string;
+  color: string;
+  items: StablecoinRow[];
+  defaultOpen: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const show = open || defaultOpen;
+  if (items.length === 0) return null;
+  return (
+    <div className="rounded-xl border border-makina-border bg-makina-card animate-fade-in-up">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between px-4 py-3">
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-makina-text">
+          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: color }} />
+          {label} <span className="font-normal text-makina-subtle">({items.length})</span>
+        </span>
+        <ChevronDown size={16} className={`text-makina-muted transition-transform ${show ? "rotate-180" : ""}`} />
+      </button>
+      {show && (
+        <div className="flex flex-wrap gap-2 px-4 pb-4">
+          {items.map((a) => (
+            <Chip key={a.id} a={a} />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -82,10 +198,8 @@ function StablecoinsInner() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [sortKey, setSortKey] = useState<SortKey>("deviation");
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const { start: lbStart, done: lbDone } = useLoadingBar();
 
   const load = useCallback(
@@ -126,61 +240,50 @@ function StablecoinsInner() {
     return () => clearInterval(id);
   }, [autoRefresh, load]);
 
-  const rows = useMemo(() => {
-    if (!data) return [];
-    const q = query.trim().toLowerCase();
-    const source = showAll ? data.assets : data.assets.filter((a) => a.significant);
-    const filtered = source.filter((a) => {
-      if (q && !a.name.toLowerCase().includes(q) && !a.symbol.toLowerCase().includes(q)) return false;
-      if (statusFilter === "offpeg") return a.status === "depegged" || a.status === "watch";
-      if (statusFilter === "onpeg") return a.status === "on-peg";
-      if (statusFilter === "variable") return a.status === "variable";
-      return true;
-    });
-    const dev = (a: StablecoinRow) => (a.deviation == null ? -1 : Math.abs(a.deviation));
-    filtered.sort((a, b) => {
-      if (sortKey === "name") return a.symbol.localeCompare(b.symbol);
-      if (sortKey === "mcap") return (b.mcap ?? 0) - (a.mcap ?? 0);
-      return dev(b) - dev(a);
-    });
-    return filtered;
-  }, [data, query, statusFilter, sortKey, showAll]);
+  const q = query.trim().toLowerCase();
+  const { attention, onPeg, other } = useMemo(() => {
+    if (!data) return { attention: [] as StablecoinRow[], onPeg: [] as StablecoinRow[], other: [] as StablecoinRow[] };
+    const base = (showAll ? data.assets : data.assets.filter((a) => a.significant)).filter(
+      (a) => !q || a.name.toLowerCase().includes(q) || a.symbol.toLowerCase().includes(q)
+    );
+    const attention = base
+      .filter((a) => a.status === "depegged-below" || a.status === "depegged-above" || a.status === "watch")
+      .sort((a, b) => (SEV_RANK[a.status] - SEV_RANK[b.status]) || Math.abs(b.deviation ?? 0) - Math.abs(a.deviation ?? 0));
+    const onPeg = base.filter((a) => a.status === "on-peg").sort((a, b) => (b.mcap ?? 0) - (a.mcap ?? 0));
+    const other = base.filter((a) => a.status === "variable" || a.status === "unknown").sort((a, b) => (b.mcap ?? 0) - (a.mcap ?? 0));
+    return { attention, onPeg, other };
+  }, [data, q, showAll]);
 
   const s = data?.summary;
-  const tiles = s
-    ? [
-        { label: "Monitored", value: String(s.total), color: undefined },
-        { label: "Depegged", value: String(s.depegged), color: s.depegged > 0 ? "#ef4444" : undefined },
-        { label: "Watching", value: String(s.watch), color: s.watch > 0 ? "#f59e0b" : undefined },
-        { label: "On peg", value: String(s.onPeg), color: "#22c55e" },
-        { label: "Total market cap", value: s.totalMcap > 0 ? formatUsd(s.totalMcap) : "—", color: undefined },
-      ]
-    : [];
-
-  // Headline banner: lead with the worst news.
   const banner = (() => {
     if (!s) return null;
-    if (s.depegged > 0) {
-      const names = s.worst.filter((w) => Math.abs(w.deviation) > DEPEG_THRESHOLD).slice(0, 4);
+    if (s.depeggedBelow > 0)
       return {
         tone: "#ef4444",
-        icon: AlertTriangle,
-        text: `${s.depegged} stablecoin${s.depegged > 1 ? "s" : ""} off peg right now`,
-        detail: names.map((w) => `${w.symbol} ${fmtDev(w.deviation)}`).join(" · "),
+        Icon: AlertTriangle,
+        text: `${s.depeggedBelow} stablecoin${s.depeggedBelow > 1 ? "s" : ""} trading below peg`,
+        detail:
+          s.worst.filter((w) => w.deviation < 0).slice(0, 4).map((w) => `${w.symbol} ${fmtDev(w.deviation)}`).join(" · ") +
+          (s.depeggedAbove > 0 ? `  ·  +${s.depeggedAbove} above` : ""),
       };
-    }
-    if (s.watch > 0) {
+    if (s.depeggedAbove > 0)
+      return {
+        tone: "#22d3ee",
+        Icon: AlertTriangle,
+        text: `${s.depeggedAbove} stablecoin${s.depeggedAbove > 1 ? "s" : ""} trading above peg (premium)`,
+        detail: s.worst.filter((w) => w.deviation > 0).slice(0, 4).map((w) => `${w.symbol} ${fmtDev(w.deviation)}`).join(" · "),
+      };
+    if (s.watch > 0)
       return {
         tone: "#f59e0b",
-        icon: AlertTriangle,
+        Icon: AlertTriangle,
         text: `All majors holding — ${s.watch} wobbling within 0.5–2%`,
         detail: s.worst.slice(0, 4).map((w) => `${w.symbol} ${fmtDev(w.deviation)}`).join(" · "),
       };
-    }
     return {
       tone: "#22c55e",
-      icon: ShieldCheck,
-      text: `All ${s.total} tracked stablecoins on peg`,
+      Icon: ShieldCheck,
+      text: `All ${s.total} monitored stablecoins on peg`,
       detail: s.worst[0] ? `Widest move: ${s.worst[0].symbol} ${fmtDev(s.worst[0].deviation)}` : "",
     };
   })();
@@ -212,9 +315,7 @@ function StablecoinsInner() {
         </div>
 
         {error && (
-          <div className="rounded-md border border-makina-red/20 bg-makina-red/10 px-4 py-2 text-sm text-makina-red">
-            {error}
-          </div>
+          <div className="rounded-md border border-makina-red/20 bg-makina-red/10 px-4 py-2 text-sm text-makina-red">{error}</div>
         )}
 
         {loading ? (
@@ -223,13 +324,13 @@ function StablecoinsInner() {
           </div>
         ) : (
           <>
-            {/* Headline banner */}
+            {/* Headline */}
             {banner && (
               <div
                 className="flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3 animate-fade-in-up"
                 style={{ borderColor: `${banner.tone}40`, backgroundColor: `${banner.tone}0d` }}
               >
-                <banner.icon size={18} style={{ color: banner.tone }} />
+                <banner.Icon size={18} style={{ color: banner.tone }} />
                 <span className="text-sm font-semibold" style={{ color: banner.tone }}>
                   {banner.text}
                 </span>
@@ -237,21 +338,8 @@ function StablecoinsInner() {
               </div>
             )}
 
-            {/* Summary tiles */}
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-              {tiles.map((t, i) => (
-                <div
-                  key={t.label}
-                  className="rounded-xl border border-makina-border bg-makina-card p-4 hover-lift animate-fade-in-up"
-                  style={{ animationDelay: `${i * 40}ms` }}
-                >
-                  <p className="text-[11px] font-medium uppercase tracking-wider text-makina-muted">{t.label}</p>
-                  <p className="mt-2 truncate text-2xl font-bold tabular-nums" style={{ color: t.color ?? "var(--color-makina-text)" }}>
-                    {t.value}
-                  </p>
-                </div>
-              ))}
-            </div>
+            {/* Peg health overview */}
+            {s && <HealthBar s={s} />}
 
             {/* Controls */}
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -265,47 +353,14 @@ function StablecoinsInner() {
                 />
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <div className="inline-flex rounded-lg border border-makina-border bg-makina-surface p-0.5">
-                  {(
-                    [
-                      ["all", "All"],
-                      ["offpeg", "Off peg"],
-                      ["onpeg", "On peg"],
-                      ["variable", "Variable"],
-                    ] as [StatusFilter, string][]
-                  ).map(([v, label]) => (
-                    <button
-                      key={v}
-                      onClick={() => setStatusFilter(v)}
-                      className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
-                        statusFilter === v ? "bg-makina-card text-makina-text shadow-sm" : "text-makina-muted hover:text-makina-text"
-                      }`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <select
-                  value={sortKey}
-                  onChange={(e) => setSortKey(e.target.value as SortKey)}
-                  className="rounded-lg border border-makina-border bg-makina-surface px-3 py-1.5 text-xs font-medium text-makina-muted focus:border-makina-accent/40 focus:outline-none"
-                >
-                  <option value="deviation">Sort: biggest deviation</option>
-                  <option value="mcap">Sort: market cap</option>
-                  <option value="name">Sort: symbol A–Z</option>
-                </select>
                 <button
                   onClick={() => setShowAll((v) => !v)}
                   className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    showAll
-                      ? "border-makina-accent/40 bg-makina-accent-dim text-makina-accent"
-                      : "border-makina-border text-makina-muted hover:text-makina-text"
+                    showAll ? "border-makina-accent/40 bg-makina-accent-dim text-makina-accent" : "border-makina-border text-makina-muted hover:text-makina-text"
                   }`}
                   title="Include stablecoins below the $10M monitoring threshold"
                 >
-                  {showAll
-                    ? `Showing all ${data?.summary.catalog ?? ""}`
-                    : `Show all${data && data.summary.hidden ? ` (+${data.summary.hidden})` : ""}`}
+                  {showAll ? `Showing all ${data?.summary.catalog ?? ""}` : `Show all${data && data.summary.hidden ? ` (+${data.summary.hidden})` : ""}`}
                 </button>
                 <button
                   onClick={() => setAutoRefresh((v) => !v)}
@@ -320,86 +375,36 @@ function StablecoinsInner() {
               </div>
             </div>
 
-            {/* Table */}
-            <div className="overflow-x-auto rounded-xl border border-makina-border bg-makina-card animate-fade-in-up">
-              <table className="w-full min-w-[820px] border-collapse text-sm">
-                <thead>
-                  <tr className="border-b border-makina-border text-[10px] font-semibold uppercase tracking-wider text-makina-muted">
-                    <th className="px-3 py-2.5 text-left">Stablecoin</th>
-                    <th className="px-3 py-2.5 text-left">Peg</th>
-                    <th className="px-3 py-2.5 text-right">Price</th>
-                    <th className="px-3 py-2.5 text-right">Deviation</th>
-                    <th className="px-3 py-2.5 text-center">Status</th>
-                    <th className="px-3 py-2.5 text-right">Market cap</th>
-                    <th className="px-3 py-2.5 text-right">Chains</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map((a) => (
-                    <tr
-                      key={a.id}
-                      className={`border-b border-makina-border/50 transition-colors hover:bg-makina-surface/50 ${
-                        a.status === "depegged" ? "bg-makina-red/[0.05]" : ""
-                      }`}
-                    >
-                      <td className="px-3 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-makina-text">{a.symbol}</span>
-                          <span className="truncate text-[11px] text-makina-subtle">{a.name}</span>
-                        </div>
-                        {a.mechanism !== "—" && (
-                          <span
-                            className="mt-0.5 inline-block rounded px-1 py-px text-[9px] font-medium"
-                            style={{
-                              color: MECH_COLOR[a.mechanism] ?? "#8d9bad",
-                              backgroundColor: `${MECH_COLOR[a.mechanism] ?? "#8d9bad"}1a`,
-                            }}
-                          >
-                            {a.mechanism}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <span className="text-xs font-medium text-makina-muted">{a.pegLabel}</span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-makina-text/90">{fmtPrice(a.price)}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex justify-end">
-                          <DeviationCell row={a} />
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex justify-center">
-                          <StatusPill status={a.status} />
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-makina-muted">
-                        {a.mcap != null && a.mcap > 0 ? formatUsd(a.mcap) : "—"}
-                      </td>
-                      <td className="px-3 py-2.5 text-right">
-                        <span className="text-xs tabular-nums text-makina-subtle" title={a.chains.join(", ")}>
-                          {a.chains.length || "—"}
-                        </span>
-                      </td>
-                    </tr>
+            {/* Needs attention — the only section you normally have to read */}
+            <div>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-makina-muted">
+                Needs attention {attention.length > 0 && <span className="text-makina-subtle">· {attention.length}</span>}
+              </p>
+              {attention.length === 0 ? (
+                <div className="flex items-center gap-3 rounded-xl border border-makina-green/30 bg-makina-green/[0.06] px-4 py-5">
+                  <ShieldCheck size={18} className="text-makina-green" />
+                  <span className="text-sm font-medium text-makina-green">
+                    {q ? "No off-peg matches." : "Nothing off peg — every monitored stablecoin is holding."}
+                  </span>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {attention.map((a) => (
+                    <AttentionCard key={a.id} a={a} />
                   ))}
-                  {rows.length === 0 && (
-                    <tr>
-                      <td colSpan={7} className="px-3 py-10 text-center text-sm text-makina-muted">
-                        No stablecoins match this filter.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                </div>
+              )}
             </div>
+
+            {/* The boring majority, tucked away */}
+            <Collapsible label="On peg" color="#22c55e" items={onPeg} defaultOpen={!!q} />
+            <Collapsible label="Variable & unrated" color="#a78bfa" items={other} defaultOpen={!!q} />
 
             <p className="px-1 text-[10px] leading-relaxed text-makina-subtle">
               Monitoring stablecoins with at least $10M market cap
-              {data && data.summary.hidden ? `; ${data.summary.hidden} smaller / inactive ones hidden (use “Show all”)` : ""}.
-              Peg status from DefiLlama prices. USD pegs are measured against $1; other fiat pegs against the median
-              price of their peg group (no FX feed needed). On peg ≤ 0.5% · Watch 0.5–2% · Depegged &gt; 2%.
-              Variable-peg assets (e.g. floating or algorithmic) are shown but not flagged.
+              {data && data.summary.hidden ? `; ${data.summary.hidden} smaller / inactive ones hidden (use “Show all”)` : ""}. Peg
+              status from DefiLlama prices. USD pegs measured against $1; other fiat pegs against the median price of their
+              peg group. On peg ≤ 0.5% · Watch 0.5–2% · Below / Above peg &gt; 2%. Variable-peg assets shown but not flagged.
             </p>
           </>
         )}

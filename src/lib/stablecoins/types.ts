@@ -1,6 +1,6 @@
 // Shared types for the stablecoin depeg monitor (DefiLlama stablecoins API).
 
-export type DepegStatus = "on-peg" | "watch" | "depegged" | "variable" | "unknown";
+export type DepegStatus = "on-peg" | "watch" | "depegged-below" | "depegged-above" | "variable" | "unknown";
 
 export interface StablecoinRow {
   id: string;
@@ -19,6 +19,8 @@ export interface StablecoinRow {
   /** Signed fractional deviation from the peg (price / target − 1). */
   deviation: number | null;
   status: DepegStatus;
+  /** Which side of the peg it sits on, for directional coloring/filtering. */
+  direction: "above" | "below" | "flat" | null;
   /** Circulating market cap in USD. */
   mcap: number | null;
   circulating: number | null;
@@ -34,7 +36,8 @@ export interface StablecoinReport {
     total: number;
     onPeg: number;
     watch: number;
-    depegged: number;
+    depeggedBelow: number;
+    depeggedAbove: number;
     variable: number;
     noPrice: number;
     totalMcap: number;
