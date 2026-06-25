@@ -43,6 +43,7 @@ export default function Navbar() {
     { href: "/competitors", label: "Competitors" },
     { href: "/metrics", label: "Metrics" },
     { href: "/stablecoins", label: "Stablecoins" },
+    { href: "/protocols", label: "Protocols" },
   ];
 
   const themeIcon = {
