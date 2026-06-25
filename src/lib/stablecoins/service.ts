@@ -6,11 +6,8 @@ import {
   WATCH_THRESHOLD,
   SIGNIFICANT_MCAP,
 } from "./types";
-
-// DefiLlama stablecoins API (free, no key) — the same provider already used for
-// on-chain competitor metrics. `includePrices=true` attaches a USD price to each
-// pegged asset, which is what lets us measure deviation from the peg.
-const STABLECOINS_URL = "https://stablecoins.llama.fi/stablecoins?includePrices=true";
+import { fetchStablecoins, fetchPrices, type LlamaStablecoinRaw } from "@/lib/sources/defillama";
+import { DERIVATIVES } from "./registry";
 
 const PEG_LABEL: Record<string, string> = {
   peggedUSD: "USD",
@@ -37,9 +34,7 @@ const PEG_LABEL: Record<string, string> = {
   peggedVAR: "Variable",
 };
 
-function pegLabelFor(pegType: string): string {
-  return PEG_LABEL[pegType] ?? pegType.replace(/^pegged/, "");
-}
+const pegLabelFor = (pegType: string): string => PEG_LABEL[pegType] ?? pegType.replace(/^pegged/, "");
 
 function mechanismLabel(m: string): string {
   const x = (m || "").toLowerCase();
@@ -56,78 +51,118 @@ function median(values: number[]): number | null {
   return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
 }
 
-interface RawAsset {
-  id?: string | number;
-  name?: string;
-  symbol?: string;
-  pegType?: string;
-  pegMechanism?: string;
-  price?: number | null;
-  circulating?: Record<string, number> | null;
-  chains?: string[];
+const numOrNull = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+/** Classify a deviation from a fixed peg target (used for $1 / median-peg assets). */
+function classifyVsTarget(price: number | null, target: number | null): Pick<StablecoinRow, "deviation" | "status" | "direction"> {
+  const deviation = price != null && target != null && target > 0 ? price / target - 1 : null;
+  let status: DepegStatus;
+  if (price == null || deviation == null) status = "unknown";
+  else if (deviation > DEPEG_THRESHOLD) status = "depegged-above";
+  else if (deviation < -DEPEG_THRESHOLD) status = "depegged-below";
+  else if (Math.abs(deviation) > WATCH_THRESHOLD) status = "watch";
+  else status = "on-peg";
+  const direction: StablecoinRow["direction"] =
+    deviation == null ? null : deviation > 0.0005 ? "above" : deviation < -0.0005 ? "below" : "flat";
+  return { deviation, status, direction };
+}
+
+function toBaseRow(a: LlamaStablecoinRaw, targetByType: Record<string, number | null>): StablecoinRow {
+  const pegType = String(a.pegType || "peggedUSD");
+  const price = numOrNull(a.price);
+  const circulating = a.circulating && typeof a.circulating[pegType] === "number" ? a.circulating[pegType] : null;
+  const isVar = pegType === "peggedVAR";
+  const target = isVar ? null : pegType === "peggedUSD" ? 1 : targetByType[pegType] ?? null;
+  const cls = isVar
+    ? { deviation: null, status: "variable" as DepegStatus, direction: null }
+    : classifyVsTarget(price, target);
+  const mcap = circulating != null ? circulating * (price ?? 1) : null;
+  return {
+    id: String(a.id ?? a.symbol ?? a.name ?? Math.random()),
+    name: String(a.name || a.symbol || "Unknown"),
+    symbol: String(a.symbol || "?").toUpperCase(),
+    pegType,
+    pegLabel: pegLabelFor(pegType),
+    mechanism: mechanismLabel(String(a.pegMechanism || "")),
+    price,
+    target,
+    ...cls,
+    mcap,
+    circulating,
+    chains: Array.isArray(a.chains) ? a.chains.map(String) : [],
+    significant: price != null && mcap != null && mcap >= SIGNIFICANT_MCAP,
+    category: "base",
+    underlying: null,
+    yieldBearing: false,
+  };
 }
 
 export async function getStablecoins(): Promise<StablecoinReport> {
-  const res = await fetch(STABLECOINS_URL, { cache: "no-store" });
-  if (!res.ok) throw new Error(`DefiLlama stablecoins API HTTP ${res.status}`);
-  const json = (await res.json()) as { peggedAssets?: RawAsset[] };
-  const raw = Array.isArray(json.peggedAssets) ? json.peggedAssets : [];
+  const raw = await fetchStablecoins();
 
-  // Peg target per type: $1 for USD; for other fiat pegs we don't have an FX
-  // feed, so use the median price across that peg group as the implied target —
-  // a coin is "depegged" when it strays from where its peers sit.
+  // Peg target per type: $1 for USD; median of the group for other fiats.
   const pricesByType: Record<string, number[]> = {};
   for (const a of raw) {
-    const p = typeof a.price === "number" && Number.isFinite(a.price) ? a.price : null;
+    const p = numOrNull(a.price);
     if (p != null && p > 0) (pricesByType[String(a.pegType)] ??= []).push(p);
   }
   const targetByType: Record<string, number | null> = {};
   for (const [t, arr] of Object.entries(pricesByType)) targetByType[t] = median(arr);
   targetByType.peggedUSD = 1;
 
-  const assets: StablecoinRow[] = raw.map((a) => {
-    const pegType = String(a.pegType || "peggedUSD");
-    const price = typeof a.price === "number" && Number.isFinite(a.price) ? a.price : null;
-    const circulating =
-      a.circulating && typeof a.circulating[pegType] === "number" ? a.circulating[pegType] : null;
-    const target = pegType === "peggedVAR" ? null : pegType === "peggedUSD" ? 1 : targetByType[pegType] ?? null;
-    const deviation = price != null && target != null && target > 0 ? price / target - 1 : null;
+  const base = raw.map((a) => toBaseRow(a, targetByType));
+  const bySymbol = new Map(base.map((r) => [r.symbol.toUpperCase(), r]));
 
-    let status: DepegStatus;
-    if (pegType === "peggedVAR") status = "variable";
-    else if (price == null || deviation == null) status = "unknown";
-    else if (deviation > DEPEG_THRESHOLD) status = "depegged-above";
-    else if (deviation < -DEPEG_THRESHOLD) status = "depegged-below";
-    else if (Math.abs(deviation) > WATCH_THRESHOLD) status = "watch";
-    else status = "on-peg";
-    const direction: StablecoinRow["direction"] =
-      deviation == null ? null : deviation > 0.0005 ? "above" : deviation < -0.0005 ? "below" : "flat";
+  // Staked/wrapped derivatives (not in the feed): price via the coins API.
+  let prices: Record<string, { price: number }> = {};
+  try {
+    prices = await fetchPrices(DERIVATIVES.map((d) => d.priceId));
+  } catch {
+    /* derivatives still render with underlying-derived status, just no live price */
+  }
 
-    const mcap = circulating != null ? circulating * (price ?? 1) : null;
-    const significant = price != null && mcap != null && mcap >= SIGNIFICANT_MCAP;
+  const derivatives: StablecoinRow[] = [];
+  for (const d of DERIVATIVES) {
+    if (bySymbol.has(d.symbol.toUpperCase())) continue; // feed already lists it
+    const price = numOrNull(prices[d.priceId]?.price);
+    const under = d.underlying ? bySymbol.get(d.underlying.toUpperCase()) ?? null : null;
 
-    return {
-      id: String(a.id ?? a.symbol ?? a.name ?? Math.random()),
-      name: String(a.name || a.symbol || "Unknown"),
-      symbol: String(a.symbol || "?").toUpperCase(),
-      pegType,
-      pegLabel: pegLabelFor(pegType),
-      mechanism: mechanismLabel(String(a.pegMechanism || "")),
+    let row: Pick<StablecoinRow, "deviation" | "status" | "direction" | "target" | "pegLabel" | "pegType">;
+    if (d.category !== "base" && d.yieldBearing) {
+      // Appreciating wrapper: its peg risk IS the underlying's. Inherit it.
+      row = {
+        deviation: under?.deviation ?? null,
+        status: under?.status ?? "unknown",
+        direction: under?.direction ?? null,
+        target: under?.target ?? null,
+        pegLabel: under?.pegLabel ?? "USD",
+        pegType: under?.pegType ?? "peggedUSD",
+      };
+    } else {
+      // 1:1 wrapper or a base supplement DefiLlama misses → measured against $1.
+      row = { ...classifyVsTarget(price, 1), target: 1, pegLabel: "USD", pegType: "peggedUSD" };
+    }
+
+    derivatives.push({
+      id: `deriv:${d.symbol}`,
+      name: d.name,
+      symbol: d.symbol.toUpperCase(),
+      mechanism: under?.mechanism ?? (d.category === "staked" ? "Staked" : d.category === "wrapped" ? "Wrapped" : "—"),
       price,
-      target,
-      deviation,
-      status,
-      direction,
-      mcap,
-      circulating,
-      chains: Array.isArray(a.chains) ? a.chains.map(String) : [],
-      significant,
-    };
-  });
+      mcap: null,
+      circulating: null,
+      chains: under?.chains ?? [],
+      significant: true, // curated, always monitored
+      category: d.category,
+      underlying: d.underlying,
+      yieldBearing: d.yieldBearing,
+      ...row,
+    });
+  }
 
-  // Headline + tiles describe the MONITORED set (≥ $10M mcap), so a dead coin's
-  // illiquid "depeg" can't pollute the summary. The full catalogue is still
-  // returned (flagged) so the page's "Show all" toggle can reveal it.
+  const assets = [...base, ...derivatives];
+
+  // Headline + tiles describe the MONITORED set (significant base + all derivatives).
   const monitored = assets.filter((a) => a.significant);
   const count = (s: DepegStatus) => monitored.filter((a) => a.status === s).length;
   const worst = monitored
@@ -150,6 +185,7 @@ export async function getStablecoins(): Promise<StablecoinReport> {
       totalMcap: monitored.reduce((s, a) => s + (a.mcap ?? 0), 0),
       catalog: assets.length,
       hidden: assets.length - monitored.length,
+      derivatives: derivatives.length,
       worst,
     },
   };

@@ -27,6 +27,12 @@ export interface StablecoinRow {
   chains: string[];
   /** Passes the market-cap relevance bar (monitored by default). */
   significant: boolean;
+  /** base = from the DefiLlama feed; staked/wrapped = curated derivatives. */
+  category: "base" | "staked" | "wrapped";
+  /** For derivatives: the base stablecoin they track (e.g. sUSDe → USDe). */
+  underlying: string | null;
+  /** Yield-bearing wrappers appreciate vs the underlying, so are not measured against $1. */
+  yieldBearing: boolean;
 }
 
 export interface StablecoinReport {
@@ -45,6 +51,8 @@ export interface StablecoinReport {
     catalog: number;
     /** How many were filtered out as too small / inactive. */
     hidden: number;
+    /** How many curated staked/wrapped derivatives are included. */
+    derivatives: number;
     /** Largest absolute deviations (excluding variable-peg), for the headline. */
     worst: { symbol: string; name: string; deviation: number }[];
   };
