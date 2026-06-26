@@ -144,6 +144,8 @@ function MetricsInner() {
   const [tweets, setTweets] = useState<MakinaTweets>({ byAccount: {} });
   const { report, loading: diagBusy, run: runDiag } = useDiagnostics();
   const [diagOpen, setDiagOpen] = useState(false);
+  const [histView, setHistView] = useState<"trends" | "wow">("trends");
+  const [wowPeriod, setWowPeriod] = useState("");
 
   const load = useCallback(async () => {
     try {
@@ -374,6 +376,160 @@ function MetricsInner() {
               </button>
             </div>
 
+            {/* Weekly history — Trends + Week-over-week views, up top so it's seen without scrolling */}
+            <div className="rounded-xl border border-makina-border bg-makina-card animate-fade-in-up">
+              <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <div>
+                  <h2 className="text-sm font-semibold text-makina-text">Weekly history</h2>
+                  <p className="text-[11px] text-makina-subtle">
+                    {accEntries.length} week{accEntries.length === 1 ? "" : "s"} tracked
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="inline-flex rounded-lg border border-makina-border bg-makina-surface p-0.5">
+                    {(["trends", "wow"] as const).map((v) => (
+                      <button
+                        key={v}
+                        onClick={() => setHistView(v)}
+                        className={`rounded-md px-3 py-1 text-xs font-medium transition-all ${
+                          histView === v ? "bg-makina-card text-makina-text shadow-sm" : "text-makina-muted hover:text-makina-text"
+                        }`}
+                      >
+                        {v === "trends" ? "Trends" : "Week over week"}
+                      </button>
+                    ))}
+                  </div>
+                  <button
+                    onClick={exportCsv}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-makina-border bg-makina-surface px-2.5 py-1 text-[11px] font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text"
+                  >
+                    <Download size={12} />
+                    Export CSV
+                  </button>
+                </div>
+              </div>
+
+              {histView === "trends" ? (
+                <>
+                  <div className="flex items-center gap-4 border-y border-makina-border px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-makina-subtle">
+                    <span className="min-w-0 flex-1">Metric</span>
+                    <span className="hidden w-32 sm:block">Trend</span>
+                    <span className="w-20 text-right">Latest</span>
+                    <span className="w-24 text-right">vs last week</span>
+                  </div>
+                  <div className="divide-y divide-makina-border/50">
+                    {accDef.metrics.map((m) => {
+                      const { value: cur, prev: pv } = stickyMetric(accEntries, m.key);
+                      const spark = seriesOf(m.key).filter((v): v is number => v != null);
+                      const wow = pctChange(cur, pv);
+                      const on = chartMetric === m.key;
+                      return (
+                        <button
+                          key={m.key}
+                          onClick={() => setChartMetric(m.key)}
+                          title={m.description}
+                          className={`flex w-full items-center gap-4 px-4 py-2.5 text-left transition-colors hover:bg-makina-surface/40 ${
+                            on ? "bg-makina-accent-dim/40" : ""
+                          }`}
+                        >
+                          <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                            <span className="truncate text-sm font-medium text-makina-text">{m.label}</span>
+                            {m.auto && <span className="shrink-0 text-[8px] font-bold uppercase text-makina-green">auto</span>}
+                          </span>
+                          <span className="hidden w-32 shrink-0 sm:flex sm:justify-start">
+                            {spark.length >= 2 ? (
+                              <Sparkline data={spark} width={128} height={30} fill color={on ? accentColor : undefined} />
+                            ) : (
+                              <span className="text-[10px] text-makina-subtle">building…</span>
+                            )}
+                          </span>
+                          <span className="w-20 shrink-0 text-right text-base font-bold tabular-nums text-makina-text">
+                            {fmtMetric(cur, m.kind)}
+                          </span>
+                          <span className="w-24 shrink-0 text-right">
+                            {wow == null ? (
+                              <span className="text-xs text-makina-subtle">—</span>
+                            ) : (
+                              <span
+                                className={`inline-flex items-center justify-end gap-0.5 text-sm font-bold tabular-nums ${
+                                  Math.abs(wow) < 0.05 ? "text-makina-muted" : wow > 0 ? "text-makina-green" : "text-makina-red"
+                                }`}
+                              >
+                                {Math.abs(wow) < 0.05 ? <Minus size={14} /> : wow > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                                {signedPct(wow)}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : (
+                (() => {
+                  const periods = accEntries.map((e) => e.periodStart);
+                  const selPeriod = periods.includes(wowPeriod) ? wowPeriod : periods[periods.length - 1];
+                  const selIdx = periods.indexOf(selPeriod);
+                  const selEntry = accEntries[selIdx];
+                  const priorEntry = accEntries[selIdx - 1];
+                  return (
+                    <>
+                      <div className="flex items-center justify-between gap-2 border-y border-makina-border px-4 py-2">
+                        <span className="text-[11px] font-medium text-makina-muted">Compare week</span>
+                        <select
+                          value={selPeriod}
+                          onChange={(e) => setWowPeriod(e.target.value)}
+                          className="rounded-md border border-makina-border bg-makina-surface px-2 py-1 text-xs text-makina-text focus:border-makina-accent/40 focus:outline-none"
+                        >
+                          {[...periods].reverse().map((p) => (
+                            <option key={p} value={p}>
+                              {periodLabel(p)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex items-center gap-4 border-b border-makina-border px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-makina-subtle">
+                        <span className="min-w-0 flex-1">Metric</span>
+                        <span className="w-24 text-right text-makina-text/80">{periodLabel(selPeriod)}</span>
+                        <span className="hidden w-24 text-right sm:block">{priorEntry ? periodLabel(priorEntry.periodStart) : "—"}</span>
+                        <span className="w-20 text-right">Change</span>
+                      </div>
+                      <div className="divide-y divide-makina-border/50">
+                        {accDef.metrics.map((m) => {
+                          const curV = selEntry?.values[m.key] ?? null;
+                          const prevV = priorEntry?.values[m.key] ?? null;
+                          const ch = pctChange(curV, prevV);
+                          return (
+                            <div key={m.key} className="flex items-center gap-4 px-4 py-2.5">
+                              <span className="flex min-w-0 flex-1 items-center gap-1.5">
+                                <span className="truncate text-sm font-medium text-makina-text">{m.label}</span>
+                                {m.auto && <span className="shrink-0 text-[8px] font-bold uppercase text-makina-green">auto</span>}
+                              </span>
+                              <span className="w-24 shrink-0 text-right text-sm font-semibold tabular-nums text-makina-text">{fmtMetric(curV, m.kind)}</span>
+                              <span className="hidden w-24 shrink-0 text-right text-xs tabular-nums text-makina-subtle sm:block">{fmtMetric(prevV, m.kind)}</span>
+                              <span className="w-20 shrink-0 text-right">
+                                {ch == null ? (
+                                  <span className="text-xs text-makina-subtle">—</span>
+                                ) : (
+                                  <span
+                                    className={`text-sm font-bold tabular-nums ${
+                                      Math.abs(ch) < 0.05 ? "text-makina-muted" : ch > 0 ? "text-makina-green" : "text-makina-red"
+                                    }`}
+                                  >
+                                    {signedPct(ch)}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()
+              )}
+            </div>
+
             {/* KPIs, one dense grid; click a card to chart it */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {accDef.metrics.map((m) => {
@@ -438,77 +594,6 @@ function MetricsInner() {
               )}
             </div>
 
-            {/* Weekly history — per-metric trend, week over week (no horizontal scroll) */}
-            <div className="rounded-xl border border-makina-border bg-makina-card animate-fade-in-up">
-              <div className="flex items-center justify-between px-4 py-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-makina-text">Weekly history</h2>
-                  <p className="text-[11px] text-makina-subtle">
-                    {accEntries.length} week{accEntries.length === 1 ? "" : "s"} tracked · latest vs. prior week · click a row to chart it
-                  </p>
-                </div>
-                <button
-                  onClick={exportCsv}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-makina-border bg-makina-surface px-2.5 py-1 text-[11px] font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text"
-                >
-                  <Download size={12} />
-                  Export CSV
-                </button>
-              </div>
-              <div className="flex items-center gap-4 border-y border-makina-border px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-makina-subtle">
-                <span className="min-w-0 flex-1">Metric</span>
-                <span className="hidden w-32 sm:block">Trend</span>
-                <span className="w-20 text-right">Latest</span>
-                <span className="w-24 text-right">vs last week</span>
-              </div>
-              <div className="divide-y divide-makina-border/50">
-                {accDef.metrics.map((m) => {
-                  const { value: cur, prev: pv } = stickyMetric(accEntries, m.key);
-                  const spark = seriesOf(m.key).filter((v): v is number => v != null);
-                  const wow = pctChange(cur, pv);
-                  const on = chartMetric === m.key;
-                  return (
-                    <button
-                      key={m.key}
-                      onClick={() => setChartMetric(m.key)}
-                      title={m.description}
-                      className={`flex w-full items-center gap-4 px-4 py-2.5 text-left transition-colors hover:bg-makina-surface/40 ${
-                        on ? "bg-makina-accent-dim/40" : ""
-                      }`}
-                    >
-                      <span className="flex min-w-0 flex-1 items-center gap-1.5">
-                        <span className="truncate text-sm font-medium text-makina-text">{m.label}</span>
-                        {m.auto && <span className="shrink-0 text-[8px] font-bold uppercase text-makina-green">auto</span>}
-                      </span>
-                      <span className="hidden w-32 shrink-0 sm:flex sm:justify-start">
-                        {spark.length >= 2 ? (
-                          <Sparkline data={spark} width={128} height={30} fill color={on ? accentColor : undefined} />
-                        ) : (
-                          <span className="text-[10px] text-makina-subtle">building…</span>
-                        )}
-                      </span>
-                      <span className="w-20 shrink-0 text-right text-base font-bold tabular-nums text-makina-text">
-                        {fmtMetric(cur, m.kind)}
-                      </span>
-                      <span className="w-24 shrink-0 text-right">
-                        {wow == null ? (
-                          <span className="text-xs text-makina-subtle">—</span>
-                        ) : (
-                          <span
-                            className={`inline-flex items-center justify-end gap-0.5 text-sm font-bold tabular-nums ${
-                              Math.abs(wow) < 0.05 ? "text-makina-muted" : wow > 0 ? "text-makina-green" : "text-makina-red"
-                            }`}
-                          >
-                            {Math.abs(wow) < 0.05 ? <Minus size={14} /> : wow > 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                            {signedPct(wow)}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
           </div>
         )}
       </main>
