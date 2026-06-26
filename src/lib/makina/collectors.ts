@@ -198,10 +198,13 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
   if (clean.length === 0) return {};
   const actor = process.env.APIFY_TWEET_ACTOR || "altimis~scweet";
 
-  const out: Record<string, CollectResult> = {};
-  for (const h of clean) {
+  // One scweet run PER handle, run in PARALLEL. Batching multiple profile_urls
+  // into a single run returns an empty dataset (that was the original "both got
+  // nothing" bug); running them sequentially instead risks the second handle
+  // (e.g. @makintern) being starved by the function timeout. So each handle gets
+  // its own run and they execute concurrently.
+  const runOne = async (h: string): Promise<CollectResult> => {
     try {
-      // One profile per run — this is the shape that actually returns data.
       const res = await apifyRunSync(actor, token, {
         source_mode: "profiles",
         profile_urls: [`@${h}`],
@@ -211,20 +214,16 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
         let body = "";
         try { body = await res.text(); } catch { /* ignore */ }
         const approval = body.match(/"approvalUrl":"([^"]+)"/)?.[1];
-        out[h] = {
+        return {
           values: {},
           error:
             approval || /not-approved|approvepermissions/i.test(body)
               ? `Actor needs a one-time permission approval on this Apify account: ${approval ?? "open the actor in Apify and approve permissions"}`
               : `Apify HTTP ${res.status} (token/credit/rate-limit?)`,
         };
-        continue;
       }
       const items = (await res.json()) as Array<Record<string, unknown>>;
-      if (!Array.isArray(items)) {
-        out[h] = { values: {}, error: "Apify: unexpected response shape" };
-        continue;
-      }
+      if (!Array.isArray(items)) return { values: {}, error: "Apify: unexpected response shape" };
 
       // profiles mode returns this profile's timeline; keep its own posts (drop
       // demo rows and retweets of other accounts).
@@ -248,12 +247,14 @@ export async function collectXProfiles(handles: string[]): Promise<Record<string
             ? `scweet returned 0 items for @${h} (no posts in the scrape range)`
             : `scweet returned ${items.length} items but none authored by @${h}`;
       }
-      out[h] = r;
+      return r;
     } catch (e) {
-      out[h] = { values: {}, error: `Apify: ${errMsg(e)}` };
+      return { values: {}, error: `Apify: ${errMsg(e)}` };
     }
-  }
-  return out;
+  };
+
+  const results = await Promise.all(clean.map(runOne));
+  return Object.fromEntries(clean.map((h, i) => [h, results[i]]));
 }
 
 // ── Telegram via the direct t.me preview (free; no proxy, no Apify) ──

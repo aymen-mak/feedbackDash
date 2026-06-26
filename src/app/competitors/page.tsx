@@ -44,7 +44,7 @@ function CompetitorsInner() {
   const [error, setError] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
-  const [view, setView] = useState<"table" | "cards">("table");
+  const [view, setView] = useState<"table" | "cards">("cards");
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showHidden, setShowHidden] = useState(false);
   const [sources, setSources] = useState<RefreshResponse | null>(null);

@@ -141,7 +141,7 @@ function MetricsInner() {
   const [chartMetric, setChartMetric] = useState("impressions");
   const [collecting, setCollecting] = useState(false);
   const [summary, setSummary] = useState<CollectSummary | null>(null);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const [modal, setModal] = useState<{ entry: JournalEntry | null } | null>(null);
   const [tweets, setTweets] = useState<MakinaTweets>({ byAccount: {} });
   const { report, loading: diagBusy, run: runDiag } = useDiagnostics();
@@ -444,7 +444,7 @@ function MetricsInner() {
             <div className="rounded-xl border border-makina-border bg-makina-card">
               <div className="flex items-center justify-between px-4 py-3">
                 <button onClick={() => setShowHistory((v) => !v)} className="inline-flex items-center gap-2 text-sm font-semibold text-makina-text">
-                  Period-by-period history
+                  Weekly history
                   <ChevronDown size={16} className={`text-makina-muted ${showHistory ? "rotate-180 transition-transform" : "transition-transform"}`} />
                 </button>
                 <button
