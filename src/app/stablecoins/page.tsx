@@ -37,7 +37,7 @@ function fmtDev(d: number | null): string {
 function Gauge({ deviation, color }: { deviation: number | null; color: string }) {
   const pos = deviation == null ? 50 : 50 + (Math.max(-MAX_DEV, Math.min(MAX_DEV, deviation)) / MAX_DEV) * 50;
   return (
-    <div className="relative mt-3 h-1.5 w-full rounded-full bg-makina-surface">
+    <div className="relative h-1.5 w-full rounded-full bg-makina-surface">
       <div className="absolute left-1/2 top-1/2 h-3 w-px -translate-x-1/2 -translate-y-1/2 bg-makina-subtle/60" />
       {deviation != null && (
         <div
@@ -46,19 +46,6 @@ function Gauge({ deviation, color }: { deviation: number | null; color: string }
         />
       )}
     </div>
-  );
-}
-
-function StatusPill({ status }: { status: DepegStatus }) {
-  const { label, color } = STATUS_META[status];
-  return (
-    <span
-      className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold"
-      style={{ backgroundColor: `${color}1f`, color }}
-    >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
-      {label}
-    </span>
   );
 }
 
@@ -72,41 +59,30 @@ function KindTag({ a }: { a: StablecoinRow }) {
   );
 }
 
-function AttentionCard({ a }: { a: StablecoinRow }) {
+function AttentionRow({ a }: { a: StablecoinRow }) {
   const m = STATUS_META[a.status];
   const up = (a.deviation ?? 0) >= 0;
   return (
-    <div className="rounded-xl border bg-makina-card p-4 transition-colors hover:bg-makina-card-hover" style={{ borderColor: `${m.color}40` }}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="font-semibold text-makina-text">{a.symbol}</span>
-            <KindTag a={a} />
-          </div>
-          <div className="truncate text-[11px] text-makina-subtle">{a.name}</div>
-        </div>
-        <StatusPill status={a.status} />
-      </div>
-      <div className="mt-3 flex items-end justify-between gap-2">
-        <div>
-          <div className="text-lg font-bold tabular-nums text-makina-text">{fmtPrice(a.price)}</div>
-          <div className="text-[10px] uppercase tracking-wider text-makina-subtle">
-            {a.yieldBearing ? `tracks ${a.underlying} peg` : `price · ${a.pegLabel} peg`}
-          </div>
-        </div>
-        <div className="inline-flex items-center gap-1 text-lg font-bold tabular-nums" style={{ color: m.color }}>
-          {up ? <ArrowUp size={16} /> : <ArrowDown size={16} />}
-          {fmtDev(a.deviation)}
-        </div>
-      </div>
-      <Gauge deviation={a.deviation} color={m.color} />
-      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-makina-subtle">
-        <span className="tabular-nums">{a.mcap && a.mcap > 0 ? `${formatUsd(a.mcap)} mcap` : a.yieldBearing ? "yield-bearing" : "—"}</span>
-        <span className="truncate">
-          {a.mechanism !== "—" ? a.mechanism : ""}
-          {a.chains.length ? ` · ${a.chains.length} chain${a.chains.length > 1 ? "s" : ""}` : ""}
-        </span>
-      </div>
+    <div
+      className="flex items-center gap-4 px-3 py-2.5 transition-colors hover:bg-makina-surface/40"
+      title={`${a.name}${a.underlying ? ` · tracks ${a.underlying}` : ""} · ${fmtPrice(a.price)} · ${m.label}`}
+    >
+      <span className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: m.color }} />
+        <span className="truncate font-semibold text-makina-text">{a.symbol}</span>
+        <KindTag a={a} />
+      </span>
+      <span className="hidden w-40 shrink-0 sm:block">
+        <Gauge deviation={a.deviation} color={m.color} />
+      </span>
+      <span className="hidden w-20 shrink-0 text-right text-xs tabular-nums text-makina-muted sm:block">{fmtPrice(a.price)}</span>
+      <span className="flex w-24 shrink-0 items-center justify-end gap-1 text-sm font-bold tabular-nums" style={{ color: m.color }}>
+        {a.deviation != null && (up ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+        {fmtDev(a.deviation)}
+      </span>
+      <span className="hidden w-24 shrink-0 text-right text-[11px] tabular-nums text-makina-subtle md:block">
+        {a.mcap && a.mcap > 0 ? formatUsd(a.mcap) : a.yieldBearing ? "yield" : "—"}
+      </span>
     </div>
   );
 }
@@ -408,10 +384,19 @@ function StablecoinsInner() {
                       </span>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      {attention.map((a) => (
-                        <AttentionCard key={a.id} a={a} />
-                      ))}
+                    <div className="overflow-hidden rounded-xl border border-makina-border bg-makina-card">
+                      <div className="flex items-center gap-4 border-b border-makina-border px-3 py-2 text-[10px] font-semibold uppercase tracking-wider text-makina-subtle">
+                        <span className="min-w-0 flex-1">Asset</span>
+                        <span className="hidden w-40 sm:block">Peg · $1 center</span>
+                        <span className="hidden w-20 text-right sm:block">Price</span>
+                        <span className="w-24 text-right">Deviation</span>
+                        <span className="hidden w-24 text-right md:block">Mkt cap</span>
+                      </div>
+                      <div className="divide-y divide-makina-border/50">
+                        {attention.map((a) => (
+                          <AttentionRow key={a.id} a={a} />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
