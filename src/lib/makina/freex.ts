@@ -4,17 +4,20 @@ import { collectTwitter } from "@/lib/competitors/collectors";
 
 // ── Free X metrics, no Apify, no credentials ──
 //
-// Discovery (recent post ids + dates + baseline counts):
-//   1. X's own syndication timeline (syndication.twitter.com) — the embedded-
-//      widget feed; carries per-tweet like/reply counts and needs no auth.
-//   2. Nitter-mirror RSS (xcancel.com, twiiit.com router, others) — ids + dates
-//      when syndication is unavailable.
-// Enrichment (views + fresh counts, per tweet id):
-//   a. api.fxtwitter.com  (FixTweet/FxEmbed, the Discord-embed API: views,
-//      likes, retweets, replies — public, unauthenticated)
-//   b. api.vxtwitter.com  (BetterTwitFix, same idea)
-//   c. cdn.syndication.twimg.com/tweet-result — X's embed CDN (the endpoint
-//      Vercel's react-tweet uses); token is derived from the id.
+// Discovery layers (first that yields posts wins; later ones add candidates):
+//   1. api.fxtwitter.com/:handle/statuses — FxEmbed's user-timeline API
+//      (Cloudflare-served, unauthenticated, datacenter-friendly; full counts).
+//   2. X's syndication timeline (blocked from some datacenter IPs, kept as a
+//      cheap attempt).
+//   3. Nitter-mirror RSS (xcancel.com, twiiit.com router, …) — ids + dates.
+//   4. Search-engine discovery (Bing RSS, DuckDuckGo HTML — the same channel
+//      the competitor follower scraper already uses from this deployment) —
+//      candidate ids only, author-verified during enrichment.
+//   5. Previously stored tweet ids — so metrics keep refreshing even in a
+//      total discovery blackout.
+// Enrichment per tweet id (for candidates without counts):
+//   a. api.fxtwitter.com/i/status/:id   b. api.vxtwitter.com   c. X embed CDN
+//      tweet-result (react-tweet's source; token derived from the id).
 //
 // Accuracy rule: a weekly aggregate is only written when EVERY post in the
 // window has that number (no partial sums, no fabricated zeros). Unknown
@@ -24,7 +27,12 @@ const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 MakinaPulse/1.0";
 const WEEK_MS = 7 * 24 * 3600 * 1000;
 
-async function fetchText(url: string, ms = 10_000, accept = "text/html,application/xhtml+xml"): Promise<string | null> {
+interface TextResult {
+  status: number; // 0 = network error / timeout
+  text: string | null;
+}
+
+async function fetchTextR(url: string, ms = 10_000, accept = "text/html,application/xhtml+xml"): Promise<TextResult> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -33,17 +41,16 @@ async function fetchText(url: string, ms = 10_000, accept = "text/html,applicati
       cache: "no-store",
       headers: { "User-Agent": UA, Accept: accept, "Accept-Language": "en" },
     });
-    if (!res.ok) return null;
-    const t = await res.text();
-    return t && t.length > 50 ? t : null;
+    const text = res.ok ? await res.text() : null;
+    return { status: res.status, text: text && text.length > 50 ? text : null };
   } catch {
-    return null;
+    return { status: 0, text: null };
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function fetchJson<T>(url: string, ms = 8_000): Promise<T | null> {
+async function fetchJson<T>(url: string, ms = 9_000): Promise<{ status: number; json: T | null }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -52,10 +59,10 @@ async function fetchJson<T>(url: string, ms = 8_000): Promise<T | null> {
       cache: "no-store",
       headers: { "User-Agent": UA, Accept: "application/json" },
     });
-    if (!res.ok) return null;
-    return (await res.json()) as T;
+    if (!res.ok) return { status: res.status, json: null };
+    return { status: res.status, json: (await res.json()) as T };
   } catch {
-    return null;
+    return { status: 0, json: null };
   } finally {
     clearTimeout(timer);
   }
@@ -75,6 +82,7 @@ export interface FreeTweet {
   url: string;
   text: string;
   createdAt: string; // ISO ("" when unknown)
+  author: string | null; // lowercased screen name when the source exposes it
   views: number | null;
   likes: number | null;
   replies: number | null;
@@ -83,15 +91,64 @@ export interface FreeTweet {
   bookmarks: number | null;
 }
 
-// ── Discovery layer 1: X syndication timeline ──
-export async function fetchSyndicationTimeline(handle: string): Promise<FreeTweet[] | null> {
-  const html = await fetchText(
+/** Map one FxEmbed/FixTweet status object into a FreeTweet. */
+function fromFxStatus(s: Record<string, unknown>, fallbackHandle: string): FreeTweet | null {
+  const id = String(s.id ?? s.id_str ?? "");
+  if (!/^\d+$/.test(id)) return null;
+  const author = ((s.author ?? {}) as Record<string, unknown>).screen_name;
+  const ts = num(s.created_timestamp);
+  const handle = typeof author === "string" && author ? author : fallbackHandle;
+  return {
+    id,
+    url: typeof s.url === "string" && s.url ? s.url : `https://x.com/${handle}/status/${id}`,
+    text: String(s.text ?? "").trim(),
+    createdAt: ts != null ? new Date(ts * 1000).toISOString() : "",
+    author: typeof author === "string" ? author.toLowerCase() : null,
+    views: num(s.views),
+    likes: num(s.likes),
+    replies: num(s.replies),
+    reposts: num(s.retweets),
+    quotes: num(s.quotes),
+    bookmarks: num(s.bookmarks),
+  };
+}
+
+// ── Discovery 1: FxEmbed user timeline ──
+export async function fetchFxTimeline(handle: string): Promise<{ tweets: FreeTweet[] | null; status: number }> {
+  const { status, json } = await fetchJson<Record<string, unknown>>(
+    `https://api.fxtwitter.com/${encodeURIComponent(handle)}/statuses?with_replies=false`,
+    12_000
+  );
+  if (!json) return { tweets: null, status };
+  // Accept the shapes FxEmbed has shipped: results[] (statuses or thread
+  // groups with a nested statuses[]), or timeline.statuses[].
+  const timeline = (json.timeline ?? {}) as Record<string, unknown>;
+  const rawList = (json.results ?? json.statuses ?? timeline.statuses ?? []) as Array<Record<string, unknown>>;
+  if (!Array.isArray(rawList) || rawList.length === 0) return { tweets: null, status };
+  const flat: Array<Record<string, unknown>> = [];
+  for (const item of rawList) {
+    if (Array.isArray(item.statuses)) flat.push(...(item.statuses as Array<Record<string, unknown>>));
+    else flat.push(item);
+  }
+  const out: FreeTweet[] = [];
+  for (const s of flat) {
+    const t = fromFxStatus(s, handle);
+    if (!t) continue;
+    if (t.author && t.author !== handle.toLowerCase()) continue; // drop RTs of others
+    out.push(t);
+  }
+  return { tweets: out.length ? out : null, status };
+}
+
+// ── Discovery 2: X syndication timeline ──
+export async function fetchSyndicationTimeline(handle: string): Promise<{ tweets: FreeTweet[] | null; status: number }> {
+  const { status, text: html } = await fetchTextR(
     `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}?showReplies=false`,
     12_000
   );
-  if (!html) return null;
+  if (!html) return { tweets: null, status };
   const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!m) return null;
+  if (!m) return { tweets: null, status };
   try {
     const data = JSON.parse(m[1]) as {
       props?: { pageProps?: { timeline?: { entries?: Array<Record<string, unknown>> } } };
@@ -105,7 +162,7 @@ export async function fetchSyndicationTimeline(handle: string): Promise<FreeTwee
       if (!id) continue;
       const user = (tw.user ?? {}) as Record<string, unknown>;
       const author = String(user.screen_name ?? "").toLowerCase();
-      if (author && author !== handle.toLowerCase()) continue; // drop retweets of others
+      if (author && author !== handle.toLowerCase()) continue;
       const createdMs = Date.parse(String(tw.created_at ?? ""));
       const views = (tw.views ?? {}) as Record<string, unknown>;
       out.push({
@@ -113,6 +170,7 @@ export async function fetchSyndicationTimeline(handle: string): Promise<FreeTwee
         url: `https://x.com/${handle}/status/${id}`,
         text: String(tw.full_text ?? tw.text ?? "").trim(),
         createdAt: Number.isNaN(createdMs) ? "" : new Date(createdMs).toISOString(),
+        author: author || null,
         views: num(views.count) ?? num(tw.view_count),
         likes: num(tw.favorite_count),
         replies: num(tw.conversation_count) ?? num(tw.reply_count),
@@ -121,16 +179,16 @@ export async function fetchSyndicationTimeline(handle: string): Promise<FreeTwee
         bookmarks: null,
       });
     }
-    return out.length ? out : null;
+    return { tweets: out.length ? out : null, status };
   } catch {
-    return null;
+    return { tweets: null, status };
   }
 }
 
-// ── Discovery layer 2: Nitter-mirror RSS ──
+// ── Discovery 3: Nitter-mirror RSS ──
 const NITTER_RSS = (h: string) => [
   `https://xcancel.com/${h}/rss`,
-  `https://twiiit.com/${h}/rss`, // router that 302s to a live instance
+  `https://twiiit.com/${h}/rss`, // router that redirects to a live instance
   `https://nitter.net/${h}/rss`,
   `https://nitter.poast.org/${h}/rss`,
   `https://lightbrd.com/${h}/rss`,
@@ -148,15 +206,18 @@ function decodeEntities(s: string): string {
     .trim();
 }
 
-export async function fetchNitterRss(handle: string): Promise<{ tweets: FreeTweet[]; instance: string } | null> {
+export async function fetchNitterRss(
+  handle: string
+): Promise<{ tweets: FreeTweet[] | null; tried: { host: string; status: number }[] }> {
+  const tried: { host: string; status: number }[] = [];
   for (const url of NITTER_RSS(handle)) {
-    const xml = await fetchText(url, 9_000, "application/rss+xml,application/xml,text/xml");
+    const { status, text: xml } = await fetchTextR(url, 9_000, "application/rss+xml,application/xml,text/xml");
+    tried.push({ host: new URL(url).host, status });
     if (!xml || !xml.includes("<item>")) continue;
     const statusRe = new RegExp(`/${handle}/status/(\\d+)`, "i");
     const out: FreeTweet[] = [];
     for (const im of xml.matchAll(/<item>([\s\S]*?)<\/item>/g)) {
       const item = im[1];
-      // Skip retweets of other accounts (creator differs from the handle).
       const creator = item.match(/<dc:creator>@?([^<]+)<\/dc:creator>/)?.[1]?.trim().toLowerCase();
       if (creator && creator !== handle.toLowerCase()) continue;
       const link = item.match(/<link>([^<]+)<\/link>/)?.[1] ?? "";
@@ -168,6 +229,7 @@ export async function fetchNitterRss(handle: string): Promise<{ tweets: FreeTwee
         url: `https://x.com/${handle}/status/${idm[1]}`,
         text: decodeEntities(item.match(/<title>([\s\S]*?)<\/title>/)?.[1] ?? ""),
         createdAt: Number.isNaN(pub) ? "" : new Date(pub).toISOString(),
+        author: creator ?? null,
         views: null,
         likes: null,
         replies: null,
@@ -176,66 +238,93 @@ export async function fetchNitterRss(handle: string): Promise<{ tweets: FreeTwee
         bookmarks: null,
       });
     }
-    if (out.length) return { tweets: out, instance: new URL(url).host };
+    if (out.length) return { tweets: out, tried };
   }
-  return null;
+  return { tweets: null, tried };
+}
+
+// ── Discovery 4: search engines (candidate ids only; author-verified later) ──
+export async function searchDiscoverIds(handle: string): Promise<{ ids: string[]; via: string | null }> {
+  const idRe = new RegExp(`(?:x|twitter)\\.com(?:%2F|/)${handle}(?:%2F|/)status(?:%2F|/)(\\d+)`, "gi");
+  const collect = (text: string): string[] => {
+    const ids = new Set<string>();
+    let decoded = text;
+    try {
+      decoded = text + "\n" + decodeURIComponent(text);
+    } catch {
+      /* keep raw */
+    }
+    for (const m of decoded.matchAll(idRe)) ids.add(m[1]);
+    return [...ids];
+  };
+
+  const bing = await fetchTextR(
+    `https://www.bing.com/search?q=${encodeURIComponent(`site:x.com/${handle}/status`)}&format=rss&count=30`,
+    9_000,
+    "application/rss+xml,application/xml,text/xml"
+  );
+  if (bing.text) {
+    const ids = collect(bing.text);
+    if (ids.length) return { ids: ids.slice(0, 15), via: "bing" };
+  }
+  const ddg = await fetchTextR(
+    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`site:x.com/${handle}/status`)}`,
+    9_000
+  );
+  if (ddg.text) {
+    const ids = collect(ddg.text);
+    if (ids.length) return { ids: ids.slice(0, 15), via: "ddg" };
+  }
+  return { ids: [], via: null };
 }
 
 // ── Enrichment: per-tweet numbers from the free embed APIs ──
 export async function enrichTweet(
   id: string
-): Promise<{ via: string; data: Partial<FreeTweet> } | null> {
-  // a) FixTweet / FxEmbed
-  const fx = await fetchJson<{ code?: number; tweet?: Record<string, unknown> }>(
-    `https://api.fxtwitter.com/i/status/${id}`
-  );
-  const fxt = fx?.tweet;
-  if (fxt && (fx?.code === 200 || fxt.id)) {
-    const ts = num(fxt.created_timestamp);
-    return {
-      via: "fxtwitter",
-      data: {
-        views: num(fxt.views),
-        likes: num(fxt.likes),
-        replies: num(fxt.replies),
-        reposts: num(fxt.retweets),
-        quotes: num(fxt.quotes),
-        bookmarks: num(fxt.bookmarks),
-        text: typeof fxt.text === "string" && fxt.text ? fxt.text : undefined,
-        createdAt: ts != null ? new Date(ts * 1000).toISOString() : undefined,
-      },
-    };
+): Promise<{ via: string; author: string | null; data: Partial<FreeTweet> } | null> {
+  const fx = await fetchJson<{ code?: number; tweet?: Record<string, unknown> }>(`https://api.fxtwitter.com/i/status/${id}`);
+  const fxt = fx.json?.tweet;
+  if (fxt && (fx.json?.code === 200 || fxt.id)) {
+    const t = fromFxStatus(fxt, "");
+    if (t) return { via: "fxtwitter", author: t.author, data: t };
   }
-  // b) vxtwitter
   const vx = await fetchJson<Record<string, unknown>>(`https://api.vxtwitter.com/i/status/${id}`);
-  if (vx && (vx.likes != null || vx.retweets != null)) {
+  if (vx.json && (vx.json.likes != null || vx.json.retweets != null)) {
+    const author = typeof vx.json.user_screen_name === "string" ? vx.json.user_screen_name.toLowerCase() : null;
     return {
       via: "vxtwitter",
+      author,
       data: {
-        views: num(vx.views) ?? num(vx.viewCount),
-        likes: num(vx.likes),
-        replies: num(vx.replies),
-        reposts: num(vx.retweets),
+        views: num(vx.json.views) ?? num(vx.json.viewCount),
+        likes: num(vx.json.likes),
+        replies: num(vx.json.replies),
+        reposts: num(vx.json.retweets),
         quotes: null,
         bookmarks: null,
+        text: typeof vx.json.text === "string" ? vx.json.text : undefined,
+        createdAt: num(vx.json.date_epoch) != null ? new Date((num(vx.json.date_epoch) as number) * 1000).toISOString() : undefined,
       },
     };
   }
-  // c) X embed CDN (react-tweet's source); token derives from the id.
   const token = ((Number(id) / 1e15) * Math.PI).toString(36).replace(/(0+|\.)/g, "");
   const cdn = await fetchJson<Record<string, unknown>>(
     `https://cdn.syndication.twimg.com/tweet-result?id=${id}&lang=en&token=${token}`
   );
-  if (cdn && cdn.id_str) {
+  if (cdn.json && cdn.json.id_str) {
+    const user = (cdn.json.user ?? {}) as Record<string, unknown>;
+    const createdMs = Date.parse(String(cdn.json.created_at ?? ""));
     return {
       via: "tweet-result",
+      author: typeof user.screen_name === "string" ? user.screen_name.toLowerCase() : null,
       data: {
         views: null,
-        likes: num(cdn.favorite_count),
-        replies: num(cdn.conversation_count),
+        likes: num(cdn.json.favorite_count),
+        replies: num(cdn.json.conversation_count),
         reposts: null,
         quotes: null,
         bookmarks: null,
+        text: typeof cdn.json.text === "string" ? cdn.json.text : undefined,
+        createdAt: Number.isNaN(createdMs) ? undefined : new Date(createdMs).toISOString(),
       },
     };
   }
@@ -254,57 +343,109 @@ function sumIfComplete(tweets: FreeTweet[], key: keyof FreeTweet): number | null
   return s;
 }
 
-/** Full free collection for one handle: followers + posts + engagement. */
-export async function collectXFree(handle: string): Promise<CollectResult> {
+const hasAnyCount = (t: FreeTweet) =>
+  t.views != null || t.likes != null || t.replies != null || t.reposts != null;
+
+/** Full free collection for one handle: followers + posts + engagement.
+ *  `knownIds` (previously stored posts) keep metrics refreshing even when
+ *  every discovery layer is dark. */
+export async function collectXFree(handle: string, knownIds: string[] = []): Promise<CollectResult> {
   const h = handle.replace(/^@/, "").trim().toLowerCase();
-
-  // Followers (proven layered scraper) runs concurrently with discovery.
   const followersP = collectTwitter(h);
-  const syndicationP = fetchSyndicationTimeline(h);
 
-  let source = "syndication";
-  let instance: string | null = null;
-  let tweets = await syndicationP;
+  // Discovery ladder.
+  let source = "fx-timeline";
+  let tweets: FreeTweet[] | null = (await fetchFxTimeline(h)).tweets;
+  let rssInstance: string | null = null;
+  if (!tweets) {
+    source = "syndication";
+    tweets = (await fetchSyndicationTimeline(h)).tweets;
+  }
   if (!tweets) {
     const rss = await fetchNitterRss(h);
-    if (rss) {
-      tweets = rss.tweets;
+    if (rss.tweets) {
       source = "nitter-rss";
-      instance = rss.instance;
+      tweets = rss.tweets;
+      rssInstance = rss.tried.find((t) => t.status === 200)?.host ?? null;
     }
   }
-  const followers = await followersP;
+  let searchVia: string | null = null;
+  if (!tweets) {
+    const found = await searchDiscoverIds(h);
+    searchVia = found.via;
+    if (found.ids.length) {
+      source = `search:${found.via}`;
+      tweets = found.ids.map((id) => ({
+        id,
+        url: `https://x.com/${h}/status/${id}`,
+        text: "",
+        createdAt: "",
+        author: null,
+        views: null,
+        likes: null,
+        replies: null,
+        reposts: null,
+        quotes: null,
+        bookmarks: null,
+      }));
+    }
+  }
+  if (!tweets && knownIds.length) {
+    source = "stored-ids";
+    tweets = knownIds.slice(0, 15).map((id) => ({
+      id,
+      url: `https://x.com/${h}/status/${id}`,
+      text: "",
+      createdAt: "",
+      author: null,
+      views: null,
+      likes: null,
+      replies: null,
+      reposts: null,
+      quotes: null,
+      bookmarks: null,
+    }));
+  }
 
+  const followers = await followersP;
   const values: Record<string, number | null> = {};
   if (followers.value != null) values.followers = followers.value;
 
   if (!tweets) {
     return {
       values,
-      error: `X free scrape: all sources unreachable for @${h} (syndication + nitter mirrors); engagement metrics carry forward`,
-      evidence: { source: "none", freeFollowers: followers.value ?? null },
+      error: `X free scrape: no discovery source reachable for @${h} (fx-timeline, syndication, nitter mirrors, search engines); engagement metrics carry forward`,
+      evidence: { source: "none", searchVia, freeFollowers: followers.value ?? null },
     };
   }
 
-  // Newest first, cap, dedupe.
+  // Dedupe, newest first, cap.
   const seen = new Set<string>();
   tweets = tweets
     .filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)))
     .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
     .slice(0, 15);
 
-  // Enrich with a small pool (public endpoints, be polite).
+  // Enrich anything that lacks counts or a date (search/stored/rss candidates);
+  // drop candidates whose verified author isn't this handle (search noise).
   let enriched = 0;
+  let authorRejected = 0;
   const via: Record<string, number> = {};
+  const need = tweets.filter((t) => !hasAnyCount(t) || !t.createdAt);
   const POOL = 4;
-  for (let i = 0; i < tweets.length; i += POOL) {
-    const batch = tweets.slice(i, i + POOL);
+  for (let i = 0; i < need.length; i += POOL) {
+    const batch = need.slice(i, i + POOL);
     const results = await Promise.all(batch.map((t) => enrichTweet(t.id)));
     results.forEach((r, j) => {
       if (!r) return;
+      const t = batch[j];
+      if (r.author && r.author !== h) {
+        t.author = r.author; // marked for removal below
+        authorRejected++;
+        return;
+      }
       enriched++;
       via[r.via] = (via[r.via] ?? 0) + 1;
-      const t = batch[j];
       for (const k of ["views", "likes", "replies", "reposts", "quotes", "bookmarks"] as const) {
         const v = r.data[k];
         if (typeof v === "number") t[k] = v;
@@ -313,6 +454,7 @@ export async function collectXFree(handle: string): Promise<CollectResult> {
       if (r.data.createdAt && !t.createdAt) t.createdAt = r.data.createdAt;
     });
   }
+  tweets = tweets.filter((t) => !t.author || t.author === h);
 
   const cutoff = Date.now() - WEEK_MS;
   const inWindow = tweets.filter((t) => {
@@ -320,7 +462,6 @@ export async function collectXFree(handle: string): Promise<CollectResult> {
     return Number.isNaN(ms) ? false : ms >= cutoff;
   });
 
-  // Weekly aggregates: only written when every in-window post has the number.
   const impressions = sumIfComplete(inWindow, "views");
   const likes = sumIfComplete(inWindow, "likes");
   const replies = sumIfComplete(inWindow, "replies");
@@ -355,18 +496,21 @@ export async function collectXFree(handle: string): Promise<CollectResult> {
 
   const evidence: Record<string, unknown> = {
     source,
-    instance,
+    instance: rssInstance,
     tweetsFound: tweets.length,
     postsInWindow: inWindow.length,
     enriched,
+    authorRejected: authorRejected || null,
     enrichedVia: Object.entries(via).map(([k, n]) => `${k}:${n}`).join(", ") || null,
     freeFollowers: followers.value ?? null,
   };
 
   let error: string | null = null;
-  if (inWindow.length === 0) {
+  if (tweets.length === 0) {
+    error = `X free scrape: discovery returned only other-author posts for @${h}; check the handle`;
+  } else if (inWindow.length === 0) {
     error = `no posts in the last 7 days for @${h} (free scrape found ${tweets.length} older posts)`;
-  } else if (enriched === 0 && likes == null) {
+  } else if (!inWindow.some(hasAnyCount)) {
     error = `X free scrape: found ${inWindow.length} post(s) but the engagement APIs were unreachable (fxtwitter/vxtwitter/embed CDN); numbers carry forward`;
   }
 

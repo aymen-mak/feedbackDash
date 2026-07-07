@@ -244,13 +244,17 @@ async function runScweet(actor: string, token: string, input: unknown, ms: numbe
  * Apify/scweet only as an explicit opt-in fallback when free discovery finds
  * nothing AND APIFY_ALLOW_SPEND=true.
  */
-export async function collectXProfiles(handles: string[], budgetMs = 45_000): Promise<Record<string, CollectResult>> {
+export async function collectXProfiles(
+  handles: string[],
+  budgetMs = 45_000,
+  knownIdsByHandle: Record<string, string[]> = {}
+): Promise<Record<string, CollectResult>> {
   const clean = [...new Set(handles.map((h) => h.replace(/^@/, "").trim().toLowerCase()).filter(Boolean))];
   if (clean.length === 0) return {};
 
   // PRIMARY: the zero-cost pipeline (followers + posts + engagement, freex.ts).
   // These are stateless public endpoints, so handles can run concurrently.
-  const free = await Promise.all(clean.map((h) => collectXFree(h)));
+  const free = await Promise.all(clean.map((h) => collectXFree(h, knownIdsByHandle[h] ?? [])));
   const out: Record<string, CollectResult> = Object.fromEntries(clean.map((h, i) => [h, free[i]]));
 
   // OPT-IN FALLBACK: Apify/scweet, only for handles where free discovery found

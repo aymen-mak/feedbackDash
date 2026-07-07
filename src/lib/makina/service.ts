@@ -215,7 +215,6 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   // Pre-flight: one live Apify check, so we skip wasteful failing runs and report
   // the real reason (e.g. exhausted credit) instead of vague per-actor errors.
   const { item: apifyItem, apify: apifyUsage } = await apifyDiag();
-  const apifyOk = apifyItem.level !== "error";
   diagItems.push(apifyItem, envDiag());
 
   // X handles go stalest-first, so a handle deferred on the previous run is
@@ -237,7 +236,15 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     .map((a) => a.handle ?? a.key);
   const tgAcc = ACCOUNTS.find((a) => a.key === "telegram");
   const telegramPromise = tgAcc ? collectTelegram(tgAcc.handle ?? "makinafinance") : null;
-  const xResults = apifyOk && twHandles.length ? await collectXProfiles(twHandles) : {};
+  // Previously stored tweet ids let the free pipeline keep refreshing known
+  // posts even when every discovery layer is dark.
+  const knownIdsByHandle: Record<string, string[]> = {};
+  for (const a of ACCOUNTS) {
+    if (a.platform !== "twitter") continue;
+    const key = (a.handle ?? a.key).replace(/^@/, "").toLowerCase();
+    knownIdsByHandle[key] = (tweetsStore.byAccount[a.key]?.tweets ?? []).map((t) => t.id).filter((id) => /^\d+$/.test(id));
+  }
+  const xResults = twHandles.length ? await collectXProfiles(twHandles, 45_000, knownIdsByHandle) : {};
 
   for (const acc of ACCOUNTS) {
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
@@ -249,7 +256,8 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       const r = xResults[key] ?? { values: {}, error: null, evidence: {} };
       Object.assign(collected, r.values);
       evidence = r.evidence ?? {};
-      error = apifyOk ? r.error ?? null : "skipped — Apify is unavailable (see the Apify check above)";
+      // X runs on the free pipeline; Apify health no longer gates it.
+      error = r.error ?? null;
       if (r.tweets && r.tweets.length > 0) {
         tweetsStore.byAccount[acc.key] = { tweets: r.tweets, updatedAt: new Date().toISOString() };
         tweetsChanged = true;

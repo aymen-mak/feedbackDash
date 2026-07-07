@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
-import { collectXFree, fetchSyndicationTimeline, fetchNitterRss, enrichTweet } from "@/lib/makina/freex";
+import {
+  collectXFree,
+  fetchFxTimeline,
+  fetchSyndicationTimeline,
+  fetchNitterRss,
+  searchDiscoverIds,
+  enrichTweet,
+} from "@/lib/makina/freex";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,10 +44,15 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── Free pipeline trace ──
+  // ── Free pipeline trace: every layer, with HTTP statuses ──
   try {
-    const [synd, rss] = await Promise.all([fetchSyndicationTimeline(handle), fetchNitterRss(handle)]);
-    const firstId = synd?.[0]?.id ?? rss?.tweets?.[0]?.id ?? null;
+    const [fx, synd, rss, search] = await Promise.all([
+      fetchFxTimeline(handle),
+      fetchSyndicationTimeline(handle),
+      fetchNitterRss(handle),
+      searchDiscoverIds(handle),
+    ]);
+    const firstId = fx.tweets?.[0]?.id ?? synd.tweets?.[0]?.id ?? rss.tweets?.[0]?.id ?? search.ids[0] ?? null;
     const enrichment = firstId ? await enrichTweet(firstId) : null;
     const collect = await collectXFree(handle);
 
@@ -48,10 +60,12 @@ export async function GET(req: Request) {
       mode: "free",
       handle,
       layers: {
-        syndication: synd ? { ok: true, tweets: synd.length, sample: synd[0] } : { ok: false },
-        nitterRss: rss ? { ok: true, instance: rss.instance, tweets: rss.tweets.length, sample: rss.tweets[0] } : { ok: false },
+        fxTimeline: { ok: !!fx.tweets, httpStatus: fx.status, tweets: fx.tweets?.length ?? 0, sample: fx.tweets?.[0] ?? null },
+        syndication: { ok: !!synd.tweets, httpStatus: synd.status, tweets: synd.tweets?.length ?? 0 },
+        nitterRss: { ok: !!rss.tweets, tried: rss.tried, tweets: rss.tweets?.length ?? 0 },
+        searchEngines: { ok: search.ids.length > 0, via: search.via, ids: search.ids.slice(0, 5) },
         enrichment: enrichment
-          ? { ok: true, tweetId: firstId, via: enrichment.via, data: enrichment.data }
+          ? { ok: true, tweetId: firstId, via: enrichment.via, author: enrichment.author, data: enrichment.data }
           : { ok: false, tweetId: firstId },
       },
       collect: {
