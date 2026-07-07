@@ -130,18 +130,27 @@ export default function LatestTweets({
                 <p className="mb-2.5 text-[13px] leading-snug text-makina-text/90" style={clamp2}>
                   {t.text || "(no text)"}
                 </p>
-                <div
-                  className="mb-2 flex items-center gap-1.5 rounded-md px-1.5 py-1"
-                  style={{ backgroundColor: `${accent}14`, boxShadow: sort === "impressions" ? `inset 0 0 0 1px ${accent}` : undefined }}
-                >
-                  <Eye size={14} style={{ color: accent }} />
-                  <span className="text-base font-bold leading-none tabular-nums" style={{ color: accent }}>
-                    {formatCount(t.impressions || 0)}
-                  </span>
-                  <span className="text-[11px] text-makina-subtle">impressions</span>
-                </div>
+                {t.impressions == null ? (
+                  <div className="mb-2 flex items-center gap-1.5 rounded-md bg-makina-surface px-1.5 py-1">
+                    <Eye size={14} className="text-makina-subtle" />
+                    <span className="text-[11px] text-makina-subtle">views not exposed by the free source</span>
+                  </div>
+                ) : (
+                  <div
+                    className="mb-2 flex items-center gap-1.5 rounded-md px-1.5 py-1"
+                    style={{ backgroundColor: `${accent}14`, boxShadow: sort === "impressions" ? `inset 0 0 0 1px ${accent}` : undefined }}
+                  >
+                    <Eye size={14} style={{ color: accent }} />
+                    <span className="text-base font-bold leading-none tabular-nums" style={{ color: accent }}>
+                      {formatCount(t.impressions)}
+                    </span>
+                    <span className="text-[11px] text-makina-subtle">impressions</span>
+                  </div>
+                )}
                 <div className="flex flex-wrap items-center gap-1.5">
                   {ENGAGE.map((m) => {
+                    const v = t[m.key];
+                    if (v == null) return null; // unknown ≠ zero; hide instead of fabricating
                     const on = sort === m.key;
                     return (
                       <span
@@ -155,7 +164,7 @@ export default function LatestTweets({
                         }}
                       >
                         <m.Icon size={11} />
-                        {formatCount(t[m.key] ?? 0)}
+                        {formatCount(v)}
                       </span>
                     );
                   })}

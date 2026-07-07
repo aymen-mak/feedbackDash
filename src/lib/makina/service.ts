@@ -79,7 +79,9 @@ function okSummaryFor(acc: AccountDef, ev: Record<string, unknown>, filled: numb
   return filled > 0 ? `${filled} metric(s) via the competitor tracker.` : undefined;
 }
 
-/** Keep only known metric keys; coerce to finite numbers or null. */
+/** Keep only known metric keys with finite values. Absent/invalid keys are
+ *  SKIPPED (not set to null), so a partial collection — e.g. followers-only —
+ *  can never erase values already stored for the same period. */
 function sanitizeValues(account: string, raw: unknown): Record<string, number | null> {
   const def = accountDef(account);
   const out: Record<string, number | null> = {};
@@ -87,7 +89,7 @@ function sanitizeValues(account: string, raw: unknown): Record<string, number | 
   const r = raw as Record<string, unknown>;
   for (const m of def.metrics) {
     const v = r[m.key];
-    out[m.key] = typeof v === "number" && Number.isFinite(v) ? v : null;
+    if (typeof v === "number" && Number.isFinite(v)) out[m.key] = v;
   }
   return out;
 }

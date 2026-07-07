@@ -114,17 +114,20 @@ export interface MakinaJournal {
 }
 
 // ── Latest per-post metrics (cached from the last scrape, not live) ──
+// A metric is null when the source genuinely doesn't expose it (the free
+// scrape can't always get views/quotes/bookmarks); the UI hides null pills
+// instead of showing a fabricated 0.
 export interface TweetMetric {
   id: string;
   url: string;
   text: string;
   createdAt: string; // ISO
-  impressions: number;
-  likes: number;
-  replies: number;
-  reposts: number;
-  quotes: number;
-  bookmarks: number;
+  impressions: number | null;
+  likes: number | null;
+  replies: number | null;
+  reposts: number | null;
+  quotes: number | null;
+  bookmarks: number | null;
 }
 
 export interface MakinaTweets {

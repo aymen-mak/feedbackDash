@@ -1,10 +1,11 @@
 import { type TweetMetric } from "./journal";
-import { parseHumanNumber, parseTelegramCount, collectTwitter } from "@/lib/competitors/collectors";
+import { parseHumanNumber, parseTelegramCount } from "@/lib/competitors/collectors";
+import { collectXFree } from "./freex";
 
 /** Every Apify actor run costs real money (the actor charges per run start, on
  *  top of compute), so paid scraping is FROZEN unless explicitly re-enabled by
- *  setting APIFY_ALLOW_SPEND=true in Vercel. While frozen, follower counts
- *  still flow through the competitor tracker's zero-cost layered scraper. */
+ *  setting APIFY_ALLOW_SPEND=true in Vercel. The free pipeline (freex.ts) is
+ *  the primary X source either way; Apify is at most an opt-in fallback. */
 export function apifySpendAllowed(): boolean {
   return process.env.APIFY_ALLOW_SPEND === "true";
 }
@@ -238,49 +239,48 @@ async function runScweet(actor: string, token: string, input: unknown, ms: numbe
 }
 
 /**
- * Collect every X handle WITHOUT ever letting two scweet runs overlap.
- *
- * Hard-won constraints, each observed in production:
- *  • profiles mode with several profile_urls in ONE run → empty dataset;
- *  • two runs in PARALLEL → BOTH empty (they share the actor's X session and
- *    stomp on each other);
- *  • two full runs SEQUENTIALLY → the second starves on the 60s function limit;
- *  • one single run → works (debug pulled 95 items).
- *
- * Strategy: phase 1 covers all handles in ONE search run ("from:a OR from:b" —
- * search mode, unlike profiles mode, supports multi-target queries). Phase 2
- * falls back to a strictly-sequential profiles run per handle the search
- * missed, while the time budget lasts; anything that can't fit is deferred
- * with an honest message (the service orders handles stalest-first, so a
- * deferred handle goes first on the next collection).
+ * Collect every X handle. Free pipeline first (freex.ts: syndication + nitter
+ * RSS discovery, fxtwitter/vxtwitter/embed-CDN enrichment — $0, no login);
+ * Apify/scweet only as an explicit opt-in fallback when free discovery finds
+ * nothing AND APIFY_ALLOW_SPEND=true.
  */
 export async function collectXProfiles(handles: string[], budgetMs = 45_000): Promise<Record<string, CollectResult>> {
   const clean = [...new Set(handles.map((h) => h.replace(/^@/, "").trim().toLowerCase()).filter(Boolean))];
   if (clean.length === 0) return {};
 
-  // SPEND FREEZE: no Apify run is ever started while the gate is off. Follower
-  // counts come from the competitor tracker's free scraper (currently 7/7 OK);
-  // engagement metrics carry forward their last real values ("as of ...").
-  if (!apifySpendAllowed()) {
-    const free = await Promise.all(clean.map((h) => collectTwitter(h)));
-    return Object.fromEntries(
-      clean.map((h, i) => {
-        const f = free[i];
-        const values: Record<string, number | null> = f.value != null ? { followers: f.value } : {};
-        return [
-          h,
-          {
-            values,
-            error: `Apify runs are paused to protect the remaining balance; followers via the free scraper${
-              f.value == null && f.error ? ` (free scraper: ${f.error})` : ""
-            }. Set APIFY_ALLOW_SPEND=true in Vercel to resume full engagement metrics.`,
-            evidence: { paused: true, freeFollowers: f.value ?? null },
-          },
-        ];
-      })
-    );
-  }
+  // PRIMARY: the zero-cost pipeline (followers + posts + engagement, freex.ts).
+  // These are stateless public endpoints, so handles can run concurrently.
+  const free = await Promise.all(clean.map((h) => collectXFree(h)));
+  const out: Record<string, CollectResult> = Object.fromEntries(clean.map((h, i) => [h, free[i]]));
 
+  // OPT-IN FALLBACK: Apify/scweet, only for handles where free discovery found
+  // no posts at all, and only when spending is explicitly allowed. Never runs
+  // by default — every actor run charges real money.
+  const needPaid = clean.filter((h) => ((out[h].evidence?.tweetsFound as number | undefined) ?? 0) === 0);
+  if (needPaid.length === 0 || !apifySpendAllowed()) return out;
+
+  const paid = await collectXViaApify(needPaid, budgetMs);
+  for (const h of needPaid) {
+    const p = paid[h];
+    if (p && ((p.tweets?.length ?? 0) > 0 || Object.keys(p.values).length > Object.keys(out[h].values).length)) {
+      out[h] = p;
+    }
+  }
+  return out;
+}
+
+/**
+ * The Apify/scweet path, kept as an explicit opt-in fallback (every run start
+ * costs real money). Hard-won constraints, each observed in production:
+ *  • profiles mode with several profile_urls in ONE run → empty dataset;
+ *  • two runs in PARALLEL → BOTH empty (shared actor X session, they stomp on
+ *    each other) — so runs here are one-at-a-time: one multi-handle search run,
+ *    then strictly-sequential per-handle profiles runs within the time budget,
+ *    deferring what can't fit.
+ */
+async function collectXViaApify(handles: string[], budgetMs = 45_000): Promise<Record<string, CollectResult>> {
+  const clean = [...new Set(handles.map((h) => h.replace(/^@/, "").trim().toLowerCase()).filter(Boolean))];
+  if (clean.length === 0) return {};
   const token = process.env.APIFY_TOKEN;
   if (!token) return Object.fromEntries(clean.map((h) => [h, { values: {}, error: "Apify not set (APIFY_TOKEN)" }]));
   const actor = process.env.APIFY_TWEET_ACTOR || "altimis~scweet";
