@@ -4,6 +4,7 @@ import {
   fetchFxTimeline,
   fetchSyndicationTimeline,
   fetchNitterRss,
+  fetchJinaProfileIds,
   searchDiscoverIds,
   enrichTweet,
 } from "@/lib/makina/freex";
@@ -46,13 +47,15 @@ export async function GET(req: Request) {
 
   // ── Free pipeline trace: every layer, with HTTP statuses ──
   try {
-    const [fx, synd, rss, search] = await Promise.all([
+    const [fx, synd, rss, jina, search] = await Promise.all([
       fetchFxTimeline(handle),
       fetchSyndicationTimeline(handle),
       fetchNitterRss(handle),
+      fetchJinaProfileIds(handle),
       searchDiscoverIds(handle),
     ]);
-    const firstId = fx.tweets?.[0]?.id ?? synd.tweets?.[0]?.id ?? rss.tweets?.[0]?.id ?? search.ids[0] ?? null;
+    const firstId =
+      fx.tweets?.[0]?.id ?? synd.tweets?.[0]?.id ?? rss.tweets?.[0]?.id ?? jina.ids[0] ?? search.ids[0] ?? null;
     const enrichment = firstId ? await enrichTweet(firstId) : null;
     const collect = await collectXFree(handle);
 
@@ -60,10 +63,11 @@ export async function GET(req: Request) {
       mode: "free",
       handle,
       layers: {
-        fxTimeline: { ok: !!fx.tweets, httpStatus: fx.status, tweets: fx.tweets?.length ?? 0, sample: fx.tweets?.[0] ?? null },
+        fxTimeline: { ok: !!fx.tweets, httpStatuses: fx.statuses, tweets: fx.tweets?.length ?? 0, sample: fx.tweets?.[0] ?? null },
         syndication: { ok: !!synd.tweets, httpStatus: synd.status, tweets: synd.tweets?.length ?? 0 },
         nitterRss: { ok: !!rss.tweets, tried: rss.tried, tweets: rss.tweets?.length ?? 0 },
-        searchEngines: { ok: search.ids.length > 0, via: search.via, ids: search.ids.slice(0, 5) },
+        jinaProfile: { ok: jina.ids.length > 0, httpStatus: jina.status, ids: jina.ids.slice(0, 5) },
+        searchEngines: { ok: search.ids.length > 0, via: search.via, statuses: search.statuses, ids: search.ids.slice(0, 5) },
         enrichment: enrichment
           ? { ok: true, tweetId: firstId, via: enrichment.via, author: enrichment.author, data: enrichment.data }
           : { ok: false, tweetId: firstId },

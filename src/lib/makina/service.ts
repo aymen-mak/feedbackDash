@@ -237,12 +237,19 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   const tgAcc = ACCOUNTS.find((a) => a.key === "telegram");
   const telegramPromise = tgAcc ? collectTelegram(tgAcc.handle ?? "makinafinance") : null;
   // Previously stored tweet ids let the free pipeline keep refreshing known
-  // posts even when every discovery layer is dark.
+  // posts even when every discovery layer is dark. Stored ids come in several
+  // shapes ("tweet-<digits>" from the scweet era, bare digits, or only in the
+  // url), so extract the numeric id from whichever field carries it.
   const knownIdsByHandle: Record<string, string[]> = {};
   for (const a of ACCOUNTS) {
     if (a.platform !== "twitter") continue;
     const key = (a.handle ?? a.key).replace(/^@/, "").toLowerCase();
-    knownIdsByHandle[key] = (tweetsStore.byAccount[a.key]?.tweets ?? []).map((t) => t.id).filter((id) => /^\d+$/.test(id));
+    const ids = new Set<string>();
+    for (const t of tweetsStore.byAccount[a.key]?.tweets ?? []) {
+      const m = t.id.match(/(\d{8,})/) ?? t.url.match(/status\/(\d{8,})/);
+      if (m) ids.add(m[1]);
+    }
+    knownIdsByHandle[key] = [...ids];
   }
   const xResults = twHandles.length ? await collectXProfiles(twHandles, 45_000, knownIdsByHandle) : {};
 

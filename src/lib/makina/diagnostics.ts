@@ -80,6 +80,15 @@ export function classify(
   if (e.includes("schema") || e.includes("recognizable author") || e.includes("field name"))
     return { ...base, level: "error", summary: error, fix: "The scraper's output format changed; update the field mapping in collectors.ts." };
 
+  // Free X pipeline: every discovery layer answered empty or blocked.
+  if (e.includes("no discovery source"))
+    return {
+      ...base,
+      level: "warn",
+      summary: error,
+      fix: "The skippedLayers/ladder evidence lists each layer's HTTP status; open /api/makina/debug?handle=<handle> (free) to pin the blocker.",
+    };
+
   // The scraper ran but produced nothing for an account that should have posts.
   // NOT benign: with the search + profiles fallback both exhausted, an empty
   // result means a block or an actor change, not "no posts this week".

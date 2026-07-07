@@ -113,31 +113,53 @@ function fromFxStatus(s: Record<string, unknown>, fallbackHandle: string): FreeT
   };
 }
 
-// ── Discovery 1: FxEmbed user timeline ──
-export async function fetchFxTimeline(handle: string): Promise<{ tweets: FreeTweet[] | null; status: number }> {
-  const { status, json } = await fetchJson<Record<string, unknown>>(
+// ── Discovery 1: FxEmbed user timeline (tries the path variants FxEmbed has
+//    served across versions; records each HTTP status for diagnostics) ──
+export async function fetchFxTimeline(
+  handle: string
+): Promise<{ tweets: FreeTweet[] | null; statuses: string }> {
+  const paths = [
     `https://api.fxtwitter.com/${encodeURIComponent(handle)}/statuses?with_replies=false`,
-    12_000
-  );
-  if (!json) return { tweets: null, status };
-  // Accept the shapes FxEmbed has shipped: results[] (statuses or thread
-  // groups with a nested statuses[]), or timeline.statuses[].
-  const timeline = (json.timeline ?? {}) as Record<string, unknown>;
-  const rawList = (json.results ?? json.statuses ?? timeline.statuses ?? []) as Array<Record<string, unknown>>;
-  if (!Array.isArray(rawList) || rawList.length === 0) return { tweets: null, status };
-  const flat: Array<Record<string, unknown>> = [];
-  for (const item of rawList) {
-    if (Array.isArray(item.statuses)) flat.push(...(item.statuses as Array<Record<string, unknown>>));
-    else flat.push(item);
+    `https://api.fxtwitter.com/2/x/${encodeURIComponent(handle)}/statuses`,
+    `https://api.fxtwitter.com/2/${encodeURIComponent(handle)}/statuses`,
+  ];
+  const tried: string[] = [];
+  for (const url of paths) {
+    const { status, json } = await fetchJson<Record<string, unknown>>(url, 12_000);
+    tried.push(String(status));
+    if (!json) continue;
+    // Accept the shapes FxEmbed has shipped: results[] (statuses or thread
+    // groups with a nested statuses[]), statuses[], or timeline.statuses[].
+    const timeline = (json.timeline ?? {}) as Record<string, unknown>;
+    const rawList = (json.results ?? json.statuses ?? timeline.statuses ?? []) as Array<Record<string, unknown>>;
+    if (!Array.isArray(rawList) || rawList.length === 0) continue;
+    const flat: Array<Record<string, unknown>> = [];
+    for (const item of rawList) {
+      if (Array.isArray(item.statuses)) flat.push(...(item.statuses as Array<Record<string, unknown>>));
+      else flat.push(item);
+    }
+    const out: FreeTweet[] = [];
+    for (const s of flat) {
+      const t = fromFxStatus(s, handle);
+      if (!t) continue;
+      if (t.author && t.author !== handle.toLowerCase()) continue; // drop RTs of others
+      out.push(t);
+    }
+    if (out.length) return { tweets: out, statuses: tried.join(",") };
   }
-  const out: FreeTweet[] = [];
-  for (const s of flat) {
-    const t = fromFxStatus(s, handle);
-    if (!t) continue;
-    if (t.author && t.author !== handle.toLowerCase()) continue; // drop RTs of others
-    out.push(t);
-  }
-  return { tweets: out.length ? out : null, status };
+  return { tweets: null, statuses: tried.join(",") };
+}
+
+// ── Discovery 1.5: x.com profile rendered through the jina.ai reader — the
+//    SAME channel the competitor follower scraper already uses successfully
+//    from this deployment. The rendered page contains /status/<id> links. ──
+export async function fetchJinaProfileIds(handle: string): Promise<{ ids: string[]; status: number }> {
+  const { status, text } = await fetchTextR(`https://r.jina.ai/https://x.com/${encodeURIComponent(handle)}`, 18_000, "text/plain");
+  if (!text) return { ids: [], status };
+  const idRe = new RegExp(`(?:x|twitter)\\.com/${handle}/status/(\\d+)`, "gi");
+  const ids = new Set<string>();
+  for (const m of text.matchAll(idRe)) ids.add(m[1]);
+  return { ids: [...ids].slice(0, 15), status };
 }
 
 // ── Discovery 2: X syndication timeline ──
@@ -244,7 +266,9 @@ export async function fetchNitterRss(
 }
 
 // ── Discovery 4: search engines (candidate ids only; author-verified later) ──
-export async function searchDiscoverIds(handle: string): Promise<{ ids: string[]; via: string | null }> {
+export async function searchDiscoverIds(
+  handle: string
+): Promise<{ ids: string[]; via: string | null; statuses: string }> {
   const idRe = new RegExp(`(?:x|twitter)\\.com(?:%2F|/)${handle}(?:%2F|/)status(?:%2F|/)(\\d+)`, "gi");
   const collect = (text: string): string[] => {
     const ids = new Set<string>();
@@ -258,24 +282,21 @@ export async function searchDiscoverIds(handle: string): Promise<{ ids: string[]
     return [...ids];
   };
 
-  const bing = await fetchTextR(
-    `https://www.bing.com/search?q=${encodeURIComponent(`site:x.com/${handle}/status`)}&format=rss&count=30`,
-    9_000,
-    "application/rss+xml,application/xml,text/xml"
-  );
-  if (bing.text) {
-    const ids = collect(bing.text);
-    if (ids.length) return { ids: ids.slice(0, 15), via: "bing" };
+  const q = encodeURIComponent(`site:x.com/${handle}/status`);
+  const engines: { name: string; url: string; accept?: string }[] = [
+    { name: "bing", url: `https://www.bing.com/search?q=${q}&format=rss&count=30`, accept: "application/rss+xml,application/xml,text/xml" },
+    { name: "ddg", url: `https://html.duckduckgo.com/html/?q=${q}` },
+    { name: "mojeek", url: `https://www.mojeek.com/search?q=${q}` },
+  ];
+  const statuses: string[] = [];
+  for (const e of engines) {
+    const r = await fetchTextR(e.url, 9_000, e.accept ?? "text/html,application/xhtml+xml");
+    statuses.push(`${e.name}:${r.status}`);
+    if (!r.text) continue;
+    const ids = collect(r.text);
+    if (ids.length) return { ids: ids.slice(0, 15), via: e.name, statuses: statuses.join(",") };
   }
-  const ddg = await fetchTextR(
-    `https://html.duckduckgo.com/html/?q=${encodeURIComponent(`site:x.com/${handle}/status`)}`,
-    9_000
-  );
-  if (ddg.text) {
-    const ids = collect(ddg.text);
-    if (ids.length) return { ids: ids.slice(0, 15), via: "ddg" };
-  }
-  return { ids: [], via: null };
+  return { ids: [], via: null, statuses: statuses.join(",") };
 }
 
 // ── Enrichment: per-tweet numbers from the free embed APIs ──
@@ -353,13 +374,37 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
   const h = handle.replace(/^@/, "").trim().toLowerCase();
   const followersP = collectTwitter(h);
 
-  // Discovery ladder.
+  const idOnly = (id: string): FreeTweet => ({
+    id,
+    url: `https://x.com/${h}/status/${id}`,
+    text: "",
+    createdAt: "",
+    author: null,
+    views: null,
+    likes: null,
+    replies: null,
+    reposts: null,
+    quotes: null,
+    bookmarks: null,
+  });
+
+  // Discovery ladder — every rung logs its outcome so a total failure reports
+  // exactly what each layer answered (visible in the Diagnose evidence).
+  const ladder: string[] = [];
   let source = "fx-timeline";
-  let tweets: FreeTweet[] | null = (await fetchFxTimeline(h)).tweets;
+  let tweets: FreeTweet[] | null = null;
   let rssInstance: string | null = null;
+
+  const fx = await fetchFxTimeline(h);
+  if (fx.tweets) tweets = fx.tweets;
+  else ladder.push(`fx:${fx.statuses}`);
+
   if (!tweets) {
-    source = "syndication";
-    tweets = (await fetchSyndicationTimeline(h)).tweets;
+    const synd = await fetchSyndicationTimeline(h);
+    if (synd.tweets) {
+      source = "syndication";
+      tweets = synd.tweets;
+    } else ladder.push(`synd:${synd.status}`);
   }
   if (!tweets) {
     const rss = await fetchNitterRss(h);
@@ -367,44 +412,27 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
       source = "nitter-rss";
       tweets = rss.tweets;
       rssInstance = rss.tried.find((t) => t.status === 200)?.host ?? null;
-    }
+    } else ladder.push(`nitter:${rss.tried.map((t) => `${t.host.split(".")[0]}=${t.status}`).join("|")}`);
   }
-  let searchVia: string | null = null;
+  if (!tweets) {
+    // x.com profile via the jina reader — the channel the competitor follower
+    // scraper already reaches from this deployment; ids only, enriched below.
+    const jina = await fetchJinaProfileIds(h);
+    if (jina.ids.length) {
+      source = "jina-profile";
+      tweets = jina.ids.map(idOnly);
+    } else ladder.push(`jina:${jina.status}`);
+  }
   if (!tweets) {
     const found = await searchDiscoverIds(h);
-    searchVia = found.via;
     if (found.ids.length) {
       source = `search:${found.via}`;
-      tweets = found.ids.map((id) => ({
-        id,
-        url: `https://x.com/${h}/status/${id}`,
-        text: "",
-        createdAt: "",
-        author: null,
-        views: null,
-        likes: null,
-        replies: null,
-        reposts: null,
-        quotes: null,
-        bookmarks: null,
-      }));
-    }
+      tweets = found.ids.map(idOnly);
+    } else ladder.push(`search:${found.statuses}`);
   }
   if (!tweets && knownIds.length) {
     source = "stored-ids";
-    tweets = knownIds.slice(0, 15).map((id) => ({
-      id,
-      url: `https://x.com/${h}/status/${id}`,
-      text: "",
-      createdAt: "",
-      author: null,
-      views: null,
-      likes: null,
-      replies: null,
-      reposts: null,
-      quotes: null,
-      bookmarks: null,
-    }));
+    tweets = knownIds.slice(0, 15).map(idOnly);
   }
 
   const followers = await followersP;
@@ -414,8 +442,8 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
   if (!tweets) {
     return {
       values,
-      error: `X free scrape: no discovery source reachable for @${h} (fx-timeline, syndication, nitter mirrors, search engines); engagement metrics carry forward`,
-      evidence: { source: "none", searchVia, freeFollowers: followers.value ?? null },
+      error: `X free scrape: no discovery source reachable for @${h}; engagement metrics carry forward`,
+      evidence: { source: "none", ladder: ladder.join(" · "), freeFollowers: followers.value ?? null },
     };
   }
 
@@ -502,6 +530,7 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
     enriched,
     authorRejected: authorRejected || null,
     enrichedVia: Object.entries(via).map(([k, n]) => `${k}:${n}`).join(", ") || null,
+    skippedLayers: ladder.length ? ladder.join(" · ") : null,
     freeFollowers: followers.value ?? null,
   };
 
