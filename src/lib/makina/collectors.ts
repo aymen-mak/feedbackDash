@@ -1,5 +1,13 @@
 import { type TweetMetric } from "./journal";
-import { parseHumanNumber, parseTelegramCount } from "@/lib/competitors/collectors";
+import { parseHumanNumber, parseTelegramCount, collectTwitter } from "@/lib/competitors/collectors";
+
+/** Every Apify actor run costs real money (the actor charges per run start, on
+ *  top of compute), so paid scraping is FROZEN unless explicitly re-enabled by
+ *  setting APIFY_ALLOW_SPEND=true in Vercel. While frozen, follower counts
+ *  still flow through the competitor tracker's zero-cost layered scraper. */
+export function apifySpendAllowed(): boolean {
+  return process.env.APIFY_ALLOW_SPEND === "true";
+}
 
 // Metric collectors for our OWN accounts that store NO account logins:
 //
@@ -248,9 +256,33 @@ async function runScweet(actor: string, token: string, input: unknown, ms: numbe
  */
 export async function collectXProfiles(handles: string[], budgetMs = 45_000): Promise<Record<string, CollectResult>> {
   const clean = [...new Set(handles.map((h) => h.replace(/^@/, "").trim().toLowerCase()).filter(Boolean))];
+  if (clean.length === 0) return {};
+
+  // SPEND FREEZE: no Apify run is ever started while the gate is off. Follower
+  // counts come from the competitor tracker's free scraper (currently 7/7 OK);
+  // engagement metrics carry forward their last real values ("as of ...").
+  if (!apifySpendAllowed()) {
+    const free = await Promise.all(clean.map((h) => collectTwitter(h)));
+    return Object.fromEntries(
+      clean.map((h, i) => {
+        const f = free[i];
+        const values: Record<string, number | null> = f.value != null ? { followers: f.value } : {};
+        return [
+          h,
+          {
+            values,
+            error: `Apify runs are paused to protect the remaining balance; followers via the free scraper${
+              f.value == null && f.error ? ` (free scraper: ${f.error})` : ""
+            }. Set APIFY_ALLOW_SPEND=true in Vercel to resume full engagement metrics.`,
+            evidence: { paused: true, freeFollowers: f.value ?? null },
+          },
+        ];
+      })
+    );
+  }
+
   const token = process.env.APIFY_TOKEN;
   if (!token) return Object.fromEntries(clean.map((h) => [h, { values: {}, error: "Apify not set (APIFY_TOKEN)" }]));
-  if (clean.length === 0) return {};
   const actor = process.env.APIFY_TWEET_ACTOR || "altimis~scweet";
   const started = Date.now();
   const remaining = () => budgetMs - (Date.now() - started);

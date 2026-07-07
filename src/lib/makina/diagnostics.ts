@@ -109,6 +109,10 @@ export function classify(
   if (e.includes("deferred"))
     return { ...base, level: "info", summary: error, fix: "Queued first for the next collection — run Collect now again to fetch it immediately." };
 
+  // Spend freeze: intentional, not a failure. Followers still flow for free.
+  if (e.includes("paused"))
+    return { ...base, level: "info", summary: error, fix: "Intentional freeze to protect the remaining Apify balance. Engagement metrics keep their last real values; set APIFY_ALLOW_SPEND=true in Vercel to resume paid scraping." };
+
   // Benign: connected fine, just nothing to record this period.
   if (e.includes("0 items") || e.includes("no posts") || e.includes("no tweets") || e.includes("no data") || e.includes("nothing"))
     return { ...base, level: "info", summary: error, fix: "Not a failure — nothing in the window, so the last values are carried forward." };
@@ -170,21 +174,48 @@ export async function apifyDiag(): Promise<{ item: DiagItem; apify: NonNullable<
     const resetAt = typeof j.data?.monthlyUsageCycle?.endAt === "string" ? (j.data.monthlyUsageCycle.endAt as string).slice(0, 10) : null;
     const exhausted = usage != null && limit != null && usage >= limit - 1e-9;
     const near = !exhausted && usage != null && limit != null && usage >= limit * 0.8;
+    const frozen = process.env.APIFY_ALLOW_SPEND !== "true";
+
+    // What each recent run actually cost (a free platform-API read) — so spend
+    // is never a mystery again. Rendered as evidence chips in the panel.
+    let recentRuns: string | null = null;
+    let recentRunsUsd: number | null = null;
+    try {
+      const runsRes = await fetch(
+        `https://api.apify.com/v2/actor-runs?token=${encodeURIComponent(token)}&limit=10&desc=true`,
+        { cache: "no-store" }
+      );
+      if (runsRes.ok) {
+        const runs = (await runsRes.json()) as {
+          data?: { items?: { status?: string; usageTotalUsd?: number; startedAt?: string }[] };
+        };
+        const items = runs.data?.items ?? [];
+        if (items.length) {
+          recentRunsUsd = +items.reduce((s, r) => s + (typeof r.usageTotalUsd === "number" ? r.usageTotalUsd : 0), 0).toFixed(2);
+          recentRuns = items
+            .map((r) => `$${(r.usageTotalUsd ?? 0).toFixed(2)} ${String(r.status ?? "?").toLowerCase()} ${(r.startedAt ?? "").slice(5, 16)}`)
+            .join(" · ");
+        }
+      }
+    } catch {
+      /* cost listing is best-effort */
+    }
+
     return {
       item: {
         id: "apify",
         label: "Apify · X scraper",
         level: exhausted ? "error" : near ? "warn" : "ok",
         summary:
-          usage != null && limit != null
+          (usage != null && limit != null
             ? `Reachable. Usage $${usage.toFixed(2)} of $${limit}${exhausted ? " — limit reached." : near ? " — running low." : "."}`
-            : "Reachable.",
+            : "Reachable.") + (frozen ? " Spending is FROZEN (no runs are started)." : ""),
         fix: exhausted
           ? `Free credit is used up. Add a payment method in Apify or raise the monthly limit${resetAt ? `, or wait for the reset on ${resetAt}` : ""}.`
           : near
           ? "Approaching the monthly limit; collections may start failing soon."
           : undefined,
-        evidence: { usage, limit, resetAt },
+        evidence: { usage, limit, resetAt, spendFrozen: frozen, last10RunsUsd: recentRunsUsd, last10Runs: recentRuns },
       },
       apify: { usage, limit, resetAt },
     };

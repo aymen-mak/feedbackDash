@@ -11,6 +11,14 @@ export const maxDuration = 60;
 export async function GET(req: Request) {
   const token = process.env.APIFY_TOKEN;
   if (!token) return NextResponse.json({ error: "APIFY_TOKEN not set on this deployment" }, { status: 200 });
+  // Debug runs cost real money (the actor charges per run start). Frozen unless
+  // spending is explicitly re-enabled.
+  if (process.env.APIFY_ALLOW_SPEND !== "true") {
+    return NextResponse.json(
+      { skipped: "Apify spending is frozen (APIFY_ALLOW_SPEND is not true), so no debug run was started. This endpoint costs credit per call when enabled." },
+      { status: 200 }
+    );
+  }
 
   const sp = new URL(req.url).searchParams;
   const handle = (sp.get("handle") || "makinafi").replace(/^@/, "");

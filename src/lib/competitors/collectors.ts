@@ -323,8 +323,9 @@ async function xGraphqlFollowers(handle: string, guest: string): Promise<number 
 }
 
 // ── X / Twitter follower count, layered so it works for free on a real
-// network (this is what an anonymous browser tab does). ──
-async function collectTwitter(handle: string): Promise<CollectorResult> {
+// network (this is what an anonymous browser tab does). Exported: the Makina
+// metrics collector reuses it for followers while Apify spending is frozen. ──
+export async function collectTwitter(handle: string): Promise<CollectorResult> {
   const h = handle.replace(/^@/, "").replace(/^https?:\/\/(x|twitter)\.com\//, "").replace(/\/$/, "");
 
   // 1) Official X API v2 (most reliable) when X_BEARER_TOKEN is configured.
