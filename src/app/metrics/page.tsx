@@ -42,6 +42,8 @@ interface CollectSummary {
 /** Short, accurate chip label for the last-collection summary (full detail lives in the diagnostics panel). */
 function chipLabel(err: string): string {
   const e = err.toLowerCase();
+  if (e.includes("came back empty")) return "check scraper";
+  if (e.includes("deferred")) return "queued";
   if (e.includes("no posts") || e.includes("0 items") || e.includes("no data") || e.includes("nothing") || e.includes("skipped"))
     return "no posts";
   if (e.includes("credit") || e.includes("usage limit") || e.includes("402")) return "no credit";

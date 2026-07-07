@@ -80,6 +80,17 @@ export function classify(
   if (e.includes("schema") || e.includes("recognizable author") || e.includes("field name"))
     return { ...base, level: "error", summary: error, fix: "The scraper's output format changed; update the field mapping in collectors.ts." };
 
+  // The scraper ran but produced nothing for an account that should have posts.
+  // NOT benign: with the search + profiles fallback both exhausted, an empty
+  // result means a block or an actor change, not "no posts this week".
+  if (e.includes("came back empty"))
+    return {
+      ...base,
+      level: "warn",
+      summary: error,
+      fix: "Open the debug link for the actor's raw output; if it persists, the actor's input schema or X likely changed.",
+    };
+
   // Soft problems (worth a look, often self-clearing or config).
   if (e.includes("returned posts for"))
     return { ...base, level: "warn", summary: error, fix: "The scraper returned other accounts; verify the handle is correct and public." };
@@ -93,6 +104,10 @@ export function classify(
   // Skipped because a dependency (Apify) was unhealthy — see its own item.
   if (e.includes("skipped"))
     return { ...base, level: "info", summary: error, fix: "Resolve the Apify issue above; X collection runs once it is healthy." };
+
+  // Deferred: this invocation's time budget ran out before its scrape could run.
+  if (e.includes("deferred"))
+    return { ...base, level: "info", summary: error, fix: "Queued first for the next collection — run Collect now again to fetch it immediately." };
 
   // Benign: connected fine, just nothing to record this period.
   if (e.includes("0 items") || e.includes("no posts") || e.includes("no tweets") || e.includes("no data") || e.includes("nothing"))

@@ -187,74 +187,149 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
   return { values, error: null, tweets, evidence };
 }
 
-/** Scrape each handle in its OWN scweet run — profiles mode returns data for a
- *  single profile_url per run (batching multiple yields an empty dataset). Runs
- *  are sequential to respect the free tier's one-run-at-a-time limit. Keyed by
- *  lowercase handle (no @). */
-export async function collectXProfiles(handles: string[]): Promise<Record<string, CollectResult>> {
+/** Author handle of a scraped item, lowercased without the @ (accepts the
+ *  several field shapes scweet has shipped). Empty when no author is present. */
+function authorOf(it: Record<string, unknown>): string {
+  const user = (it.user ?? {}) as Record<string, unknown>;
+  return String(
+    user.handle ?? user.username ?? user.screen_name ?? user.userName ?? it.handle ?? it.username ?? it.screen_name ?? ""
+  )
+    .replace(/^@/, "")
+    .trim()
+    .toLowerCase();
+}
+
+interface ScweetRun {
+  /** Non-demo dataset items; null when the request itself failed. */
+  items: Array<Record<string, unknown>> | null;
+  error: string | null;
+}
+
+async function runScweet(actor: string, token: string, input: unknown, ms: number): Promise<ScweetRun> {
+  try {
+    const res = await apifyRunSync(actor, token, input, ms);
+    if (!res.ok) {
+      let body = "";
+      try { body = (await res.text()).replace(/\s+/g, " ").trim(); } catch { /* ignore */ }
+      const approval = body.match(/"approvalUrl":"([^"]+)"/)?.[1];
+      if (approval || /not-approved|approvepermissions/i.test(body)) {
+        return {
+          items: null,
+          error: `Actor needs a one-time permission approval on this Apify account: ${approval ?? "open the actor in Apify and approve permissions"}`,
+        };
+      }
+      // Keep the response body: on a 400 it names the offending input field.
+      return { items: null, error: `Apify HTTP ${res.status}${body ? `: ${body.slice(0, 140)}` : ""}` };
+    }
+    const items = (await res.json()) as Array<Record<string, unknown>>;
+    if (!Array.isArray(items)) return { items: null, error: "Apify: unexpected response shape" };
+    return { items: items.filter((it) => !it.noResults && !it.demo), error: null };
+  } catch (e) {
+    return { items: null, error: `Apify: ${errMsg(e)}` };
+  }
+}
+
+/**
+ * Collect every X handle WITHOUT ever letting two scweet runs overlap.
+ *
+ * Hard-won constraints, each observed in production:
+ *  • profiles mode with several profile_urls in ONE run → empty dataset;
+ *  • two runs in PARALLEL → BOTH empty (they share the actor's X session and
+ *    stomp on each other);
+ *  • two full runs SEQUENTIALLY → the second starves on the 60s function limit;
+ *  • one single run → works (debug pulled 95 items).
+ *
+ * Strategy: phase 1 covers all handles in ONE search run ("from:a OR from:b" —
+ * search mode, unlike profiles mode, supports multi-target queries). Phase 2
+ * falls back to a strictly-sequential profiles run per handle the search
+ * missed, while the time budget lasts; anything that can't fit is deferred
+ * with an honest message (the service orders handles stalest-first, so a
+ * deferred handle goes first on the next collection).
+ */
+export async function collectXProfiles(handles: string[], budgetMs = 45_000): Promise<Record<string, CollectResult>> {
   const clean = [...new Set(handles.map((h) => h.replace(/^@/, "").trim().toLowerCase()).filter(Boolean))];
   const token = process.env.APIFY_TOKEN;
   if (!token) return Object.fromEntries(clean.map((h) => [h, { values: {}, error: "Apify not set (APIFY_TOKEN)" }]));
   if (clean.length === 0) return {};
   const actor = process.env.APIFY_TWEET_ACTOR || "altimis~scweet";
+  const started = Date.now();
+  const remaining = () => budgetMs - (Date.now() - started);
 
-  // One scweet run PER handle, run in PARALLEL. Batching multiple profile_urls
-  // into a single run returns an empty dataset (that was the original "both got
-  // nothing" bug); running them sequentially instead risks the second handle
-  // (e.g. @makintern) being starved by the function timeout. So each handle gets
-  // its own run and they execute concurrently.
-  const runOne = async (h: string): Promise<CollectResult> => {
-    try {
-      const res = await apifyRunSync(actor, token, {
-        source_mode: "profiles",
-        profile_urls: [`@${h}`],
-        max_items: 100, // scweet's schema minimum
-      });
-      if (!res.ok) {
-        let body = "";
-        try { body = await res.text(); } catch { /* ignore */ }
-        const approval = body.match(/"approvalUrl":"([^"]+)"/)?.[1];
-        return {
-          values: {},
-          error:
-            approval || /not-approved|approvepermissions/i.test(body)
-              ? `Actor needs a one-time permission approval on this Apify account: ${approval ?? "open the actor in Apify and approve permissions"}`
-              : `Apify HTTP ${res.status} (token/credit/rate-limit?)`,
-        };
+  const out: Record<string, CollectResult> = {};
+  const pending = new Set(clean);
+
+  // Phase 1: one search run covering every handle at once.
+  if (clean.length > 1) {
+    const run = await runScweet(
+      actor,
+      token,
+      {
+        source_mode: "search",
+        search_query: clean.map((h) => `from:${h}`).join(" OR "),
+        search_sort: "Latest",
+        max_items: Math.max(100, clean.length * 60),
+      },
+      Math.min(58_000, Math.max(20_000, remaining() - 2_000))
+    );
+    if (run.items) {
+      const byAuthor: Record<string, Array<Record<string, unknown>>> = {};
+      for (const it of run.items) {
+        const a = authorOf(it);
+        if (a) (byAuthor[a] ??= []).push(it);
       }
-      const items = (await res.json()) as Array<Record<string, unknown>>;
-      if (!Array.isArray(items)) return { values: {}, error: "Apify: unexpected response shape" };
-
-      // profiles mode returns this profile's timeline; keep its own posts (drop
-      // demo rows and retweets of other accounts).
-      const mine = items.filter((it) => {
-        if (it.noResults || it.demo) return false;
-        const user = (it.user ?? {}) as Record<string, unknown>;
-        const author = String(
-          user.handle ?? user.username ?? user.screen_name ?? user.userName ?? it.handle ?? it.username ?? it.screen_name ?? ""
-        )
-          .replace(/^@/, "")
-          .trim()
-          .toLowerCase();
-        return author === h || !author; // matches this handle, or has no author field
-      });
-
-      const r = aggregateHandle(mine, h);
-      r.evidence = { ...(r.evidence ?? {}), itemsReturned: items.length };
-      if (mine.length === 0 && r.error) {
-        r.error =
-          items.length === 0
-            ? `scweet returned 0 items for @${h} (no posts in the scrape range)`
-            : `scweet returned ${items.length} items but none authored by @${h}`;
+      for (const h of clean) {
+        const mine = byAuthor[h] ?? [];
+        if (mine.length === 0) continue; // not seen in search → profiles fallback below
+        const r = aggregateHandle(mine, h);
+        r.evidence = { ...(r.evidence ?? {}), strategy: "search", itemsReturned: run.items.length };
+        out[h] = r;
+        pending.delete(h);
       }
-      return r;
-    } catch (e) {
-      return { values: {}, error: `Apify: ${errMsg(e)}` };
     }
-  };
+  }
 
-  const results = await Promise.all(clean.map(runOne));
-  return Object.fromEntries(clean.map((h, i) => [h, results[i]]));
+  // Phase 2: strictly-sequential per-handle profiles runs for what's missing.
+  for (const h of clean) {
+    if (!pending.has(h)) continue;
+    if (remaining() < 24_000) {
+      out[h] = {
+        values: {},
+        error: `deferred — this run's time budget is spent; @${h} goes first on the next collection`,
+        evidence: { deferred: true },
+      };
+      continue;
+    }
+    const run = await runScweet(
+      actor,
+      token,
+      { source_mode: "profiles", profile_urls: [`@${h}`], max_items: 100 },
+      Math.min(58_000, remaining() - 2_000)
+    );
+    if (!run.items) {
+      out[h] = { values: {}, error: run.error };
+      continue;
+    }
+    const mine = run.items.filter((it) => {
+      const a = authorOf(it);
+      return a === h || !a; // this handle's posts, or items with no author field
+    });
+    const r = aggregateHandle(mine, h);
+    r.evidence = {
+      ...(r.evidence ?? {}),
+      strategy: clean.length > 1 ? "profiles-fallback" : "profiles",
+      itemsReturned: run.items.length,
+    };
+    if (run.items.length === 0) {
+      r.error =
+        clean.length > 1
+          ? `search and profile-timeline scrapes both came back empty for @${h}; likely an X block or actor change — inspect /api/makina/debug?handle=${h}`
+          : `scweet's profile scrape came back empty for @${h}; inspect /api/makina/debug?handle=${h}`;
+    } else if (mine.length === 0 && r.error) {
+      r.error = `scweet returned ${run.items.length} items but none authored by @${h}`;
+    }
+    out[h] = r;
+  }
+  return out;
 }
 
 // ── Telegram via the direct t.me preview (free; no proxy, no Apify) ──

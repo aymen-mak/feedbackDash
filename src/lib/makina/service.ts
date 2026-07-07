@@ -216,8 +216,25 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
   const apifyOk = apifyItem.level !== "error";
   diagItems.push(apifyItem, envDiag());
 
-  // One scweet run covers every X handle (avoids the free tier's run limit).
-  const twHandles = ACCOUNTS.filter((a) => a.platform === "twitter").map((a) => a.handle ?? a.key);
+  // X handles go stalest-first, so a handle deferred on the previous run is
+  // collected first on this one. Telegram starts now, in parallel with X — a
+  // different service entirely, so it doesn't violate the never-overlap rule
+  // that applies to scweet runs.
+  const lastXOkAt = (account: string): number => {
+    let t = 0;
+    for (const e of journal.entries) {
+      if (e.account !== account) continue;
+      if (e.values.impressions == null && e.values.followers == null) continue;
+      const ts = Date.parse(e.updatedAt ?? "");
+      if (!Number.isNaN(ts)) t = Math.max(t, ts);
+    }
+    return t;
+  };
+  const twHandles = ACCOUNTS.filter((a) => a.platform === "twitter")
+    .sort((a, b) => lastXOkAt(a.key) - lastXOkAt(b.key))
+    .map((a) => a.handle ?? a.key);
+  const tgAcc = ACCOUNTS.find((a) => a.key === "telegram");
+  const telegramPromise = tgAcc ? collectTelegram(tgAcc.handle ?? "makinafinance") : null;
   const xResults = apifyOk && twHandles.length ? await collectXProfiles(twHandles) : {};
 
   for (const acc of ACCOUNTS) {
@@ -236,8 +253,8 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
         tweetsChanged = true;
       }
     } else if (acc.key === "telegram") {
-      // Telegram uses a direct t.me fetch (free), so it runs regardless of Apify credit.
-      const r = await collectTelegram(acc.handle ?? "makinafinance");
+      // Direct t.me fetch (free, no Apify); started earlier, in parallel with X.
+      const r = telegramPromise ? await telegramPromise : await collectTelegram(acc.handle ?? "makinafinance");
       Object.assign(collected, r.values);
       evidence = r.evidence ?? {};
       error = r.error;
