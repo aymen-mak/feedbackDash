@@ -59,6 +59,14 @@ function fmtMetric(v: number | null | undefined, kind: MetricKind): string {
   return kind === "ratio" ? `${Math.round(v * 10) / 10}%` : formatCount(v);
 }
 
+/** Exact figure for the weekly ledger: full grouped integer, so small
+ *  week-over-week movement (e.g. followers shifting by tens) stays visible
+ *  instead of collapsing to a flat abbreviation like "7.7K". */
+function fmtExact(v: number | null | undefined, kind: MetricKind): string {
+  if (v == null) return "-";
+  return kind === "ratio" ? `${Math.round(v * 10) / 10}%` : v.toLocaleString("en-US");
+}
+
 function Delta({ pct }: { pct: number | null }) {
   if (pct == null) return <span className="text-[11px] text-makina-subtle">-</span>;
   const up = pct > 0;
@@ -440,7 +448,7 @@ function MetricsInner() {
                             const flat = ch == null || Math.abs(ch) < 0.05;
                             return (
                               <td key={m.key} className="px-3 py-3 text-right align-top">
-                                <div className="font-semibold tabular-nums text-makina-text">{fmtMetric(cur, m.kind)}</div>
+                                <div className="font-semibold tabular-nums text-makina-text">{fmtExact(cur, m.kind)}</div>
                                 {flat ? (
                                   <div className="mt-1 text-[11px] text-makina-subtle">—</div>
                                 ) : (
