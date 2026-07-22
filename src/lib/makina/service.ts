@@ -94,6 +94,43 @@ function sanitizeValues(account: string, raw: unknown): Record<string, number | 
   return out;
 }
 
+/** Fill metrics the collector normally derives (engagement rate, net-new
+ *  counts, per-post averages) when a manual backfill leaves them blank, so a
+ *  hand-entered week matches an auto-collected one. Never overwrites a value the
+ *  caller supplied — only computes when the target metric is absent. */
+function deriveValues(
+  account: string,
+  values: Record<string, number | null>,
+  prevValues?: Record<string, number | null>
+): Record<string, number | null> {
+  const def = accountDef(account);
+  if (!def) return values;
+  const out = { ...values };
+  const has = (k: string) => typeof out[k] === "number" && Number.isFinite(out[k] as number);
+
+  if (def.platform === "twitter") {
+    const engKeys = ["likes", "replies", "reposts", "bookmarks", "shares"];
+    if (!has("engagementRate") && has("impressions") && (out.impressions as number) > 0 && engKeys.some(has)) {
+      const eng = engKeys.reduce((s, k) => s + (has(k) ? (out[k] as number) : 0), 0);
+      out.engagementRate = +((eng / (out.impressions as number)) * 100).toFixed(2);
+    }
+    if (!has("newFollows") && has("followers") && prevValues?.followers != null) {
+      out.newFollows = (out.followers as number) - prevValues.followers;
+    }
+  } else if (account === "telegram") {
+    if (!has("avgViews") && has("views") && has("posts") && (out.posts as number) > 0) {
+      out.avgViews = Math.round((out.views as number) / (out.posts as number));
+    }
+    if (!has("reachRate") && has("avgViews") && has("members") && (out.members as number) > 0) {
+      out.reachRate = +(((out.avgViews as number) / (out.members as number)) * 100).toFixed(1);
+    }
+    if (!has("newMembers") && has("members") && prevValues?.members != null) {
+      out.newMembers = (out.members as number) - prevValues.members;
+    }
+  }
+  return out;
+}
+
 export async function upsertEntry(input: {
   account: string;
   periodStart: string;
@@ -106,10 +143,17 @@ export async function upsertEntry(input: {
   const idx = journal.entries.findIndex(
     (e) => e.account === input.account && e.periodStart === input.periodStart
   );
-  const merged = {
-    ...(idx >= 0 ? journal.entries[idx].values : {}),
-    ...sanitizeValues(input.account, input.values),
-  };
+  const prev = journal.entries
+    .filter((e) => e.account === input.account && e.periodStart < input.periodStart)
+    .sort((a, b) => b.periodStart.localeCompare(a.periodStart))[0];
+  const merged = deriveValues(
+    input.account,
+    {
+      ...(idx >= 0 ? journal.entries[idx].values : {}),
+      ...sanitizeValues(input.account, input.values),
+    },
+    prev?.values
+  );
   const entry: JournalEntry = {
     account: input.account,
     periodStart: input.periodStart,
@@ -257,12 +301,14 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
     let error: string | null = null;
     let evidence: Record<string, unknown> = {};
+    let backfillWeekly: Record<string, Record<string, number | null>> | undefined;
 
     if (acc.platform === "twitter") {
       const key = (acc.handle ?? acc.key).replace(/^@/, "").toLowerCase();
       const r = xResults[key] ?? { values: {}, error: null, evidence: {} };
       Object.assign(collected, r.values);
       evidence = r.evidence ?? {};
+      backfillWeekly = r.weekly;
       // X runs on the free pipeline; Apify health no longer gates it.
       error = r.error ?? null;
       if (r.tweets && r.tweets.length > 0) {
@@ -300,6 +346,26 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     const nonNull = Object.fromEntries(Object.entries(collected).filter(([, v]) => v != null));
     if (Object.keys(nonNull).length > 0) {
       await upsertEntry({ account: acc.key, periodStart: period, values: nonNull });
+    }
+
+    // Backfill any PAST week the discovered posts cover but the journal left
+    // blank. Fill-only: never overwrite a week that already has data, since a
+    // re-scrape may see only some of that week's posts (a partial undercount).
+    let backfilled = 0;
+    if (backfillWeekly) {
+      for (const [wk, wvals] of Object.entries(backfillWeekly)) {
+        if (wk >= period) continue; // current/future handled by the live upsert above
+        const existing =
+          journal.entries.find((e) => e.account === acc.key && e.periodStart === wk)?.values ?? {};
+        const fill = Object.fromEntries(
+          Object.entries(wvals).filter(([k, v]) => v != null && existing[k] == null)
+        );
+        if (Object.keys(fill).length > 0) {
+          await upsertEntry({ account: acc.key, periodStart: wk, values: fill });
+          backfilled++;
+        }
+      }
+      if (backfilled > 0) evidence = { ...evidence, weeksBackfilled: backfilled };
     }
 
     // Build the per-source diagnostic from the real outcome of this run.

@@ -1,4 +1,4 @@
-import { type TweetMetric } from "./journal";
+import { type TweetMetric, defaultWeekStart } from "./journal";
 import { parseHumanNumber, parseTelegramCount } from "@/lib/competitors/collectors";
 import { collectXFree } from "./freex";
 
@@ -25,11 +25,68 @@ export interface CollectResult {
   error: string | null;
   /** Latest per-post metrics (X only), newest first. */
   tweets?: TweetMetric[];
+  /** Per-week aggregates for EVERY week the discovered posts cover (X only),
+   *  keyed by period start (YYYY-MM-DD). Lets "Collect now" backfill past weeks,
+   *  not just the current one. */
+  weekly?: Record<string, Record<string, number | null>>;
   /** Raw counts behind the result, for accurate diagnostics. */
   evidence?: Record<string, unknown>;
 }
 
 const WEEK_MS = 7 * 24 * 3600 * 1000;
+
+/** One post's numbers, for weekly bucketing (createdAt drives the week). */
+export interface WeeklyPost {
+  createdAt: string;
+  impressions: number | null;
+  likes: number | null;
+  replies: number | null;
+  reposts: number | null;
+  quotes: number | null;
+  bookmarks: number | null;
+}
+
+/**
+ * Group posts into weekly aggregates (Monday-start, matching defaultWeekStart),
+ * honoring the same accuracy rule as the single-week path: a metric is summed
+ * for a week only when EVERY post in that week carries it, otherwise it's
+ * withheld. Engagement rate is left to the derive step. Keyed by period start.
+ */
+export function bucketPostsByWeek(posts: WeeklyPost[]): Record<string, Record<string, number | null>> {
+  const byWeek: Record<string, WeeklyPost[]> = {};
+  for (const p of posts) {
+    const ms = Date.parse(p.createdAt);
+    if (Number.isNaN(ms)) continue;
+    (byWeek[defaultWeekStart(new Date(ms))] ??= []).push(p);
+  }
+  const out: Record<string, Record<string, number | null>> = {};
+  for (const [wk, group] of Object.entries(byWeek)) {
+    const sum = (k: keyof WeeklyPost): number | null => {
+      let s = 0;
+      for (const p of group) {
+        const v = p[k];
+        if (typeof v !== "number" || !Number.isFinite(v)) return null;
+        s += v;
+      }
+      return s;
+    };
+    const vals: Record<string, number | null> = {};
+    // quotes → the "shares" metric key used throughout the journal.
+    for (const [src, key] of [
+      ["impressions", "impressions"],
+      ["likes", "likes"],
+      ["replies", "replies"],
+      ["reposts", "reposts"],
+      ["quotes", "shares"],
+      ["bookmarks", "bookmarks"],
+    ] as [keyof WeeklyPost, string][]) {
+      const v = sum(src);
+      if (v != null) vals[key] = v;
+    }
+    out[wk] = vals;
+  }
+  return out;
+}
 
 function errMsg(e: unknown): string {
   if (e instanceof Error) return e.name === "AbortError" ? "request timed out" : e.message;
@@ -142,9 +199,10 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
     count += 1;
   }
 
-  const tweets = own
-    .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
-    .slice(0, 12);
+  const sorted = own.sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0));
+  const tweets = sorted.slice(0, 12);
+  // Every discovered post bucketed by its own week, for past-week backfill.
+  const weekly = bucketPostsByWeek(sorted);
 
   // Field names scweet actually returned, surfaced so a schema change can be
   // pinned straight from the Diagnose panel without guessing.
@@ -166,8 +224,8 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
   // No posts at all, or none inside the 7-day window: leave the per-post metrics
   // absent (rather than recording 0) so the dashboard carries forward the last
   // real values "as of <date>" instead of showing a misleading 0 / -100% drop.
-  if (own.length === 0) return { values: base, error: `scweet: no posts found for @${handle}`, tweets, evidence };
-  if (count === 0) return { values: base, error: `scweet: no posts in the last 7 days for @${handle}`, tweets, evidence };
+  if (own.length === 0) return { values: base, error: `scweet: no posts found for @${handle}`, tweets, weekly, evidence };
+  if (count === 0) return { values: base, error: `scweet: no posts in the last 7 days for @${handle}`, tweets, weekly, evidence };
 
   const engagements = likes + replies + reposts + bookmarks + shares;
 
@@ -179,6 +237,7 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
       values: base,
       error: `scweet returned ${count} post(s) for @${handle} but every engagement field read 0; the metric field names may have changed`,
       tweets,
+      weekly,
       evidence,
     };
   }
@@ -193,7 +252,7 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
     shares,
     engagementRate: impressions > 0 ? +((engagements / impressions) * 100).toFixed(2) : null,
   };
-  return { values, error: null, tweets, evidence };
+  return { values, error: null, tweets, weekly, evidence };
 }
 
 /** Author handle of a scraped item, lowercased without the @ (accepts the

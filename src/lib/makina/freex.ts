@@ -1,6 +1,14 @@
 import { type TweetMetric } from "./journal";
-import { type CollectResult } from "./collectors";
+import { type CollectResult, bucketPostsByWeek } from "./collectors";
 import { collectTwitter } from "@/lib/competitors/collectors";
+
+// How many discovered posts to keep per handle. Larger than one week so
+// "Collect now" can backfill several past weeks in one pass, bounded to protect
+// the collection time budget.
+const MAX_TWEETS = 50;
+// Cap per-post enrichment (candidate-id sources) so a discovery blackout can't
+// blow the time budget; timeline sources already carry counts and need none.
+const MAX_ENRICH = 30;
 
 // ── Free X metrics, no Apify, no credentials ──
 //
@@ -452,14 +460,14 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
   tweets = tweets
     .filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)))
     .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
-    .slice(0, 15);
+    .slice(0, MAX_TWEETS);
 
   // Enrich anything that lacks counts or a date (search/stored/rss candidates);
   // drop candidates whose verified author isn't this handle (search noise).
   let enriched = 0;
   let authorRejected = 0;
   const via: Record<string, number> = {};
-  const need = tweets.filter((t) => !hasAnyCount(t) || !t.createdAt);
+  const need = tweets.filter((t) => !hasAnyCount(t) || !t.createdAt).slice(0, MAX_ENRICH);
   const POOL = 4;
   for (let i = 0; i < need.length; i += POOL) {
     const batch = need.slice(i, i + POOL);
@@ -522,6 +530,21 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
     bookmarks: t.bookmarks,
   }));
 
+  // Every discovered post bucketed by its own week, so "Collect now" can fill
+  // past weeks — not just the current one. Same accuracy rule as the single
+  // week: a metric is summed for a week only when every post in it carries it.
+  const weekly = bucketPostsByWeek(
+    tweets.map((t) => ({
+      createdAt: t.createdAt,
+      impressions: t.views,
+      likes: t.likes,
+      replies: t.replies,
+      reposts: t.reposts,
+      quotes: t.quotes,
+      bookmarks: t.bookmarks,
+    }))
+  );
+
   const evidence: Record<string, unknown> = {
     source,
     instance: rssInstance,
@@ -543,5 +566,5 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
     error = `X free scrape: found ${inWindow.length} post(s) but the engagement APIs were unreachable (fxtwitter/vxtwitter/embed CDN); numbers carry forward`;
   }
 
-  return { values, error, tweets: metrics, evidence };
+  return { values, error, tweets: metrics, weekly, evidence };
 }
