@@ -340,19 +340,8 @@ async def close_ticket_channel(channel, invoker) -> bool:
 
 
 def make_panel_embed() -> discord.Embed:
-    description = "\n".join(
-        [
-            "Click a button when the ticket is resolved:",
-            "",
-            "📥 **Archive** — save an HTML transcript named after the opener",
-            "☁️ **Archive + Drive** — also upload it to Google Drive",
-            "🗑️ **Archive & Delete** — archive, then delete this channel",
-            "☁️🗑️ **Drive & Delete** — upload to Drive, then delete this channel",
-        ]
-    )
     return discord.Embed(
         title="🎟️ Ticket Archival",
-        description=description,
         color=discord.Color.blurple(),
     )
 
