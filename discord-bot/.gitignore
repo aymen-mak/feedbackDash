@@ -1,0 +1,15 @@
+node_modules/
+
+# secrets
+.env
+.env.local
+google-credentials.json
+*.pem
+
+# generated transcripts (keep the folder, ignore contents)
+transcripts/*
+!transcripts/.gitkeep
+
+# logs
+*.log
+npm-debug.log*
