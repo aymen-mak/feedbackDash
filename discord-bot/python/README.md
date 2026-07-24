@@ -40,7 +40,7 @@ Only members with **Manage Channels** can use the buttons or command.
 
 ## Files
 
-- `bot.py` — the whole bot in one file.
+- `MakinaTVL.py` — the whole bot in one file.
 - `requirements.txt` — dependencies (Pterodactyl installs these on start).
 - `.env.example` — the environment variables to set (in the panel's Variables tab).
 
@@ -57,18 +57,12 @@ Only members with **Manage Channels** can use the buttons or command.
 2. **Create the server** using a **Python egg** (the generic
    "Python Generic" / "discord.py" egg works).
 
-3. **Upload files**: put `bot.py` and `requirements.txt` in the server's root
-   (drag them into the panel's File Manager, or point it at this repo).
+3. **Upload files**: put `MakinaTVL.py` and `requirements.txt` in the server's
+   root (drag them into the panel's File Manager, or point it at this repo).
 
-4. **Startup command** — set it to:
-   ```
-   python bot.py
-   ```
-   Most Python eggs auto-run `pip install -r requirements.txt` on boot. If yours
-   doesn't, add it to the startup command:
-   ```
-   pip install -r requirements.txt && python bot.py
-   ```
+4. **BOT PY FILE** field: set it to `MakinaTVL.py` (the startup runs this file).
+   Most Python eggs auto-run `pip install -r requirements.txt` on boot, so no
+   extra startup command is needed.
 
 5. **Variables**: in the panel's **Startup** tab, add the variables from
    `.env.example` (at minimum `DISCORD_TOKEN` and `DISCORD_GUILD_ID`).
