@@ -6,9 +6,19 @@ It will:
 1. Copy the **entire** ticket into an HTML transcript.
 2. Auto-detect **who opened the ticket** and name the file after them
    (`jane doe - 2026-07-24.html`).
-3. Save it locally (`TRANSCRIPT_DIR`).
+3. **Send it to you as a Discord attachment** — click to download it to your PC.
 4. Optionally **upload to Google Drive**.
 5. Optionally **delete the ticket channel**.
+
+### Where does the file go?
+
+The bot runs on a remote server, so it can't write directly to your PC. Instead
+it hands you the transcript **in Discord** — download the attachment and it's on
+your PC. By default nothing is written to the Pterodactyl disk (`SAVE_LOCAL=false`),
+so limited disk isn't a problem. Set `SAVE_LOCAL=true` if you also want a
+server-side copy in `TRANSCRIPT_DIR`. For a permanent hands-off archive, turn on
+Google Drive upload. Setting `LOG_CHANNEL_ID` also drops every transcript into
+one channel, making it a convenient place to grab them all.
 
 ## Two ways to trigger it
 

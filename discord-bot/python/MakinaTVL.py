@@ -50,6 +50,10 @@ def _get_bool(value: Optional[str], default: bool = False) -> bool:
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
 GUILD_ID = os.environ.get("DISCORD_GUILD_ID") or None
 
+# Save a copy on the server's disk too. Off by default so it doesn't fill up
+# limited Pterodactyl disk — the transcript is always sent as a Discord
+# attachment (download it to your PC) and can go to Google Drive.
+SAVE_LOCAL = _get_bool(os.environ.get("SAVE_LOCAL"), False)
 TRANSCRIPT_DIR = os.environ.get("TRANSCRIPT_DIR", "./transcripts")
 LOG_CHANNEL_ID = os.environ.get("LOG_CHANNEL_ID") or None
 
@@ -172,11 +176,11 @@ def is_drive_configured() -> bool:
     return oauth_ready or service_ready
 
 
-def _upload_to_drive_sync(file_path: str, file_name: str) -> dict:
-    """Blocking Drive upload. Run via run_in_executor so it doesn't block the bot."""
+def _upload_to_drive_sync(file_bytes: bytes, file_name: str) -> dict:
+    """Blocking Drive upload from memory. Run via run_in_executor so it doesn't block the bot."""
     import json as _json
     from googleapiclient.discovery import build
-    from googleapiclient.http import MediaFileUpload
+    from googleapiclient.http import MediaInMemoryUpload
 
     if GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET and GOOGLE_OAUTH_REFRESH_TOKEN:
         # Option B: OAuth2 (uploads into a real user's My Drive)
@@ -206,7 +210,7 @@ def _upload_to_drive_sync(file_path: str, file_name: str) -> dict:
     if GOOGLE_DRIVE_FOLDER_ID:
         metadata["parents"] = [GOOGLE_DRIVE_FOLDER_ID]
 
-    media = MediaFileUpload(file_path, mimetype="text/html", resumable=False)
+    media = MediaInMemoryUpload(file_bytes, mimetype="text/html", resumable=False)
     result = (
         service.files()
         .create(
@@ -220,9 +224,9 @@ def _upload_to_drive_sync(file_path: str, file_name: str) -> dict:
     return result
 
 
-async def upload_to_drive(file_path: str, file_name: str) -> dict:
+async def upload_to_drive(file_bytes: bytes, file_name: str) -> dict:
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _upload_to_drive_sync, file_path, file_name)
+    return await loop.run_in_executor(None, _upload_to_drive_sync, file_bytes, file_name)
 
 
 # ─── Core archive routine (shared by buttons and the slash command) ─────
@@ -265,19 +269,25 @@ async def perform_archive(channel, *, opener_override=None, want_upload=False) -
         raise RuntimeError("no messages exported (empty channel or missing permissions)")
 
     transcript_bytes = transcript.encode("utf-8")
-
-    # Save locally.
-    Path(TRANSCRIPT_DIR).mkdir(parents=True, exist_ok=True)
-    saved_path = unique_path(TRANSCRIPT_DIR, base_name)
-    saved_path.write_bytes(transcript_bytes)
-    saved_name = saved_path.name
+    saved_name = f"{base_name}.html"
 
     lines = [
         "✅ **Ticket archived.**",
         f"**Opener:** {resolved.mention if resolved else opener_label}",
         f"**Source:** {channel.mention}",
-        f"**Saved as:** `{saved_name}`",
     ]
+
+    # Optionally save to the server's disk. Off by default so it doesn't eat
+    # the (limited) Pterodactyl disk — the transcript is always delivered as a
+    # Discord attachment you can download straight to your PC.
+    if SAVE_LOCAL:
+        Path(TRANSCRIPT_DIR).mkdir(parents=True, exist_ok=True)
+        saved_path = unique_path(TRANSCRIPT_DIR, base_name)
+        saved_path.write_bytes(transcript_bytes)
+        saved_name = saved_path.name
+        lines.append(f"**Saved on server:** `{saved_name}`")
+    else:
+        lines.append(f"📎 **`{saved_name}`** attached below — click it to download to your PC.")
 
     # Optional Google Drive upload.
     if want_upload:
@@ -285,7 +295,7 @@ async def perform_archive(channel, *, opener_override=None, want_upload=False) -
             lines.append("⚠️ Drive upload requested but Google Drive is not configured on the bot.")
         else:
             try:
-                uploaded = await upload_to_drive(str(saved_path), saved_name)
+                uploaded = await upload_to_drive(transcript_bytes, saved_name)
                 link = uploaded.get("webViewLink")
                 lines.append(f"☁️ Uploaded to Google Drive{f': <{link}>' if link else ''}")
             except Exception as err:
