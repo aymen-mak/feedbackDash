@@ -1,16 +1,30 @@
 # Ticket Archival Bot — Python (Pterodactyl)
 
 Python / `discord.py` version of the bot, packaged for a Pterodactyl panel.
-Run `/archive` inside a ticket channel and it will:
+It will:
 
 1. Copy the **entire** ticket into an HTML transcript.
 2. Auto-detect **who opened the ticket** and name the file after them
    (`jane doe - 2026-07-24.html`).
 3. Save it locally (`TRANSCRIPT_DIR`).
-4. Optionally **upload to Google Drive** (`upload:true`).
-5. Optionally **delete the ticket channel** (`close:true`).
+4. Optionally **upload to Google Drive**.
+5. Optionally **delete the ticket channel**.
 
-## Command
+## Two ways to trigger it
+
+### Buttons (like MEE6's ticket panel)
+
+An **Archive** panel with three buttons is posted automatically into new ticket
+channels (any channel whose name starts with `TICKET_NAME_PREFIX`, default
+`ticket`). You can also post one manually with `/panel` or by typing `!panel`.
+
+- 📥 **Archive** — save an HTML transcript named after the opener
+- ☁️ **Archive + Drive** — also upload it to Google Drive
+- 🗑️ **Archive & Delete** — archive, then delete this channel
+
+Buttons are persistent — they keep working after the bot restarts.
+
+### Slash command
 
 ```
 /archive [opener] [upload] [close]
@@ -22,7 +36,7 @@ Run `/archive` inside a ticket channel and it will:
 | `upload` | boolean | `DRIVE_UPLOAD_DEFAULT` | Also upload the transcript to Drive.      |
 | `close`  | boolean | `false`                | Delete the ticket channel after archiving.|
 
-Only members with **Manage Channels** see the command by default.
+Only members with **Manage Channels** can use the buttons or command.
 
 ## Files
 

@@ -1,15 +1,20 @@
 """
 Ticket Archival Bot (Python / discord.py) — Pterodactyl-ready.
 
-Run /archive inside a ticket channel to:
+Archive a support ticket with a button click or the /archive command:
   1. Copy the entire ticket into a self-contained HTML transcript.
   2. Auto-detect who opened the ticket and name the file after them.
   3. Save it locally (TRANSCRIPT_DIR).
   4. Optionally upload it to Google Drive.
   5. Optionally delete the ticket channel afterwards.
 
+Ways to trigger it:
+  - Buttons: an "Archive" panel is auto-posted into new ticket channels, or
+    post one manually with /panel or the !panel text command.
+  - Slash command: /archive [opener] [upload] [close].
+
 Everything is configured with environment variables — set them in the
-Pterodactyl panel (Startup / Variables tab). See .env.example / README.md.
+Pterodactyl panel (Variables tab) or a .env file. See .env.example / README.md.
 """
 
 import asyncio
@@ -47,6 +52,11 @@ GUILD_ID = os.environ.get("DISCORD_GUILD_ID") or None
 
 TRANSCRIPT_DIR = os.environ.get("TRANSCRIPT_DIR", "./transcripts")
 LOG_CHANNEL_ID = os.environ.get("LOG_CHANNEL_ID") or None
+
+# Auto-post the archive button panel into new ticket channels.
+AUTO_PANEL = _get_bool(os.environ.get("AUTO_PANEL"), True)
+# A channel is treated as a ticket if its name starts with this (MEE6 default).
+TICKET_NAME_PREFIX = (os.environ.get("TICKET_NAME_PREFIX") or "ticket").lower()
 
 GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID") or None
 DRIVE_UPLOAD_DEFAULT = _get_bool(os.environ.get("DRIVE_UPLOAD_DEFAULT"), False)
@@ -215,6 +225,195 @@ async def upload_to_drive(file_path: str, file_name: str) -> dict:
     return await loop.run_in_executor(None, _upload_to_drive_sync, file_path, file_name)
 
 
+# ─── Core archive routine (shared by buttons and the slash command) ─────
+async def perform_archive(channel, *, opener_override=None, want_upload=False) -> dict:
+    """
+    Generate + save the transcript, optionally upload to Drive, mirror to the
+    log channel. Returns {"summary", "bytes", "name"}. Raises on failure.
+    """
+    guild = channel.guild
+
+    # Who opened the ticket -> filename.
+    resolved = opener_override or await resolve_ticket_opener(channel)
+    if resolved:
+        member = guild.get_member(resolved.id)
+        if member is None:
+            try:
+                member = await guild.fetch_member(resolved.id)
+            except Exception:
+                member = None
+        opener_label = (
+            member.display_name
+            if member
+            else (getattr(resolved, "global_name", None) or resolved.name)
+        )
+    else:
+        opener_label = channel.name
+
+    date_stamp = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    base_name = sanitize_name(f"{opener_label} - {date_stamp}")
+
+    # Generate the transcript (full history).
+    transcript = await chat_exporter.export(
+        channel,
+        limit=None,
+        tz_info="UTC",
+        military_time=True,
+        bot=bot,
+    )
+    if transcript is None:
+        raise RuntimeError("no messages exported (empty channel or missing permissions)")
+
+    transcript_bytes = transcript.encode("utf-8")
+
+    # Save locally.
+    Path(TRANSCRIPT_DIR).mkdir(parents=True, exist_ok=True)
+    saved_path = unique_path(TRANSCRIPT_DIR, base_name)
+    saved_path.write_bytes(transcript_bytes)
+    saved_name = saved_path.name
+
+    lines = [
+        "✅ **Ticket archived.**",
+        f"**Opener:** {resolved.mention if resolved else opener_label}",
+        f"**Source:** {channel.mention}",
+        f"**Saved as:** `{saved_name}`",
+    ]
+
+    # Optional Google Drive upload.
+    if want_upload:
+        if not is_drive_configured():
+            lines.append("⚠️ Drive upload requested but Google Drive is not configured on the bot.")
+        else:
+            try:
+                uploaded = await upload_to_drive(str(saved_path), saved_name)
+                link = uploaded.get("webViewLink")
+                lines.append(f"☁️ Uploaded to Google Drive{f': <{link}>' if link else ''}")
+            except Exception as err:
+                lines.append(f"⚠️ Google Drive upload failed: {err}")
+
+    summary = "\n".join(lines)
+
+    # Mirror to an audit-log channel if configured.
+    if LOG_CHANNEL_ID and str(LOG_CHANNEL_ID) != str(channel.id):
+        try:
+            log_channel = bot.get_channel(int(LOG_CHANNEL_ID)) or await bot.fetch_channel(
+                int(LOG_CHANNEL_ID)
+            )
+            if log_channel is not None:
+                await log_channel.send(
+                    content=summary,
+                    file=discord.File(io.BytesIO(transcript_bytes), filename=saved_name),
+                )
+        except Exception:
+            pass
+
+    return {"summary": summary, "bytes": transcript_bytes, "name": saved_name}
+
+
+async def close_ticket_channel(channel, invoker) -> bool:
+    """Delete a channel after a short delay. Returns False if lacking permission."""
+    me = channel.guild.me
+    if not channel.permissions_for(me).manage_channels:
+        return False
+    await asyncio.sleep(5)
+    try:
+        await channel.delete(reason=f"Ticket archived by {invoker}")
+        return True
+    except Exception:
+        return False
+
+
+def make_panel_embed() -> discord.Embed:
+    description = "\n".join(
+        [
+            "Click a button when the ticket is resolved:",
+            "",
+            "📥 **Archive** — save an HTML transcript named after the opener",
+            "☁️ **Archive + Drive** — also upload it to Google Drive",
+            "🗑️ **Archive & Delete** — archive, then delete this channel",
+        ]
+    )
+    return discord.Embed(
+        title="🎟️ Ticket Archival",
+        description=description,
+        color=discord.Color.blurple(),
+    )
+
+
+# ─── Button panel (persistent view) ────────────────────────────────────
+class ArchivePanel(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)  # persistent across restarts
+
+    async def _run(self, interaction: discord.Interaction, *, want_upload: bool, want_close: bool):
+        # Only staff with Manage Channels may archive.
+        if not interaction.user.guild_permissions.manage_channels:
+            await interaction.response.send_message(
+                "You need the **Manage Channels** permission to archive tickets.",
+                ephemeral=True,
+            )
+            return
+
+        channel = interaction.channel
+        if channel is None or channel.type not in ARCHIVABLE_CHANNEL_TYPES:
+            await interaction.response.send_message(
+                "This isn't a channel I can archive.", ephemeral=True
+            )
+            return
+
+        await interaction.response.defer(ephemeral=True, thinking=True)
+
+        try:
+            result = await perform_archive(channel, want_upload=want_upload)
+        except Exception as err:
+            await interaction.edit_original_response(content=f"❌ Failed to archive: {err}")
+            return
+
+        file = discord.File(io.BytesIO(result["bytes"]), filename=result["name"])
+        try:
+            await interaction.edit_original_response(content=result["summary"], attachments=[file])
+        except discord.HTTPException:
+            await interaction.edit_original_response(
+                content=result["summary"]
+                + "\n(⚠️ Transcript too large to attach here — grab it from the saved file or Drive.)"
+            )
+
+        if want_close:
+            ok = await close_ticket_channel(channel, interaction.user)
+            if not ok:
+                await interaction.followup.send(
+                    "⚠️ I need the **Manage Channels** permission to delete this channel.",
+                    ephemeral=True,
+                )
+
+    @discord.ui.button(
+        label="Archive",
+        style=discord.ButtonStyle.primary,
+        emoji="📥",
+        custom_id="ticket:archive",
+    )
+    async def archive_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._run(interaction, want_upload=DRIVE_UPLOAD_DEFAULT, want_close=False)
+
+    @discord.ui.button(
+        label="Archive + Drive",
+        style=discord.ButtonStyle.success,
+        emoji="☁️",
+        custom_id="ticket:archive_upload",
+    )
+    async def upload_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._run(interaction, want_upload=True, want_close=False)
+
+    @discord.ui.button(
+        label="Archive & Delete",
+        style=discord.ButtonStyle.danger,
+        emoji="🗑️",
+        custom_id="ticket:archive_close",
+    )
+    async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._run(interaction, want_upload=DRIVE_UPLOAD_DEFAULT, want_close=True)
+
+
 # ─── Bot ───────────────────────────────────────────────────────────────
 class TicketBot(discord.Client):
     def __init__(self):
@@ -224,6 +423,9 @@ class TicketBot(discord.Client):
         self.tree = app_commands.CommandTree(self)
 
     async def setup_hook(self):
+        # Register the persistent button view so buttons work after restarts.
+        self.add_view(ArchivePanel())
+
         if GUILD_ID:
             guild = discord.Object(id=int(GUILD_ID))
             self.tree.copy_global_to(guild=guild)
@@ -246,6 +448,50 @@ async def on_ready():
     print(f"Logged in as {bot.user} — ready to archive tickets.")
 
 
+@bot.event
+async def on_guild_channel_create(channel: discord.abc.GuildChannel):
+    """Auto-post the archive panel into new ticket channels."""
+    if not AUTO_PANEL:
+        return
+    if getattr(channel, "type", None) != discord.ChannelType.text:
+        return
+    name = (getattr(channel, "name", "") or "").lower()
+    if not name.startswith(TICKET_NAME_PREFIX):
+        return
+    try:
+        me = channel.guild.me
+        if not channel.permissions_for(me).send_messages:
+            return
+        await channel.send(embed=make_panel_embed(), view=ArchivePanel())
+    except Exception:
+        pass
+
+
+@bot.event
+async def on_message(message: discord.Message):
+    """Text-command fallback: !panel / !archivepanel post the button panel."""
+    if message.author.bot or message.guild is None:
+        return
+    if message.content.strip().lower() in ("!panel", "!archivepanel"):
+        if not message.author.guild_permissions.manage_channels:
+            return
+        try:
+            await message.channel.send(embed=make_panel_embed(), view=ArchivePanel())
+        except Exception:
+            pass
+
+
+@bot.tree.command(
+    name="panel",
+    description="Post the ticket archive buttons in this channel.",
+)
+@app_commands.default_permissions(manage_channels=True)
+@app_commands.guild_only()
+async def panel(interaction: discord.Interaction):
+    await interaction.channel.send(embed=make_panel_embed(), view=ArchivePanel())
+    await interaction.response.send_message("Archive panel posted. ✅", ephemeral=True)
+
+
 @bot.tree.command(
     name="archive",
     description="Save an HTML transcript of this ticket, named after the ticket opener.",
@@ -264,7 +510,6 @@ async def archive(
     close: Optional[bool] = False,
 ):
     channel = interaction.channel
-
     if channel is None or channel.type not in ARCHIVABLE_CHANNEL_TYPES:
         await interaction.response.send_message(
             "Run this command inside the ticket channel you want to archive.",
@@ -275,115 +520,29 @@ async def archive(
     await interaction.response.defer(ephemeral=True)
 
     want_upload = DRIVE_UPLOAD_DEFAULT if upload is None else upload
-    want_close = bool(close)
 
-    # 1) Determine the opener (drives the filename).
-    resolved = opener or await resolve_ticket_opener(channel)
-    if resolved:
-        member = interaction.guild.get_member(resolved.id)
-        if member is None:
-            try:
-                member = await interaction.guild.fetch_member(resolved.id)
-            except Exception:
-                member = None
-        opener_label = (
-            member.display_name
-            if member
-            else (getattr(resolved, "global_name", None) or resolved.name)
-        )
-    else:
-        opener_label = channel.name
-
-    date_stamp = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-    base_name = sanitize_name(f"{opener_label} - {date_stamp}")
-
-    # 2) Generate the transcript (full history).
     try:
-        transcript = await chat_exporter.export(
-            channel,
-            limit=None,
-            tz_info="UTC",
-            military_time=True,
-            bot=bot,
-        )
+        result = await perform_archive(channel, opener_override=opener, want_upload=want_upload)
     except Exception as err:
-        await interaction.edit_original_response(
-            content=f"Failed to generate the transcript: {err}"
-        )
+        await interaction.edit_original_response(content=f"❌ Failed to archive: {err}")
         return
 
-    if transcript is None:
-        await interaction.edit_original_response(
-            content="Failed to generate the transcript (no messages or missing permissions)."
-        )
-        return
-
-    transcript_bytes = transcript.encode("utf-8")
-
-    # 3) Save locally.
-    Path(TRANSCRIPT_DIR).mkdir(parents=True, exist_ok=True)
-    saved_path = unique_path(TRANSCRIPT_DIR, base_name)
-    saved_path.write_bytes(transcript_bytes)
-    saved_name = saved_path.name
-
-    lines = [
-        "✅ **Ticket archived.**",
-        f"**Opener:** {resolved.mention if resolved else opener_label}",
-        f"**Source:** {channel.mention}",
-        f"**Saved as:** `{saved_name}`",
-    ]
-
-    # 4) Optional Google Drive upload.
-    if want_upload:
-        if not is_drive_configured():
-            lines.append("⚠️ Drive upload requested but Google Drive is not configured on the bot.")
-        else:
-            try:
-                uploaded = await upload_to_drive(str(saved_path), saved_name)
-                link = uploaded.get("webViewLink")
-                lines.append(f"☁️ Uploaded to Google Drive{f': <{link}>' if link else ''}")
-            except Exception as err:
-                lines.append(f"⚠️ Google Drive upload failed: {err}")
-
-    summary = "\n".join(lines)
-
-    def make_file() -> discord.File:
-        return discord.File(io.BytesIO(transcript_bytes), filename=saved_name)
-
-    # 5) Mirror to an audit-log channel if configured.
-    if LOG_CHANNEL_ID and str(LOG_CHANNEL_ID) != str(channel.id):
-        try:
-            log_channel = bot.get_channel(int(LOG_CHANNEL_ID)) or await bot.fetch_channel(
-                int(LOG_CHANNEL_ID)
-            )
-            if log_channel is not None:
-                await log_channel.send(content=summary, file=make_file())
-        except Exception:
-            pass
-
-    # 6) Reply to the invoker, attaching the transcript when it fits.
+    file = discord.File(io.BytesIO(result["bytes"]), filename=result["name"])
     try:
-        await interaction.edit_original_response(content=summary, attachments=[make_file()])
+        await interaction.edit_original_response(content=result["summary"], attachments=[file])
     except discord.HTTPException:
         await interaction.edit_original_response(
-            content=summary
+            content=result["summary"]
             + "\n(⚠️ Transcript too large to attach here — grab it from the saved file or Drive.)"
         )
 
-    # 7) Optionally delete the ticket channel.
-    if want_close:
-        perms = channel.permissions_for(interaction.guild.me)
-        if not perms.manage_channels:
+    if close:
+        ok = await close_ticket_channel(channel, interaction.user)
+        if not ok:
             await interaction.followup.send(
                 "⚠️ I need the **Manage Channels** permission to delete this channel.",
                 ephemeral=True,
             )
-            return
-        await asyncio.sleep(5)
-        try:
-            await channel.delete(reason=f"Ticket archived by {interaction.user}")
-        except Exception:
-            pass
 
 
 def main():
