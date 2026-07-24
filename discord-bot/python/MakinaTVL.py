@@ -59,7 +59,13 @@ LOG_CHANNEL_ID = os.environ.get("LOG_CHANNEL_ID") or None
 
 # Auto-post the archive button panel into new ticket channels.
 AUTO_PANEL = _get_bool(os.environ.get("AUTO_PANEL"), True)
-# A channel is treated as a ticket if its name starts with this (MEE6 default).
+# Most reliable match: the category (folder) your ticket bot creates tickets in.
+# Right-click the category -> Copy ID. Supports several, comma-separated.
+TICKET_CATEGORY_IDS = {
+    x.strip() for x in (os.environ.get("TICKET_CATEGORY_ID") or "").split(",") if x.strip()
+}
+# Fallback used only when no category is set: match channels whose name starts
+# with this (MEE6's default naming is like "ticket-1234").
 TICKET_NAME_PREFIX = (os.environ.get("TICKET_NAME_PREFIX") or "ticket").lower()
 
 GOOGLE_DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID") or None
@@ -468,23 +474,40 @@ async def on_ready():
     print(f"Logged in as {bot.user} — ready to archive tickets.")
 
 
+def _looks_like_ticket(channel) -> bool:
+    """Decide whether a newly created channel is a ticket we should attach to."""
+    if getattr(channel, "type", None) != discord.ChannelType.text:
+        return False
+    # If categories are configured, match ONLY on those (most precise).
+    if TICKET_CATEGORY_IDS:
+        return str(getattr(channel, "category_id", "") or "") in TICKET_CATEGORY_IDS
+    # Otherwise fall back to the channel-name prefix.
+    name = (getattr(channel, "name", "") or "").lower()
+    return name.startswith(TICKET_NAME_PREFIX)
+
+
 @bot.event
 async def on_guild_channel_create(channel: discord.abc.GuildChannel):
     """Auto-post the archive panel into new ticket channels."""
     if not AUTO_PANEL:
         return
-    if getattr(channel, "type", None) != discord.ChannelType.text:
+    if not _looks_like_ticket(channel):
         return
-    name = (getattr(channel, "name", "") or "").lower()
-    if not name.startswith(TICKET_NAME_PREFIX):
-        return
+    # Give the ticket bot (MEE6) a moment to finish creating the channel and
+    # applying permission overwrites before we post.
+    await asyncio.sleep(2)
     try:
         me = channel.guild.me
-        if not channel.permissions_for(me).send_messages:
+        perms = channel.permissions_for(me)
+        if not (perms.view_channel and perms.send_messages):
+            print(
+                f"[auto-panel] Missing View/Send permission in #{channel.name} "
+                f"({channel.id}); skipping panel."
+            )
             return
         await channel.send(embed=make_panel_embed(), view=ArchivePanel())
-    except Exception:
-        pass
+    except Exception as err:
+        print(f"[auto-panel] Failed to post panel in {getattr(channel, 'id', '?')}: {err}")
 
 
 @bot.event
