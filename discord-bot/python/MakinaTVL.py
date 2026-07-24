@@ -341,6 +341,7 @@ def make_panel_embed() -> discord.Embed:
             "📥 **Archive** — save an HTML transcript named after the opener",
             "☁️ **Archive + Drive** — also upload it to Google Drive",
             "🗑️ **Archive & Delete** — archive, then delete this channel",
+            "☁️🗑️ **Drive & Delete** — upload to Drive, then delete this channel",
         ]
     )
     return discord.Embed(
@@ -422,6 +423,15 @@ class ArchivePanel(discord.ui.View):
     )
     async def close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         await self._run(interaction, want_upload=DRIVE_UPLOAD_DEFAULT, want_close=True)
+
+    @discord.ui.button(
+        label="Drive & Delete",
+        style=discord.ButtonStyle.danger,
+        emoji="☁️",
+        custom_id="ticket:archive_upload_close",
+    )
+    async def upload_close_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._run(interaction, want_upload=True, want_close=True)
 
 
 # ─── Bot ───────────────────────────────────────────────────────────────
