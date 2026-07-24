@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# secrets
+.env
+.env.local
+google-credentials.json
+
+# generated transcripts
+transcripts/
+*.log
