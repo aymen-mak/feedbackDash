@@ -20,6 +20,16 @@ import datetime
 from pathlib import Path
 from typing import Optional
 
+# Load a local .env file if present (how the Pterodactyl "Generic Python" egg
+# gets the token — it has no Discord-token variable field). Optional: real
+# environment variables set in the panel work too.
+try:
+    from dotenv import load_dotenv
+
+    load_dotenv()
+except ImportError:
+    pass
+
 import discord
 from discord import app_commands
 import chat_exporter
