@@ -116,16 +116,16 @@ function fromFxStatus(s: Record<string, unknown>, fallbackHandle: string): FreeT
 // ── Discovery 1: FxEmbed user timeline (tries the path variants FxEmbed has
 //    served across versions; records each HTTP status for diagnostics) ──
 export async function fetchFxTimeline(
-  handle: string
+  handle: string,
+  ms = 5_000
 ): Promise<{ tweets: FreeTweet[] | null; statuses: string }> {
   const paths = [
     `https://api.fxtwitter.com/${encodeURIComponent(handle)}/statuses?with_replies=false`,
     `https://api.fxtwitter.com/2/x/${encodeURIComponent(handle)}/statuses`,
-    `https://api.fxtwitter.com/2/${encodeURIComponent(handle)}/statuses`,
   ];
   const tried: string[] = [];
   for (const url of paths) {
-    const { status, json } = await fetchJson<Record<string, unknown>>(url, 12_000);
+    const { status, json } = await fetchJson<Record<string, unknown>>(url, ms);
     tried.push(String(status));
     if (!json) continue;
     // Accept the shapes FxEmbed has shipped: results[] (statuses or thread
@@ -153,8 +153,8 @@ export async function fetchFxTimeline(
 // ── Discovery 1.5: x.com profile rendered through the jina.ai reader — the
 //    SAME channel the competitor follower scraper already uses successfully
 //    from this deployment. The rendered page contains /status/<id> links. ──
-export async function fetchJinaProfileIds(handle: string): Promise<{ ids: string[]; status: number }> {
-  const { status, text } = await fetchTextR(`https://r.jina.ai/https://x.com/${encodeURIComponent(handle)}`, 18_000, "text/plain");
+export async function fetchJinaProfileIds(handle: string, ms = 8_000): Promise<{ ids: string[]; status: number }> {
+  const { status, text } = await fetchTextR(`https://r.jina.ai/https://x.com/${encodeURIComponent(handle)}`, ms, "text/plain");
   if (!text) return { ids: [], status };
   const idRe = new RegExp(`(?:x|twitter)\\.com/${handle}/status/(\\d+)`, "gi");
   const ids = new Set<string>();
@@ -163,10 +163,10 @@ export async function fetchJinaProfileIds(handle: string): Promise<{ ids: string
 }
 
 // ── Discovery 2: X syndication timeline ──
-export async function fetchSyndicationTimeline(handle: string): Promise<{ tweets: FreeTweet[] | null; status: number }> {
+export async function fetchSyndicationTimeline(handle: string, ms = 6_000): Promise<{ tweets: FreeTweet[] | null; status: number }> {
   const { status, text: html } = await fetchTextR(
     `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}?showReplies=false`,
-    12_000
+    ms
   );
   if (!html) return { tweets: null, status };
   const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
@@ -208,12 +208,11 @@ export async function fetchSyndicationTimeline(handle: string): Promise<{ tweets
 }
 
 // ── Discovery 3: Nitter-mirror RSS ──
+// Two mirrors only — the rest were dead weight on the timeout budget. xcancel
+// is the maintained fork; twiiit routes to whatever instance is currently up.
 const NITTER_RSS = (h: string) => [
   `https://xcancel.com/${h}/rss`,
-  `https://twiiit.com/${h}/rss`, // router that redirects to a live instance
-  `https://nitter.net/${h}/rss`,
-  `https://nitter.poast.org/${h}/rss`,
-  `https://lightbrd.com/${h}/rss`,
+  `https://twiiit.com/${h}/rss`,
 ];
 
 function decodeEntities(s: string): string {
@@ -229,11 +228,12 @@ function decodeEntities(s: string): string {
 }
 
 export async function fetchNitterRss(
-  handle: string
+  handle: string,
+  ms = 5_000
 ): Promise<{ tweets: FreeTweet[] | null; tried: { host: string; status: number }[] }> {
   const tried: { host: string; status: number }[] = [];
   for (const url of NITTER_RSS(handle)) {
-    const { status, text: xml } = await fetchTextR(url, 9_000, "application/rss+xml,application/xml,text/xml");
+    const { status, text: xml } = await fetchTextR(url, ms, "application/rss+xml,application/xml,text/xml");
     tried.push({ host: new URL(url).host, status });
     if (!xml || !xml.includes("<item>")) continue;
     const statusRe = new RegExp(`/${handle}/status/(\\d+)`, "i");
@@ -267,7 +267,8 @@ export async function fetchNitterRss(
 
 // ── Discovery 4: search engines (candidate ids only; author-verified later) ──
 export async function searchDiscoverIds(
-  handle: string
+  handle: string,
+  ms = 5_000
 ): Promise<{ ids: string[]; via: string | null; statuses: string }> {
   const idRe = new RegExp(`(?:x|twitter)\\.com(?:%2F|/)${handle}(?:%2F|/)status(?:%2F|/)(\\d+)`, "gi");
   const collect = (text: string): string[] => {
@@ -285,12 +286,11 @@ export async function searchDiscoverIds(
   const q = encodeURIComponent(`site:x.com/${handle}/status`);
   const engines: { name: string; url: string; accept?: string }[] = [
     { name: "bing", url: `https://www.bing.com/search?q=${q}&format=rss&count=30`, accept: "application/rss+xml,application/xml,text/xml" },
-    { name: "ddg", url: `https://html.duckduckgo.com/html/?q=${q}` },
     { name: "mojeek", url: `https://www.mojeek.com/search?q=${q}` },
   ];
   const statuses: string[] = [];
   for (const e of engines) {
-    const r = await fetchTextR(e.url, 9_000, e.accept ?? "text/html,application/xhtml+xml");
+    const r = await fetchTextR(e.url, ms, e.accept ?? "text/html,application/xhtml+xml");
     statuses.push(`${e.name}:${r.status}`);
     if (!r.text) continue;
     const ids = collect(r.text);
@@ -301,15 +301,16 @@ export async function searchDiscoverIds(
 
 // ── Enrichment: per-tweet numbers from the free embed APIs ──
 export async function enrichTweet(
-  id: string
+  id: string,
+  ms = 4_000
 ): Promise<{ via: string; author: string | null; data: Partial<FreeTweet> } | null> {
-  const fx = await fetchJson<{ code?: number; tweet?: Record<string, unknown> }>(`https://api.fxtwitter.com/i/status/${id}`);
+  const fx = await fetchJson<{ code?: number; tweet?: Record<string, unknown> }>(`https://api.fxtwitter.com/i/status/${id}`, ms);
   const fxt = fx.json?.tweet;
   if (fxt && (fx.json?.code === 200 || fxt.id)) {
     const t = fromFxStatus(fxt, "");
     if (t) return { via: "fxtwitter", author: t.author, data: t };
   }
-  const vx = await fetchJson<Record<string, unknown>>(`https://api.vxtwitter.com/i/status/${id}`);
+  const vx = await fetchJson<Record<string, unknown>>(`https://api.vxtwitter.com/i/status/${id}`, ms);
   if (vx.json && (vx.json.likes != null || vx.json.retweets != null)) {
     const author = typeof vx.json.user_screen_name === "string" ? vx.json.user_screen_name.toLowerCase() : null;
     return {
@@ -329,7 +330,8 @@ export async function enrichTweet(
   }
   const token = ((Number(id) / 1e15) * Math.PI).toString(36).replace(/(0+|\.)/g, "");
   const cdn = await fetchJson<Record<string, unknown>>(
-    `https://cdn.syndication.twimg.com/tweet-result?id=${id}&lang=en&token=${token}`
+    `https://cdn.syndication.twimg.com/tweet-result?id=${id}&lang=en&token=${token}`,
+    ms
   );
   if (cdn.json && cdn.json.id_str) {
     const user = (cdn.json.user ?? {}) as Record<string, unknown>;
@@ -370,9 +372,21 @@ const hasAnyCount = (t: FreeTweet) =>
 /** Full free collection for one handle: followers + posts + engagement.
  *  `knownIds` (previously stored posts) keep metrics refreshing even when
  *  every discovery layer is dark. */
-export async function collectXFree(handle: string, knownIds: string[] = []): Promise<CollectResult> {
+export async function collectXFree(
+  handle: string,
+  knownIds: string[] = [],
+  deadlineTs: number = Date.now() + 40_000
+): Promise<CollectResult> {
   const h = handle.replace(/^@/, "").trim().toLowerCase();
-  const followersP = collectTwitter(h);
+  const left = () => deadlineTs - Date.now();
+  const clamp = (base: number) => Math.max(1_500, Math.min(base, left() - 800));
+  // Followers must never hang the whole collection — race it against the budget.
+  const followersP = Promise.race([
+    collectTwitter(h),
+    new Promise<{ value: number | null; error?: string }>((r) =>
+      setTimeout(() => r({ value: null, error: "followers timed out" }), Math.max(3_000, Math.min(12_000, left())))
+    ),
+  ]);
 
   const idOnly = (id: string): FreeTweet => ({
     id,
@@ -388,43 +402,46 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
     bookmarks: null,
   });
 
-  // Discovery ladder — every rung logs its outcome so a total failure reports
-  // exactly what each layer answered (visible in the Diagnose evidence).
+  // Discovery ladder, bounded by a SHARED deadline. A Vercel function that
+  // overruns is killed before anything is persisted (that is why the panel
+  // froze on the last fast run) — so every rung is skipped once the budget is
+  // too low, guaranteeing we return in time to write the week. Each rung logs
+  // its outcome for the Diagnose evidence.
   const ladder: string[] = [];
   let source = "fx-timeline";
   let tweets: FreeTweet[] | null = null;
   let rssInstance: string | null = null;
 
-  const fx = await fetchFxTimeline(h);
+  const fx = await fetchFxTimeline(h, clamp(5_000));
   if (fx.tweets) tweets = fx.tweets;
   else ladder.push(`fx:${fx.statuses}`);
 
-  if (!tweets) {
-    const synd = await fetchSyndicationTimeline(h);
+  if (!tweets && left() > 4_000) {
+    const synd = await fetchSyndicationTimeline(h, clamp(6_000));
     if (synd.tweets) {
       source = "syndication";
       tweets = synd.tweets;
     } else ladder.push(`synd:${synd.status}`);
   }
-  if (!tweets) {
-    const rss = await fetchNitterRss(h);
+  if (!tweets && left() > 4_000) {
+    const rss = await fetchNitterRss(h, clamp(5_000));
     if (rss.tweets) {
       source = "nitter-rss";
       tweets = rss.tweets;
       rssInstance = rss.tried.find((t) => t.status === 200)?.host ?? null;
     } else ladder.push(`nitter:${rss.tried.map((t) => `${t.host.split(".")[0]}=${t.status}`).join("|")}`);
   }
-  if (!tweets) {
+  if (!tweets && left() > 6_000) {
     // x.com profile via the jina reader — the channel the competitor follower
     // scraper already reaches from this deployment; ids only, enriched below.
-    const jina = await fetchJinaProfileIds(h);
+    const jina = await fetchJinaProfileIds(h, clamp(8_000));
     if (jina.ids.length) {
       source = "jina-profile";
       tweets = jina.ids.map(idOnly);
     } else ladder.push(`jina:${jina.status}`);
   }
-  if (!tweets) {
-    const found = await searchDiscoverIds(h);
+  if (!tweets && left() > 5_000) {
+    const found = await searchDiscoverIds(h, clamp(5_000));
     if (found.ids.length) {
       source = `search:${found.via}`;
       tweets = found.ids.map(idOnly);
@@ -432,7 +449,7 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
   }
   if (!tweets && knownIds.length) {
     source = "stored-ids";
-    tweets = knownIds.slice(0, 15).map(idOnly);
+    tweets = knownIds.slice(0, 12).map(idOnly);
   }
 
   const followers = await followersP;
@@ -442,7 +459,7 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
   if (!tweets) {
     return {
       values,
-      error: `X free scrape: no discovery source reachable for @${h}; engagement metrics carry forward`,
+      error: `X free scrape: no discovery source reachable in time for @${h}; followers still updated, engagement carries forward`,
       evidence: { source: "none", ladder: ladder.join(" · "), freeFollowers: followers.value ?? null },
     };
   }
@@ -452,21 +469,21 @@ export async function collectXFree(handle: string, knownIds: string[] = []): Pro
   tweets = tweets
     .filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)))
     .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
-    .slice(0, 15);
+    .slice(0, 12);
 
-  // Enrich anything that lacks counts or a date (search/stored/rss candidates);
-  // drop candidates whose verified author isn't this handle (search noise).
+  // Enrich candidates lacking counts/date (search/stored/rss), ALL at once and
+  // only while the budget lasts. Drop candidates whose verified author isn't
+  // this handle (search noise).
   let enriched = 0;
   let authorRejected = 0;
   const via: Record<string, number> = {};
-  const need = tweets.filter((t) => !hasAnyCount(t) || !t.createdAt);
-  const POOL = 4;
-  for (let i = 0; i < need.length; i += POOL) {
-    const batch = need.slice(i, i + POOL);
-    const results = await Promise.all(batch.map((t) => enrichTweet(t.id)));
+  const need = tweets.filter((t) => !hasAnyCount(t) || !t.createdAt).slice(0, 8);
+  if (need.length && left() > 10_000) {
+    const ems = Math.max(2_500, Math.min(4_000, left() - 4_000));
+    const results = await Promise.all(need.map((t) => enrichTweet(t.id, ems)));
     results.forEach((r, j) => {
       if (!r) return;
-      const t = batch[j];
+      const t = need[j];
       if (r.author && r.author !== h) {
         t.author = r.author; // marked for removal below
         authorRejected++;

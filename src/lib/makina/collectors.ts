@@ -253,8 +253,11 @@ export async function collectXProfiles(
   if (clean.length === 0) return {};
 
   // PRIMARY: the zero-cost pipeline (followers + posts + engagement, freex.ts).
-  // These are stateless public endpoints, so handles can run concurrently.
-  const free = await Promise.all(clean.map((h) => collectXFree(h, knownIdsByHandle[h] ?? [])));
+  // Stateless public endpoints, so handles run concurrently against ONE shared
+  // deadline — the whole X phase must finish inside the function's time limit,
+  // or nothing gets persisted and the weekly panel stops advancing.
+  const deadlineTs = Date.now() + budgetMs;
+  const free = await Promise.all(clean.map((h) => collectXFree(h, knownIdsByHandle[h] ?? [], deadlineTs)));
   const out: Record<string, CollectResult> = Object.fromEntries(clean.map((h, i) => [h, free[i]]));
 
   // OPT-IN FALLBACK: Apify/scweet, only for handles where free discovery found
