@@ -15,9 +15,11 @@ import {
   Pencil,
   Trash2,
   Check,
+  Smartphone,
+  Terminal,
 } from "lucide-react";
 
-type CategoryId = "Product" | "UX";
+type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI" | "UX";
 type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
 
 interface Reply {
@@ -46,13 +48,20 @@ export interface FeedbackItemData {
   acknowledged?: boolean;
 }
 
-const QUICK_ACTION_LABELS: Record<string, { emoji: string; label: string }> = {
-  "love-it": { emoji: "🎉", label: "Love it!" },
-  "easy-to-use": { emoji: "✨", label: "Easy to use" },
-  "great-support": { emoji: "👏", label: "Great support" },
-  "impressive": { emoji: "🤩", label: "Impressive" },
-  "helpful": { emoji: "🙌", label: "Helpful" },
-  "confusing": { emoji: "😕", label: "Confusing" },
+const QUICK_ACTION_LABELS: Record<string, { label: string }> = {
+  "works-well": { label: "Works well" },
+  "needs-improvement": { label: "Needs improvement" },
+  "missing-feature": { label: "Missing feature" },
+  "performance-issue": { label: "Performance issue" },
+  "hard-to-use": { label: "Hard to use" },
+  "good-docs": { label: "Good documentation" },
+  // Legacy labels for older submissions
+  "love-it": { label: "Love it!" },
+  "easy-to-use": { label: "Easy to use" },
+  "great-support": { label: "Great support" },
+  "impressive": { label: "Impressive" },
+  "helpful": { label: "Helpful" },
+  "confusing": { label: "Confusing" },
 };
 
 function formatTimestamp(date: string | Date): { relative: string; absolute: string } {
@@ -84,7 +93,10 @@ const typeColors: Record<string, string> = {
 };
 
 const categoryColors: Record<string, string> = {
-  Product: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
+  Core: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
+  "UI/UX": "bg-violet-500/15 text-violet-400 border border-violet-500/20",
+  App: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20",
+  "Operator CLI": "bg-orange-500/15 text-orange-400 border border-orange-500/20",
   UX: "bg-violet-500/15 text-violet-400 border border-violet-500/20",
 };
 
@@ -96,8 +108,11 @@ const priorityBorder: Record<string, string> = {
 };
 
 const categoryIcons: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
-  Product: Box,
+  Core: Box,
+  "UI/UX": Paintbrush,
   UX: Paintbrush,
+  App: Smartphone,
+  "Operator CLI": Terminal,
 };
 
 const statusColors: Record<string, string> = {
@@ -127,11 +142,14 @@ interface FeedbackCardProps {
   showStatus?: boolean;
   showInternalStatus?: boolean;
   hideReplyInput?: boolean;
+  hideReplies?: boolean;
+  hidePublicStatus?: boolean;
+  hidePriority?: boolean;
   onStatusChange?: (id: string, status: FeedbackStatus) => void;
   onItemUpdate?: (item: FeedbackItemData) => void;
 }
 
-export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, onStatusChange, onItemUpdate }: FeedbackCardProps) {
+export default function FeedbackCard({ item, showStatus, showInternalStatus, hideReplyInput, hideReplies, hidePublicStatus, hidePriority, onStatusChange, onItemUpdate }: FeedbackCardProps) {
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replySent, setReplySent] = useState(false);
@@ -236,7 +254,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
               <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${typeColors[item.type] || ""}`}>
                 {item.type}
               </span>
-              {priority !== "none" && (
+              {priority !== "none" && !hidePriority && (
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   priority === "high" ? "bg-red-500/15 text-red-400" :
                   priority === "medium" ? "bg-amber-400/15 text-amber-400" :
@@ -257,8 +275,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
             {/* Content */}
             <div className="mt-2">
               {quickAction && (
-                <div className="inline-flex items-center gap-1.5 rounded-md bg-makina-surface px-3 py-1.5 text-sm">
-                  <span>{quickAction.emoji}</span>
+                <div className="inline-flex items-center rounded-md bg-makina-surface px-3 py-1.5 text-sm">
                   <span className="font-medium">{quickAction.label}</span>
                 </div>
               )}
@@ -289,7 +306,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
             )}
 
             {/* Replies */}
-            {item.replies && item.replies.length > 0 && (
+            {!hideReplies && item.replies && item.replies.length > 0 && (
               <div className="mt-3 space-y-2 pl-3 border-l-2 border-makina-border">
                 {item.replies.map((reply) => {
                   const rts = formatTimestamp(reply.createdAt);
@@ -344,7 +361,7 @@ export default function FeedbackCard({ item, showStatus, showInternalStatus, hid
             {/* Actions row */}
             <div className="mt-3 flex items-center gap-3 flex-wrap">
               {/* Public status: only Received / Escalated */}
-              {!showInternalStatus && (
+              {!showInternalStatus && !hidePublicStatus && (
                 <>
                   {item.escalated ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">

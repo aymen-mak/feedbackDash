@@ -26,7 +26,7 @@ function computeStats(all: StoredFeedback[]) {
   const neutralPct = ratedTotal > 0 ? Math.round((neutral / ratedTotal) * 100) : 0;
   const unsatisfiedPct = ratedTotal > 0 ? 100 - satisfiedPct - neutralPct : 0;
 
-  const categories: CategoryId[] = ["Product", "UX"];
+  const categories: CategoryId[] = ["Core", "UI/UX", "App", "Operator CLI"];
   const categoryStats = categories.map((cat) => {
     const items = notDismissed.filter((f) => f.category === cat);
     const openIssues = items.filter((f) => f.type === "issue" && f.status !== "addressed").length;
@@ -109,8 +109,6 @@ function computeStats(all: StoredFeedback[]) {
     });
 
     const dayTotal = dayItems.length;
-    const dayRated = dayItems.filter((f) => f.rating !== null && f.rating !== undefined);
-    const dayAvg = dayRated.length > 0 ? dayRated.reduce((s, f) => s + (f.rating ?? 0), 0) / dayRated.length : 3;
     const dayIssues = dayItems.filter((f) => f.type === "issue").length;
     const dayResolved = dayItems.filter((f) => f.status === "addressed").length;
 
@@ -120,7 +118,10 @@ function computeStats(all: StoredFeedback[]) {
     dailyMetrics.push({
       date: `${month} ${day}`,
       submissions: dayTotal,
-      satisfaction: Math.round((dayAvg / 5) * 100),
+      core: dayItems.filter((f: StoredFeedback) => f.category === "Core").length,
+      uiux: dayItems.filter((f: StoredFeedback) => f.category === "UI/UX" || f.category === "UX").length,
+      app: dayItems.filter((f: StoredFeedback) => f.category === "App").length,
+      operatorCli: dayItems.filter((f: StoredFeedback) => f.category === "Operator CLI").length,
       issues: dayIssues,
       resolved: dayResolved,
     });

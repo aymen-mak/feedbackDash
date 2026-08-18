@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 @theme {
-  /* Makina color palette — dark mode defaults (deep navy + azure accent) */
+  /* Makina color palette, dark mode defaults (deep navy + azure accent) */
   --color-makina-bg: #080d17;
   --color-makina-surface: #0e1525;
   --color-makina-card: #131c2e;
@@ -13,9 +13,9 @@
   --color-makina-blue: #3b82f6;
   --color-makina-green: #22c55e;
   --color-makina-red: #ef4444;
-  --color-makina-text: #edf2f7;
-  --color-makina-muted: #64748b;
-  --color-makina-subtle: #2d3d56;
+  --color-makina-text: #f5f8fc;
+  --color-makina-muted: #cbd6e4;
+  --color-makina-subtle: #8d9bad;
 }
 
 /* Light mode overrides */
@@ -31,9 +31,9 @@ html.light {
   --color-makina-blue: #3b82f6;
   --color-makina-green: #16a34a;
   --color-makina-red: #dc2626;
-  --color-makina-text: #0f172a;
-  --color-makina-muted: #64748b;
-  --color-makina-subtle: #94a3b8;
+  --color-makina-text: #0b1220;
+  --color-makina-muted: #334155;
+  --color-makina-subtle: #647387;
   --chart-grid: #dfe6ee;
   --chart-tick: #64748b;
   --chart-tooltip-bg: #ffffff;
@@ -56,9 +56,9 @@ html.glass {
   --color-makina-blue: #60a5fa;
   --color-makina-green: #4ade80;
   --color-makina-red: #f87171;
-  --color-makina-text: rgba(255, 255, 255, 0.9);
-  --color-makina-muted: rgba(255, 255, 255, 0.4);
-  --color-makina-subtle: rgba(255, 255, 255, 0.15);
+  --color-makina-text: rgba(255, 255, 255, 0.97);
+  --color-makina-muted: rgba(255, 255, 255, 0.8);
+  --color-makina-subtle: rgba(255, 255, 255, 0.52);
   --chart-grid: rgba(255, 255, 255, 0.06);
   --chart-tick: rgba(255, 255, 255, 0.35);
   --chart-tooltip-bg: rgba(10, 14, 26, 0.8);
@@ -68,7 +68,7 @@ html.glass {
   --chart-dot-stroke: rgba(10, 14, 26, 0.8);
 }
 
-/* Glass — multi-color ambient glow */
+/* Glass, multi-color ambient glow */
 html.glass body::before {
   background:
     radial-gradient(ellipse 50% 30% at 25% 5%, rgba(91, 156, 246, 0.08) 0%, transparent 60%),
@@ -76,19 +76,19 @@ html.glass body::before {
     radial-gradient(ellipse 35% 20% at 50% 85%, rgba(59, 130, 246, 0.04) 0%, transparent 50%);
 }
 
-/* Glass — frosted blur on cards and nav */
+/* Glass, frosted blur on cards and nav */
 html.glass .bg-makina-card,
 html.glass .bg-makina-surface\/80 {
   backdrop-filter: blur(24px) saturate(1.6);
   -webkit-backdrop-filter: blur(24px) saturate(1.6);
 }
 
-/* Glass — card borders get a subtle top highlight */
+/* Glass, card borders get a subtle top highlight */
 html.glass .hover-lift {
   border-top-color: rgba(255, 255, 255, 0.12);
 }
 
-/* Glass — hover glow is more diffuse and colorful */
+/* Glass, hover glow is more diffuse and colorful */
 html.glass .hover-lift:hover {
   box-shadow:
     0 8px 32px rgba(91, 156, 246, 0.08),
@@ -96,7 +96,7 @@ html.glass .hover-lift:hover {
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
-/* Glass — gradient accent */
+/* Glass, gradient accent */
 html.glass .gradient-accent {
   background: linear-gradient(135deg, #93c5fd, #60a5fa, #3b82f6);
 }
@@ -108,7 +108,7 @@ html.glass .gradient-text {
   background-clip: text;
 }
 
-/* Glass — glow effects are softer */
+/* Glass, glow effects are softer */
 html.glass .glow-accent {
   box-shadow: 0 0 24px rgba(91, 156, 246, 0.15);
 }
@@ -127,11 +127,13 @@ html.glass .glow-accent {
 body {
   background: var(--color-makina-bg);
   color: var(--color-makina-text);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Heavier base weight so muted/small text doesn't read as hairline-thin. */
+  font-weight: 450;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Subtle background texture — radial glow */
+/* Subtle background texture, radial glow */
 body::before {
   content: "";
   position: fixed;
@@ -164,12 +166,12 @@ html.light body::before {
   background: var(--color-makina-subtle);
 }
 
-/* Gradient accent — azure */
+/* Gradient accent, azure */
 .gradient-accent {
   background: linear-gradient(135deg, var(--color-makina-accent), var(--color-makina-accent-deep));
 }
 
-/* Gradient text — clipped to text shape */
+/* Gradient text, clipped to text shape */
 .gradient-text {
   background: linear-gradient(135deg, var(--color-makina-accent), var(--color-makina-accent-deep));
   -webkit-background-clip: text;
@@ -186,7 +188,7 @@ html.light body::before {
   box-shadow: 0 0 20px rgba(59, 130, 246, 0.15);
 }
 
-/* Hover lift — cards rise and glow */
+/* Hover lift, cards rise and glow */
 .hover-lift {
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
@@ -235,23 +237,56 @@ html.light .hover-lift:hover {
   animation: pulse-live 2s ease-in-out infinite;
 }
 
-/* ── Comfort text mode ── */
-html.comfort-text .text-xs {
-  font-size: 0.8125rem !important;
-  line-height: 1.25rem !important;
+/* ── Global top loading bar (route changes + tracked async work) ── */
+.loading-bar {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 2.5px;
+  z-index: 100;
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    var(--color-makina-accent) 45%,
+    var(--color-makina-accent-deep) 55%,
+    transparent
+  );
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: loading-bar-slide 0.9s ease-in-out infinite;
+  will-change: background-position;
 }
-html.comfort-text .text-\[10px\] {
-  font-size: 0.75rem !important;
-  line-height: 1rem !important;
+
+@keyframes loading-bar-slide {
+  0% { background-position: -40% 0; }
+  100% { background-position: 140% 0; }
 }
-html.comfort-text .text-\[11px\] {
-  font-size: 0.8125rem !important;
-  line-height: 1.125rem !important;
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-bar { animation-duration: 1.8s; }
 }
-html.comfort-text .text-sm {
-  font-size: 0.9375rem !important;
-  line-height: 1.375rem !important;
-}
+
+/* ── Granular text sizing (levels 1–4; level 0 = base/compact) ──
+   Each level steps up ~10%, scaling the small utility sizes the dashboard
+   leans on. Level 1 is the default for a comfortable baseline. */
+html.text-size-1 .text-\[10px\] { font-size: 0.78rem !important; line-height: 1.05rem !important; }
+html.text-size-1 .text-\[11px\] { font-size: 0.82rem !important; line-height: 1.1rem !important; }
+html.text-size-1 .text-xs       { font-size: 0.84rem !important; line-height: 1.2rem !important; }
+html.text-size-1 .text-sm       { font-size: 0.95rem !important; line-height: 1.4rem !important; }
+
+html.text-size-2 .text-\[10px\] { font-size: 0.84rem !important; line-height: 1.15rem !important; }
+html.text-size-2 .text-\[11px\] { font-size: 0.88rem !important; line-height: 1.2rem !important; }
+html.text-size-2 .text-xs       { font-size: 0.92rem !important; line-height: 1.3rem !important; }
+html.text-size-2 .text-sm       { font-size: 1.02rem !important; line-height: 1.5rem !important; }
+
+html.text-size-3 .text-\[10px\] { font-size: 0.9rem !important; line-height: 1.25rem !important; }
+html.text-size-3 .text-\[11px\] { font-size: 0.95rem !important; line-height: 1.3rem !important; }
+html.text-size-3 .text-xs       { font-size: 1rem !important; line-height: 1.45rem !important; }
+html.text-size-3 .text-sm       { font-size: 1.1rem !important; line-height: 1.6rem !important; }
+
+html.text-size-4 .text-\[10px\] { font-size: 0.97rem !important; line-height: 1.35rem !important; }
+html.text-size-4 .text-\[11px\] { font-size: 1.02rem !important; line-height: 1.4rem !important; }
+html.text-size-4 .text-xs       { font-size: 1.1rem !important; line-height: 1.55rem !important; }
+html.text-size-4 .text-sm       { font-size: 1.2rem !important; line-height: 1.7rem !important; }
 
 /* ── Tactile button press ── */
 @keyframes btn-press {

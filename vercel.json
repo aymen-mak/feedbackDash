@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/competitors/refresh",
+      "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/makina/collect",
+      "schedule": "0 7 * * 1"
+    }
+  ]
+}

@@ -4,7 +4,7 @@ import path from "path";
 // ── Types ──
 export type FeedbackType = "issue" | "suggestion" | "question";
 export type FeedbackStatus = "new" | "reviewed" | "addressed" | "dismissed";
-export type CategoryId = "Product" | "UX";
+export type CategoryId = "Core" | "UI/UX" | "App" | "Operator CLI" | "UX";
 export type Priority = "none" | "low" | "medium" | "high";
 
 export interface Reply {
@@ -36,6 +36,8 @@ export interface StoredFeedback {
   screenshotUrl: string | null;
   rating: number | null;
   acknowledged: boolean;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
   createdAt: string;
 }
 
@@ -68,6 +70,23 @@ function resolveDataFile(): string {
 }
 
 const DATA_FILE = resolveDataFile();
+
+/** Persistent screenshot directory, mirrors data-file resolution logic. */
+export function resolveScreenshotDir(): string {
+  const local = path.join(process.cwd(), "data", "screenshots");
+  try {
+    if (!fs.existsSync(local)) fs.mkdirSync(local, { recursive: true });
+    const testFile = path.join(local, ".write-test");
+    fs.writeFileSync(testFile, "");
+    fs.unlinkSync(testFile);
+    return local;
+  } catch {
+    // Not writable, fall back to /tmp
+  }
+  const tmp = path.join("/tmp", "screenshots");
+  if (!fs.existsSync(tmp)) fs.mkdirSync(tmp, { recursive: true });
+  return tmp;
+}
 
 function read(): Store {
   // Try file system
@@ -139,35 +158,35 @@ export function seed(): StoredFeedback[] {
 
   type Row = [string, string, CategoryId, FeedbackType, string, string | null, number, number, number | null];
   const raw: Row[] = [
-    ["Lina C.", "L", "Product", "issue", "The checkout flow keeps freezing on the payment step. Tried three different browsers.", null, 34, 1, 2],
+    ["Lina C.", "L", "Core", "issue", "The checkout flow keeps freezing on the payment step. Tried three different browsers.", null, 34, 1, 2],
     ["Marcus J.", "M", "UX", "suggestion", "The search bar should support filters like date range and category.\nRight now I have to scroll through everything.", null, 27, 3, 4],
-    ["Priya N.", "P", "Product", "suggestion", "Had an issue with my billing and the team sorted it out same day. Really appreciated the quick follow-up.", "great-support", 41, 6, 5],
-    ["Ethan G.", "E", "Product", "suggestion", "Overall the product is great, keep it up!", "love-it", 19, 10, 5],
+    ["Priya N.", "P", "Core", "suggestion", "Had an issue with my billing and the team sorted it out same day. Really appreciated the quick follow-up.", "great-support", 41, 6, 5],
+    ["Ethan G.", "E", "Core", "suggestion", "Overall the product is great, keep it up!", "love-it", 19, 10, 5],
     ["Sophie W.", "S", "UX", "issue", "The mobile layout is broken on the account settings page.\nButtons overlap and the save button is hidden.", null, 13, 14, 2],
-    ["Omar B.", "O", "Product", "suggestion", "Would be great to have bulk import from CSV.\nAdding items one by one takes forever.", null, 22, 24, 3],
+    ["Omar B.", "O", "Core", "suggestion", "Would be great to have bulk import from CSV.\nAdding items one by one takes forever.", null, 22, 24, 3],
     ["Aisha T.", "A", "UX", "issue", "Pages take too long to load, especially the dashboard.", null, 16, 30, 1],
-    ["Daniel F.", "D", "Product", "question", "Is there a way to transfer ownership of a workspace to another team member?", null, 5, 42, null],
-    ["Rachel K.", "R", "Product", "suggestion", "The new notification system is exactly what we needed. No more missed updates.", null, 29, 48, 5],
+    ["Daniel F.", "D", "Core", "question", "Is there a way to transfer ownership of a workspace to another team member?", null, 5, 42, null],
+    ["Rachel K.", "R", "Core", "suggestion", "The new notification system is exactly what we needed. No more missed updates.", null, 29, 48, 5],
     ["Kai L.", "K", "UX", "suggestion", "Add keyboard shortcuts for the most common actions.\nWould speed up our workflow significantly.", null, 21, 60, 4],
-    ["Nadia H.", "N", "Product", "issue", "PDF export cuts off content on the right side.\nHave to manually adjust margins every time.", null, 11, 72, 2],
-    ["James R.", "J", "Product", "suggestion", "Your knowledge base articles are thorough and well-written. Saved me from contacting support multiple times.", null, 17, 96, 5],
+    ["Nadia H.", "N", "Core", "issue", "PDF export cuts off content on the right side.\nHave to manually adjust margins every time.", null, 11, 72, 2],
+    ["James R.", "J", "Core", "suggestion", "Your knowledge base articles are thorough and well-written. Saved me from contacting support multiple times.", null, 17, 96, 5],
     ["Zoe M.", "Z", "UX", "suggestion", "The interface is intuitive and easy to navigate.", "easy-to-use", 36, 108, 5],
-    ["Lucas P.", "L", "Product", "suggestion", "Two-factor authentication should support hardware keys, not just SMS and authenticator apps.", null, 14, 120, 3],
+    ["Lucas P.", "L", "Core", "suggestion", "Two-factor authentication should support hardware keys, not just SMS and authenticator apps.", null, 14, 120, 3],
     ["Mia S.", "M", "UX", "issue", "Submitted a ticket 5 days ago about data sync issues and haven't heard back yet.", null, 8, 144, 1],
     ["Thomas A.", "T", "UX", "suggestion", "The color contrast on disabled buttons is too low.\nHard to tell what's clickable vs what isn't.", null, 12, 156, 3],
-    ["Yuki O.", "Y", "Product", "suggestion", "The API documentation is excellent. Had our integration running in under an hour.", "impressive", 25, 192, 5],
+    ["Yuki O.", "Y", "Core", "suggestion", "The API documentation is excellent. Had our integration running in under an hour.", "impressive", 25, 192, 5],
     ["Isabella D.", "I", "UX", "issue", "Dropdown menus close when I try to scroll inside them on Firefox. Pretty frustrating.", null, 9, 204, 2],
-    ["Ben W.", "B", "Product", "question", "Are there plans to support SSO with SAML? Our IT team requires it for all vendor tools.", null, 7, 216, null],
+    ["Ben W.", "B", "Core", "question", "Are there plans to support SSO with SAML? Our IT team requires it for all vendor tools.", null, 7, 216, null],
     ["Camille R.", "C", "UX", "suggestion", "A live chat widget would be much faster than email for simple questions.", null, 18, 240, 4],
-    ["Arjun V.", "A", "Product", "suggestion", "The permissions system is flexible without being complicated. Nice balance.", "helpful", 23, 264, 5],
+    ["Arjun V.", "A", "Core", "suggestion", "The permissions system is flexible without being complicated. Nice balance.", "helpful", 23, 264, 5],
     ["Freya B.", "F", "UX", "issue", "Clicking the back button after saving sometimes loses my changes.\nHappened twice today.", "confusing", 10, 288, 2],
-    ["Noah E.", "N", "Product", "suggestion", "Called about an urgent issue and the team stayed on the line until it was fully resolved.", "great-support", 38, 300, 5],
-    ["Elena G.", "E", "Product", "suggestion", "Let us schedule reports to be sent automatically.\nHaving to generate them manually weekly is tedious.", null, 30, 312, 3],
+    ["Noah E.", "N", "Core", "suggestion", "Called about an urgent issue and the team stayed on the line until it was fully resolved.", "great-support", 38, 300, 5],
+    ["Elena G.", "E", "Core", "suggestion", "Let us schedule reports to be sent automatically.\nHaving to generate them manually weekly is tedious.", null, 30, 312, 3],
     ["Ryan T.", "R", "UX", "suggestion", "The recent redesign of the settings page is a huge improvement. Everything is where I'd expect it.", null, 20, 324, 5],
-    ["Hana K.", "H", "Product", "question", "What's the difference between the Team and Business plans?\nThe comparison page isn't clear on a few features.", null, 6, 336, null],
-    ["Diego M.", "D", "Product", "issue", "Webhooks occasionally fire twice for the same event.\nCausing duplicate entries on our side.", null, 15, 348, 2],
+    ["Hana K.", "H", "Core", "question", "What's the difference between the Team and Business plans?\nThe comparison page isn't clear on a few features.", null, 6, 336, null],
+    ["Diego M.", "D", "Core", "issue", "Webhooks occasionally fire twice for the same event.\nCausing duplicate entries on our side.", null, 15, 348, 2],
     ["Clara J.", "C", "UX", "suggestion", "Please add a way to undo actions.\nAccidentally archived an important item and had to dig to restore it.", null, 24, 360, 4],
-    ["Leo S.", "L", "Product", "suggestion", "The real-time sync across devices works flawlessly. Changed something on my phone and it was instant on desktop.", "impressive", 33, 372, 5],
+    ["Leo S.", "L", "Core", "suggestion", "The real-time sync across devices works flawlessly. Changed something on my phone and it was instant on desktop.", "impressive", 33, 372, 5],
     ["Amara P.", "A", "UX", "issue", "The help center search returns irrelevant results.\nSearched for 'billing' and got articles about integrations.", null, 4, 380, 2],
   ];
 
@@ -194,6 +213,8 @@ export function seed(): StoredFeedback[] {
     screenshotUrl: null,
     rating: rating ?? null,
     acknowledged: i === 2 || i === 8 || i === 11 || i === 22,
+    reviewedBy: i >= 5 && i < 15 ? "Sarah" : i >= 15 ? "Alex" : null,
+    reviewedAt: i >= 5 ? new Date(now - (hoursAgo - 1) * H).toISOString() : null,
     createdAt: new Date(now - hoursAgo * H).toISOString(),
   }));
 }
@@ -281,6 +302,8 @@ export function createFeedback(data: {
     screenshotUrl: data.screenshotUrl ?? null,
     rating: data.rating ?? null,
     acknowledged: false,
+    reviewedBy: null,
+    reviewedAt: null,
     createdAt: new Date().toISOString(),
   };
   store.feedback.push(item);
@@ -290,7 +313,7 @@ export function createFeedback(data: {
 
 export function updateFeedback(
   id: string,
-  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags" | "acknowledged">>
+  updates: Partial<Pick<StoredFeedback, "status" | "priority" | "starred" | "escalated" | "dismissed" | "archived" | "deletedAt" | "tags" | "acknowledged" | "reviewedBy" | "reviewedAt">>
 ): StoredFeedback | null {
   const store = read();
   const idx = store.feedback.findIndex((f) => f.id === id);
@@ -362,7 +385,10 @@ export function permanentlyDeleteFeedback(id: string): boolean {
 export interface DailyMetric {
   date: string;
   submissions: number;
-  satisfaction: number;
+  core: number;
+  uiux: number;
+  app: number;
+  operatorCli: number;
   issues: number;
   resolved: number;
 }
@@ -392,7 +418,7 @@ export function getStats() {
   const unsatisfiedPct = ratedTotal > 0 ? 100 - satisfiedPct - neutralPct : 0;
 
   // Category stats
-  const categories: CategoryId[] = ["Product", "UX"];
+  const categories: CategoryId[] = ["Core", "UI/UX", "App", "Operator CLI"];
   const categoryStats = categories.map((cat) => {
     const items = notDismissed.filter((f) => f.category === cat);
     const openIssues = items.filter((f) => f.type === "issue" && f.status !== "addressed").length;
@@ -433,7 +459,7 @@ export function getStats() {
     pct: reactionTotal > 0 ? Math.round((r.count / reactionTotal) * 100) : 0,
   }));
 
-  // Trending topics — simple keyword extraction from messages
+  // Trending topics, simple keyword extraction from messages
   const stopWords = new Set(["the", "a", "an", "is", "was", "are", "to", "it", "i", "my", "in", "of", "for", "and", "on", "that", "this", "be", "have", "has", "had", "but", "or", "so", "if", "at", "by", "from", "with", "would", "could", "when", "there"]);
   const wordCounts: Record<string, { count: number; categories: Set<CategoryId> }> = {};
   for (const f of notDismissed) {
@@ -480,8 +506,6 @@ export function getStats() {
     });
 
     const dayTotal = dayItems.length;
-    const dayRated = dayItems.filter((f) => f.rating !== null && f.rating !== undefined);
-    const dayAvg = dayRated.length > 0 ? dayRated.reduce((s, f) => s + (f.rating ?? 0), 0) / dayRated.length : 3;
     const dayIssues = dayItems.filter((f) => f.type === "issue").length;
     const dayResolved = dayItems.filter((f) => f.status === "addressed").length;
 
@@ -491,7 +515,10 @@ export function getStats() {
     dailyMetrics.push({
       date: `${month} ${day}`,
       submissions: dayTotal,
-      satisfaction: Math.round((dayAvg / 5) * 100),
+      core: dayItems.filter((f) => f.category === "Core").length,
+      uiux: dayItems.filter((f) => f.category === "UI/UX" || f.category === "UX").length,
+      app: dayItems.filter((f) => f.category === "App").length,
+      operatorCli: dayItems.filter((f) => f.category === "Operator CLI").length,
       issues: dayIssues,
       resolved: dayResolved,
     });

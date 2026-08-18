@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       rating?: number | null;
     };
 
-    const validCategories = ["Product", "UX"];
+    const validCategories = ["Core", "UI/UX", "App", "Operator CLI"];
     const validTypes = ["issue", "suggestion", "question"];
     if (!category || !validCategories.includes(category)) {
       return NextResponse.json({ error: "Invalid category" }, { status: 400 });
