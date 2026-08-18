@@ -3,6 +3,7 @@ import {
   collectXFree,
   fetchFxTimeline,
   fetchSyndicationTimeline,
+  fetchGuestTimeline,
   fetchNitterRss,
   fetchJinaProfileIds,
   searchDiscoverIds,
@@ -47,15 +48,16 @@ export async function GET(req: Request) {
 
   // ── Free pipeline trace: every layer, with HTTP statuses ──
   try {
-    const [fx, synd, rss, jina, search] = await Promise.all([
-      fetchFxTimeline(handle),
+    const [synd, guest, fx, rss, jina, search] = await Promise.all([
       fetchSyndicationTimeline(handle),
+      fetchGuestTimeline(handle),
+      fetchFxTimeline(handle),
       fetchNitterRss(handle),
       fetchJinaProfileIds(handle),
       searchDiscoverIds(handle),
     ]);
     const firstId =
-      fx.tweets?.[0]?.id ?? synd.tweets?.[0]?.id ?? rss.tweets?.[0]?.id ?? jina.ids[0] ?? search.ids[0] ?? null;
+      synd.tweets?.[0]?.id ?? guest.tweets?.[0]?.id ?? fx.tweets?.[0]?.id ?? rss.tweets?.[0]?.id ?? jina.ids[0] ?? search.ids[0] ?? null;
     const enrichment = firstId ? await enrichTweet(firstId) : null;
     const collect = await collectXFree(handle);
 
@@ -63,8 +65,9 @@ export async function GET(req: Request) {
       mode: "free",
       handle,
       layers: {
-        fxTimeline: { ok: !!fx.tweets, httpStatuses: fx.statuses, tweets: fx.tweets?.length ?? 0, sample: fx.tweets?.[0] ?? null },
-        syndication: { ok: !!synd.tweets, httpStatus: synd.status, tweets: synd.tweets?.length ?? 0 },
+        syndication: { ok: !!synd.tweets, httpStatus: synd.status, tweets: synd.tweets?.length ?? 0, sample: synd.tweets?.[0] ?? null },
+        guestTimeline: { ok: !!guest.tweets, status: guest.status, tweets: guest.tweets?.length ?? 0, sample: guest.tweets?.[0] ?? null },
+        fxTimeline: { ok: !!fx.tweets, httpStatuses: fx.statuses, tweets: fx.tweets?.length ?? 0 },
         nitterRss: { ok: !!rss.tweets, tried: rss.tried, tweets: rss.tweets?.length ?? 0 },
         jinaProfile: { ok: jina.ids.length > 0, httpStatus: jina.status, ids: jina.ids.slice(0, 5) },
         searchEngines: { ok: search.ids.length > 0, via: search.via, statuses: search.statuses, ids: search.ids.slice(0, 5) },
