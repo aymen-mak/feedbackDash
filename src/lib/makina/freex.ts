@@ -58,14 +58,18 @@ async function fetchTextR(url: string, ms = 10_000, accept = "text/html,applicat
   }
 }
 
-async function fetchJson<T>(url: string, ms = 9_000): Promise<{ status: number; json: T | null }> {
+async function fetchJson<T>(
+  url: string,
+  ms = 9_000,
+  headers: Record<string, string> = {}
+): Promise<{ status: number; json: T | null }> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
     const res = await fetch(url, {
       signal: ctrl.signal,
       cache: "no-store",
-      headers: { "User-Agent": UA, Accept: "application/json" },
+      headers: { "User-Agent": UA, Accept: "application/json", ...headers },
     });
     if (!res.ok) return { status: res.status, json: null };
     return { status: res.status, json: (await res.json()) as T };
@@ -84,6 +88,8 @@ const num = (v: unknown): number | null => {
   }
   return null;
 };
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface FreeTweet {
   id: string;
@@ -172,10 +178,18 @@ export async function fetchJinaProfileIds(handle: string, ms = 8_000): Promise<{
 
 // ── Discovery 2: X syndication timeline ──
 export async function fetchSyndicationTimeline(handle: string, ms = 6_000): Promise<{ tweets: FreeTweet[] | null; status: number }> {
-  const { status, text: html } = await fetchTextR(
-    `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}?showReplies=false`,
-    ms
-  );
+  const url = `https://syndication.twitter.com/srv/timeline-profile/screen-name/${encodeURIComponent(handle)}?showReplies=false`;
+  // 429 here is per-IP rate limiting (rapid manual collects), not a block, so
+  // back off once and retry — a weekly cron rarely trips it in the first place.
+  let status = 0;
+  let html: string | null = null;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const r = await fetchTextR(url, ms);
+    status = r.status;
+    html = r.text;
+    if (html || status !== 429) break;
+    await sleep(1_200);
+  }
   if (!html) return { tweets: null, status };
   const m = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
   if (!m) return { tweets: null, status };
@@ -213,6 +227,172 @@ export async function fetchSyndicationTimeline(handle: string, ms = 6_000): Prom
   } catch {
     return { tweets: null, status };
   }
+}
+
+// ── Discovery 2.5: guest-token GraphQL timeline — the machinery X ships to a
+//    logged-out browser tab (the competitor follower scraper already reaches X
+//    this way from this deployment). UserTweets returns recent posts WITH
+//    public metrics (likes/replies/reposts/quotes/views) in a single call. ──
+const X_WEB_BEARER =
+  "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
+let guestCache: { token: string; at: number } | null = null;
+
+async function guestToken(ms = 6_000): Promise<string | null> {
+  if (guestCache && Date.now() - guestCache.at < 2 * 3_600_000) return guestCache.token;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const res = await fetch("https://api.x.com/1.1/guest/activate.json", {
+      method: "POST",
+      cache: "no-store",
+      signal: ctrl.signal,
+      headers: { Authorization: `Bearer ${X_WEB_BEARER}`, "User-Agent": UA },
+    });
+    if (!res.ok) return null;
+    const d = (await res.json()) as { guest_token?: string };
+    if (d?.guest_token) {
+      guestCache = { token: d.guest_token, at: Date.now() };
+      return d.guest_token;
+    }
+  } catch {
+    /* ignore */
+  } finally {
+    clearTimeout(timer);
+  }
+  return null;
+}
+
+// Recursively pull tweet objects (X's `legacy` shape) out of a GraphQL blob,
+// resilient to the instruction/entry nesting which drifts between versions.
+function extractLegacyTweets(node: unknown, handle: string, out: FreeTweet[], seen: Set<string>): void {
+  if (!node || typeof node !== "object") return;
+  if (Array.isArray(node)) {
+    for (const n of node) extractLegacyTweets(n, handle, out, seen);
+    return;
+  }
+  const o = node as Record<string, unknown>;
+  const legacy = o.legacy as Record<string, unknown> | undefined;
+  const restId = (o.rest_id ?? legacy?.id_str) as string | undefined;
+  if (legacy && typeof legacy.full_text === "string" && typeof legacy.created_at === "string" && restId && !seen.has(String(restId))) {
+    const userResults = (o.core as Record<string, unknown> | undefined)?.user_results as Record<string, unknown> | undefined;
+    const coreLegacy = ((userResults?.result as Record<string, unknown> | undefined)?.legacy ?? {}) as Record<string, unknown>;
+    const author = String(coreLegacy.screen_name ?? legacy.screen_name ?? "").toLowerCase();
+    if (!author || author === handle.toLowerCase()) {
+      seen.add(String(restId));
+      const views = (o.views as Record<string, unknown> | undefined)?.count;
+      const created = Date.parse(String(legacy.created_at));
+      out.push({
+        id: String(restId),
+        url: `https://x.com/${handle}/status/${restId}`,
+        text: String(legacy.full_text),
+        createdAt: Number.isNaN(created) ? "" : new Date(created).toISOString(),
+        author: author || null,
+        views: num(views),
+        likes: num(legacy.favorite_count),
+        replies: num(legacy.reply_count),
+        reposts: num(legacy.retweet_count),
+        quotes: num(legacy.quote_count),
+        bookmarks: num(legacy.bookmark_count),
+      });
+    }
+  }
+  for (const k of Object.keys(o)) extractLegacyTweets(o[k], handle, out, seen);
+}
+
+// X rejects a GraphQL call that omits a required feature flag, so send a broad
+// set; unknown extras are ignored, missing ones 400 (and we fall through).
+const GQL_FEATURES = {
+  rweb_video_screen_enabled: false,
+  profile_label_improvements_pcf_label_in_post_enabled: true,
+  rweb_tipjar_consumption_enabled: true,
+  responsive_web_graphql_exclude_directive_enabled: true,
+  verified_phone_label_enabled: false,
+  creator_subscriptions_tweet_preview_api_enabled: true,
+  responsive_web_graphql_timeline_navigation_enabled: true,
+  responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+  premium_content_api_read_enabled: false,
+  communities_web_enable_tweet_community_results_fetch: true,
+  c9s_tweet_anatomy_moderator_badge_enabled: true,
+  responsive_web_grok_analyze_button_fetch_trends_enabled: false,
+  responsive_web_grok_analyze_post_followups_enabled: true,
+  responsive_web_jetfuel_frame: false,
+  responsive_web_grok_share_attachment_enabled: true,
+  articles_preview_enabled: true,
+  responsive_web_edit_tweet_api_enabled: true,
+  graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+  view_counts_everywhere_api_enabled: true,
+  longform_notetweets_consumption_enabled: true,
+  responsive_web_twitter_article_tweet_consumption_enabled: true,
+  tweet_awards_web_tipping_enabled: false,
+  responsive_web_grok_show_grok_translated_post: false,
+  responsive_web_grok_analysis_button_from_backend: true,
+  creator_subscriptions_quote_tweet_preview_enabled: false,
+  freedom_of_speech_not_reach_fetch_enabled: true,
+  standardized_nudges_misinfo: true,
+  tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+  longform_notetweets_rich_text_read_enabled: true,
+  longform_notetweets_inline_media_enabled: true,
+  responsive_web_grok_image_annotation_enabled: true,
+  responsive_web_enhance_cards_enabled: false,
+};
+
+export async function fetchGuestTimeline(handle: string, ms = 9_000): Promise<{ tweets: FreeTweet[] | null; status: string }> {
+  const token = await guestToken(Math.min(6_000, ms));
+  if (!token) return { tweets: null, status: "no-guest-token" };
+  const headers = {
+    Authorization: `Bearer ${X_WEB_BEARER}`,
+    "x-guest-token": token,
+    "x-twitter-active-user": "yes",
+    "x-twitter-client-language": "en",
+  };
+  // rest_id via UserByScreenName (this endpoint answers a guest token).
+  const uVars = encodeURIComponent(JSON.stringify({ screen_name: handle, withSafetyModeUserFields: false }));
+  const feat = encodeURIComponent(JSON.stringify(GQL_FEATURES));
+  let restId: string | null = null;
+  let reached = false;
+  for (const qid of ["Yka-W8dz7RaEuQNkroPkYw", "sLVLhk0bGj3MVFEKTdax1w", "1VOOyvKkiI3FMmkeDNxM9A"]) {
+    const r = await fetchJson<{ data?: { user?: { result?: { rest_id?: string } } } }>(
+      `https://api.x.com/graphql/${qid}/UserByScreenName?variables=${uVars}&features=${feat}`,
+      Math.min(6_000, ms),
+      headers
+    );
+    if (r.status !== 0) reached = true;
+    const id = r.json?.data?.user?.result?.rest_id;
+    if (typeof id === "string") {
+      restId = id;
+      break;
+    }
+  }
+  if (!restId) return { tweets: null, status: reached ? "no-rest-id" : "unreachable" };
+
+  // UserTweets timeline for that rest_id (guest access is gated on X's side, so
+  // this may 401 — best effort; syndication remains the primary).
+  const tVars = encodeURIComponent(
+    JSON.stringify({
+      userId: restId,
+      count: 20,
+      includePromotedContent: false,
+      withQuickPromoteEligibilityTweetFields: false,
+      withVoice: false,
+      withV2Timeline: true,
+    })
+  );
+  const out: FreeTweet[] = [];
+  const seen = new Set<string>();
+  let tStatus = "gated";
+  for (const qid of ["E3opETHurmVJflFsUBVuUQ", "V7H0Ap3_Hh2FyS75OCDO3Q", "9zwVLJ48lmVUk8u_Gh9DmA"]) {
+    const r = await fetchJson<unknown>(
+      `https://api.x.com/graphql/${qid}/UserTweets?variables=${tVars}&features=${feat}`,
+      Math.min(8_000, ms),
+      headers
+    );
+    tStatus = String(r.status);
+    if (r.json) {
+      extractLegacyTweets(r.json, handle, out, seen);
+      if (out.length) break;
+    }
+  }
+  return { tweets: out.length ? out : null, status: out.length ? `ok:${out.length}` : `tweets-${tStatus}` };
 }
 
 // ── Discovery 3: Nitter-mirror RSS ──
@@ -416,21 +596,30 @@ export async function collectXFree(
   // too low, guaranteeing we return in time to write the week. Each rung logs
   // its outcome for the Diagnose evidence.
   const ladder: string[] = [];
-  let source = "fx-timeline";
+  let source = "syndication";
   let tweets: FreeTweet[] | null = null;
   let rssInstance: string | null = null;
 
-  const fx = await fetchFxTimeline(h, clamp(5_000));
-  if (fx.tweets) tweets = fx.tweets;
-  else ladder.push(`fx:${fx.statuses}`);
-
-  if (!tweets && left() > 4_000) {
-    const synd = await fetchSyndicationTimeline(h, clamp(6_000));
+  // 1) Syndication — X's own timeline; the richest source (full per-post
+  //    metrics + this week's posts) and the only live layer not hard-blocked
+  //    from the datacenter (429 is a soft rate-limit, retried inside).
+  {
+    const synd = await fetchSyndicationTimeline(h, clamp(7_000));
     if (synd.tweets) {
       source = "syndication";
       tweets = synd.tweets;
     } else ladder.push(`synd:${synd.status}`);
   }
+  // 2) Guest-token GraphQL timeline — reuses X's logged-out browsing path,
+  //    which already reaches this deployment; full metrics when not gated.
+  if (!tweets && left() > 8_000) {
+    const g = await fetchGuestTimeline(h, clamp(9_000));
+    if (g.tweets) {
+      source = "guest-gql";
+      tweets = g.tweets;
+    } else ladder.push(`guest:${g.status}`);
+  }
+  // 3) Nitter-mirror RSS — ids + dates, enriched below.
   if (!tweets && left() > 4_000) {
     const rss = await fetchNitterRss(h, clamp(5_000));
     if (rss.tweets) {
@@ -439,15 +628,15 @@ export async function collectXFree(
       rssInstance = rss.tried.find((t) => t.status === 200)?.host ?? null;
     } else ladder.push(`nitter:${rss.tried.map((t) => `${t.host.split(".")[0]}=${t.status}`).join("|")}`);
   }
+  // 4) x.com profile via the jina reader — ids only, enriched below.
   if (!tweets && left() > 6_000) {
-    // x.com profile via the jina reader — the channel the competitor follower
-    // scraper already reaches from this deployment; ids only, enriched below.
     const jina = await fetchJinaProfileIds(h, clamp(8_000));
     if (jina.ids.length) {
       source = "jina-profile";
       tweets = jina.ids.map(idOnly);
     } else ladder.push(`jina:${jina.status}`);
   }
+  // 5) Search engines — candidate ids, author-verified during enrichment.
   if (!tweets && left() > 5_000) {
     const found = await searchDiscoverIds(h, clamp(5_000));
     if (found.ids.length) {
@@ -455,6 +644,7 @@ export async function collectXFree(
       tweets = found.ids.map(idOnly);
     } else ladder.push(`search:${found.statuses}`);
   }
+  // 6) Previously stored ids — keeps KNOWN posts fresh in a discovery blackout.
   if (!tweets && knownIds.length) {
     source = "stored-ids";
     tweets = knownIds.slice(0, 12).map(idOnly);
