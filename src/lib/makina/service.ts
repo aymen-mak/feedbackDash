@@ -295,7 +295,9 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     }
     knownIdsByHandle[key] = [...ids];
   }
-  const xResults = twHandles.length ? await collectXProfiles(twHandles, 45_000, knownIdsByHandle) : {};
+  // 40s budget leaves headroom inside the 60s function for Telegram, the
+  // competitor pre-fetch, and persisting every row.
+  const xResults = twHandles.length ? await collectXProfiles(twHandles, 40_000, knownIdsByHandle) : {};
 
   for (const acc of ACCOUNTS) {
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
