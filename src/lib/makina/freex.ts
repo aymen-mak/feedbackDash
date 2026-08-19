@@ -400,6 +400,27 @@ export async function fetchGuestTimeline(handle: string, ms = 9_000): Promise<{ 
     }
     if (out.length) break;
   }
+
+  // SearchTimeline (from:<handle>, Latest) — includes REPLIES and stays
+  // guest-accessible when UserTweetsAndReplies is gated (404 for a guest). This
+  // is what recovers a reply-heavy handle like @makintern.
+  if (!out.length) {
+    const sVars = encodeURIComponent(
+      JSON.stringify({ rawQuery: `from:${handle}`, count: 40, product: "Latest", querySource: "typed_query" })
+    );
+    for (const qid of ["BGd0T_j7oVwlW5U79tO_0A", "nK1dw4oV3k4w5TdtcAdSww", "gkjsKepM6gl_HmFWoWKfgg"]) {
+      const r = await fetchJson<unknown>(
+        `https://api.x.com/graphql/${qid}/SearchTimeline?variables=${sVars}&features=${feat}`,
+        Math.min(8_000, ms),
+        headers
+      );
+      tStatus = `SearchTimeline:${r.status}`;
+      if (r.json) {
+        extractLegacyTweets(r.json, handle, out, seen);
+        if (out.length) break;
+      }
+    }
+  }
   return { tweets: out.length ? out : null, status: out.length ? `ok:${out.length}` : `tweets-${tStatus}` };
 }
 
