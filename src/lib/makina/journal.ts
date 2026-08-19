@@ -133,6 +133,9 @@ export interface TweetMetric {
 export interface MakinaTweets {
   /** Keyed by account key, e.g. "makinafi". */
   byAccount: Record<string, { tweets: TweetMetric[]; updatedAt: string }>;
+  /** Last time a PAID Apify run fired per handle (ISO). Enforces a cooldown so
+   *  repeated manual "Collect now" clicks can't burn credit on repeat runs. */
+  apifyRunAt?: Record<string, string>;
 }
 
 export function accountDef(key: string): AccountDef | undefined {

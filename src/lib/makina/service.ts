@@ -251,9 +251,35 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     }
     knownIdsByHandle[key] = [...ids];
   }
+  // Which handles may fall back to PAID Apify this run. Guards against wasteful
+  // spend: only handles whose last paid run was over the cooldown ago, and only
+  // while credit has headroom. (collectXProfiles also requires the free path to
+  // have found nothing AND APIFY_ALLOW_SPEND=true.)
+  const APIFY_COOLDOWN_MS = 20 * 3_600_000; // ~once/day/handle max, so weekly cron always runs but rapid manual clicks don't
+  const creditOk =
+    apifyUsage.usage == null || apifyUsage.limit == null || apifyUsage.usage < apifyUsage.limit - 0.25;
+  const runAt = tweetsStore.apifyRunAt ?? {};
+  const allowApify = new Set<string>();
+  if (creditOk) {
+    for (const h of twHandles) {
+      const key = h.replace(/^@/, "").toLowerCase();
+      const last = Date.parse(runAt[key] ?? "");
+      if (Number.isNaN(last) || Date.now() - last > APIFY_COOLDOWN_MS) allowApify.add(key);
+    }
+  }
+
   // 40s budget leaves headroom inside the 60s function for Telegram, the
   // competitor pre-fetch, and persisting every row.
-  const xResults = twHandles.length ? await collectXProfiles(twHandles, 40_000, knownIdsByHandle) : {};
+  const xResults = twHandles.length ? await collectXProfiles(twHandles, 40_000, knownIdsByHandle, allowApify) : {};
+
+  // Stamp the cooldown for every handle a paid run actually fired for (even if
+  // it returned nothing), so repeated "Collect now" clicks can't re-run it.
+  for (const [key, r] of Object.entries(xResults)) {
+    if (r.evidence?.apifyRan) {
+      tweetsStore.apifyRunAt = { ...(tweetsStore.apifyRunAt ?? {}), [key]: new Date().toISOString() };
+      tweetsChanged = true;
+    }
+  }
 
   for (const acc of ACCOUNTS) {
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
