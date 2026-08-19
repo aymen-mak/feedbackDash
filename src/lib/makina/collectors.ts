@@ -311,12 +311,16 @@ export async function collectXProfiles(
   if (clean.length === 0) return {};
 
   // PRIMARY: the zero-cost pipeline (followers + posts + engagement, freex.ts).
-  // Stateless public endpoints, so handles run concurrently against ONE shared
-  // deadline — the whole X phase must finish inside the function's time limit,
-  // or nothing gets persisted and the weekly panel stops advancing.
+  // Handles run SEQUENTIALLY, not concurrently: X throttles two simultaneous
+  // guest-token calls from the same IP, which left the second handle
+  // (@makintern) with an empty timeline while the first (@makinafi) succeeded,
+  // and 429'd syndication for both. They share ONE deadline so the whole X
+  // phase still finishes inside the function's time limit.
   const deadlineTs = Date.now() + budgetMs;
-  const free = await Promise.all(clean.map((h) => collectXFree(h, knownIdsByHandle[h] ?? [], deadlineTs)));
-  const out: Record<string, CollectResult> = Object.fromEntries(clean.map((h, i) => [h, free[i]]));
+  const out: Record<string, CollectResult> = {};
+  for (const h of clean) {
+    out[h] = await collectXFree(h, knownIdsByHandle[h] ?? [], deadlineTs);
+  }
 
   // OPT-IN FALLBACK: Apify/scweet, only for handles where free discovery found
   // no posts at all, and only when spending is explicitly allowed. Never runs
