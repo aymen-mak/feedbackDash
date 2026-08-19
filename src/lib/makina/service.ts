@@ -259,7 +259,7 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
     let error: string | null = null;
     let evidence: Record<string, unknown> = {};
-    let xWeekly: Record<string, Record<string, number>> | undefined;
+    let xWeekly: Record<string, Record<string, number | null>> | undefined;
 
     if (acc.platform === "twitter") {
       const key = (acc.handle ?? acc.key).replace(/^@/, "").toLowerCase();
