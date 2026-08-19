@@ -2,6 +2,49 @@ import { type TweetMetric, defaultWeekStart } from "./journal";
 import { parseHumanNumber, parseTelegramCount } from "@/lib/competitors/collectors";
 import { collectXFree } from "./freex";
 
+/** Per-week engagement buckets from a handle's recent tweets (Monday period
+ *  start), so the paid path backfills past weeks like the free path does. Only
+ *  sums a metric when every post in the week has it. */
+function weeklyFromTweets(tweets: TweetMetric[]): Record<string, Record<string, number>> {
+  const byWeek: Record<string, TweetMetric[]> = {};
+  for (const t of tweets) {
+    if (!t.createdAt) continue;
+    const d = new Date(t.createdAt);
+    if (Number.isNaN(d.getTime())) continue;
+    (byWeek[defaultWeekStart(d)] ??= []).push(t);
+  }
+  const sumIf = (arr: TweetMetric[], k: keyof TweetMetric): number | null => {
+    let s = 0;
+    for (const t of arr) {
+      const v = t[k];
+      if (typeof v !== "number") return null;
+      s += v;
+    }
+    return arr.length ? s : null;
+  };
+  const out: Record<string, Record<string, number>> = {};
+  for (const [wk, arr] of Object.entries(byWeek)) {
+    const v: Record<string, number> = {};
+    const imp = sumIf(arr, "impressions");
+    const lk = sumIf(arr, "likes");
+    const rp = sumIf(arr, "replies");
+    const rt = sumIf(arr, "reposts");
+    const qt = sumIf(arr, "quotes");
+    const bm = sumIf(arr, "bookmarks");
+    if (imp != null) v.impressions = imp;
+    if (lk != null) v.likes = lk;
+    if (rp != null) v.replies = rp;
+    if (rt != null) v.reposts = rt;
+    if (qt != null) v.shares = qt;
+    if (bm != null) v.bookmarks = bm;
+    if (imp != null && imp > 0 && lk != null && rp != null && rt != null) {
+      v.engagementRate = +(((lk + rp + rt + (qt ?? 0) + (bm ?? 0)) / imp) * 100).toFixed(2);
+    }
+    if (Object.keys(v).length) out[wk] = v;
+  }
+  return out;
+}
+
 /** Every Apify actor run costs real money (the actor charges per run start, on
  *  top of compute), so paid scraping is FROZEN unless explicitly re-enabled by
  *  setting APIFY_ALLOW_SPEND=true in Vercel. The free pipeline (freex.ts) is
@@ -251,7 +294,7 @@ function aggregateHandle(items: Array<Record<string, unknown>>, handle: string):
     shares,
     engagementRate: impressions > 0 ? +((engagements / impressions) * 100).toFixed(2) : null,
   };
-  return { values, error: null, tweets, weekly, evidence };
+  return { values, error: null, tweets, weekly: weeklyFromTweets(tweets), evidence };
 }
 
 /** Author handle of a scraped item, lowercased without the @ (accepts the
@@ -305,7 +348,8 @@ async function runScweet(actor: string, token: string, input: unknown, ms: numbe
 export async function collectXProfiles(
   handles: string[],
   budgetMs = 45_000,
-  knownIdsByHandle: Record<string, string[]> = {}
+  knownIdsByHandle: Record<string, string[]> = {},
+  allowApify: Set<string> = new Set()
 ): Promise<Record<string, CollectResult>> {
   const clean = [...new Set(handles.map((h) => h.replace(/^@/, "").trim().toLowerCase()).filter(Boolean))];
   if (clean.length === 0) return {};
@@ -322,10 +366,15 @@ export async function collectXProfiles(
     out[h] = await collectXFree(h, knownIdsByHandle[h] ?? [], deadlineTs);
   }
 
-  // OPT-IN FALLBACK: Apify/scweet, only for handles where free discovery found
-  // no posts at all, and only when spending is explicitly allowed. Never runs
-  // by default — every actor run charges real money.
-  const needPaid = clean.filter((h) => ((out[h].evidence?.tweetsFound as number | undefined) ?? 0) === 0);
+  // OPT-IN FALLBACK: Apify/scweet, only for handles the caller cleared in
+  // `allowApify` (spend enabled + cooldown elapsed + credit left), and only
+  // where free discovery found no posts. Never runs by default. Every handle
+  // it fires for is flagged `apifyRan` so the caller can stamp the cooldown,
+  // even if the run came back empty (so it won't immediately retry and burn
+  // more credit).
+  const needPaid = clean.filter(
+    (h) => allowApify.has(h) && ((out[h].evidence?.tweetsFound as number | undefined) ?? 0) === 0
+  );
   if (needPaid.length === 0 || !apifySpendAllowed()) return out;
 
   const paid = await collectXViaApify(needPaid, budgetMs);
@@ -334,6 +383,7 @@ export async function collectXProfiles(
     if (p && ((p.tweets?.length ?? 0) > 0 || Object.keys(p.values).length > Object.keys(out[h].values).length)) {
       out[h] = p;
     }
+    out[h] = { ...out[h], evidence: { ...(out[h].evidence ?? {}), apifyRan: true } };
   }
   return out;
 }
