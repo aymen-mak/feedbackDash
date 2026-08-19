@@ -259,6 +259,7 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
     let error: string | null = null;
     let evidence: Record<string, unknown> = {};
+    let xWeekly: Record<string, Record<string, number>> | undefined;
 
     if (acc.platform === "twitter") {
       const key = (acc.handle ?? acc.key).replace(/^@/, "").toLowerCase();
@@ -267,6 +268,7 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       evidence = r.evidence ?? {};
       // X runs on the free pipeline; Apify health no longer gates it.
       error = r.error ?? null;
+      xWeekly = r.weekly;
       if (r.tweets && r.tweets.length > 0) {
         tweetsStore.byAccount[acc.key] = { tweets: r.tweets, updatedAt: new Date().toISOString() };
         tweetsChanged = true;
@@ -302,6 +304,22 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     const nonNull = Object.fromEntries(Object.entries(collected).filter(([, v]) => v != null));
     if (Object.keys(nonNull).length > 0) {
       await upsertEntry({ account: acc.key, periodStart: period, values: nonNull });
+    }
+
+    // Backfill: fill every EARLIER week the timeline still covers whose
+    // engagement is empty (weeks collected while X discovery was blocked). Only
+    // touches weeks with no impressions stored, so real data is never
+    // overwritten and followers/deltas are preserved (upsert merges).
+    if (acc.platform === "twitter" && xWeekly) {
+      let filled = 0;
+      for (const [wk, vals] of Object.entries(xWeekly)) {
+        if (wk === period) continue; // current week already written above
+        const existing = journal.entries.find((e) => e.account === acc.key && e.periodStart === wk);
+        if (!existing || existing.values.impressions != null) continue; // gaps only
+        await upsertEntry({ account: acc.key, periodStart: wk, values: vals });
+        filled++;
+      }
+      if (filled > 0) evidence = { ...evidence, weeksBackfilled: filled };
     }
 
     // Build the per-source diagnostic from the real outcome of this run.
