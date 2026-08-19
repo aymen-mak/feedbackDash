@@ -25,10 +25,9 @@ export interface CollectResult {
   error: string | null;
   /** Latest per-post metrics (X only), newest first. */
   tweets?: TweetMetric[];
-  /** Per-week aggregates for EVERY week the discovered posts cover (X only),
-   *  keyed by period start (YYYY-MM-DD). Lets "Collect now" backfill past weeks,
-   *  not just the current one. */
-  weekly?: Record<string, Record<string, number | null>>;
+  /** Per-week engagement aggregates (X only), keyed by Monday period start, so
+   *  the service can backfill any past week that the timeline still covers. */
+  weekly?: Record<string, Record<string, number>>;
   /** Raw counts behind the result, for accurate diagnostics. */
   evidence?: Record<string, unknown>;
 }

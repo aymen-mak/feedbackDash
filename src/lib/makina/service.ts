@@ -303,7 +303,7 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
     const collected: Record<string, number | null> = { ...autoFromCompetitor(comp, acc.key) };
     let error: string | null = null;
     let evidence: Record<string, unknown> = {};
-    let backfillWeekly: Record<string, Record<string, number | null>> | undefined;
+    let xWeekly: Record<string, Record<string, number>> | undefined;
 
     if (acc.platform === "twitter") {
       const key = (acc.handle ?? acc.key).replace(/^@/, "").toLowerCase();
@@ -313,6 +313,7 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       backfillWeekly = r.weekly;
       // X runs on the free pipeline; Apify health no longer gates it.
       error = r.error ?? null;
+      xWeekly = r.weekly;
       if (r.tweets && r.tweets.length > 0) {
         tweetsStore.byAccount[acc.key] = { tweets: r.tweets, updatedAt: new Date().toISOString() };
         tweetsChanged = true;
@@ -350,24 +351,20 @@ export async function collectAndStore(periodStart?: string): Promise<CollectSumm
       await upsertEntry({ account: acc.key, periodStart: period, values: nonNull });
     }
 
-    // Backfill any PAST week the discovered posts cover but the journal left
-    // blank. Fill-only: never overwrite a week that already has data, since a
-    // re-scrape may see only some of that week's posts (a partial undercount).
-    let backfilled = 0;
-    if (backfillWeekly) {
-      for (const [wk, wvals] of Object.entries(backfillWeekly)) {
-        if (wk >= period) continue; // current/future handled by the live upsert above
-        const existing =
-          journal.entries.find((e) => e.account === acc.key && e.periodStart === wk)?.values ?? {};
-        const fill = Object.fromEntries(
-          Object.entries(wvals).filter(([k, v]) => v != null && existing[k] == null)
-        );
-        if (Object.keys(fill).length > 0) {
-          await upsertEntry({ account: acc.key, periodStart: wk, values: fill });
-          backfilled++;
-        }
+    // Backfill: fill every EARLIER week the timeline still covers whose
+    // engagement is empty (weeks collected while X discovery was blocked). Only
+    // touches weeks with no impressions stored, so real data is never
+    // overwritten and followers/deltas are preserved (upsert merges).
+    if (acc.platform === "twitter" && xWeekly) {
+      let filled = 0;
+      for (const [wk, vals] of Object.entries(xWeekly)) {
+        if (wk === period) continue; // current week already written above
+        const existing = journal.entries.find((e) => e.account === acc.key && e.periodStart === wk);
+        if (!existing || existing.values.impressions != null) continue; // gaps only
+        await upsertEntry({ account: acc.key, periodStart: wk, values: vals });
+        filled++;
       }
-      if (backfilled > 0) evidence = { ...evidence, weeksBackfilled: backfilled };
+      if (filled > 0) evidence = { ...evidence, weeksBackfilled: filled };
     }
 
     // Build the per-source diagnostic from the real outcome of this run.
