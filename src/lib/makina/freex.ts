@@ -356,8 +356,10 @@ export async function fetchGuestTimeline(handle: string, ms = 9_000): Promise<{ 
   }
   if (!restId) return { tweets: null, status: reached ? "no-rest-id" : "unreachable" };
 
-  // UserTweets timeline for that rest_id (guest access is gated on X's side, so
-  // this may 401 — best effort; syndication remains the primary).
+  // Timeline for that rest_id (guest access is gated on X's side, so this may
+  // 401 — best effort; syndication remains the primary). Try the "Posts" tab
+  // first, then fall back to "Posts and replies" — a reply-heavy account (e.g.
+  // an intern/engagement handle) has an empty Posts tab but active replies.
   const tVars = encodeURIComponent(
     JSON.stringify({
       userId: restId,
@@ -371,17 +373,24 @@ export async function fetchGuestTimeline(handle: string, ms = 9_000): Promise<{ 
   const out: FreeTweet[] = [];
   const seen = new Set<string>();
   let tStatus = "gated";
-  for (const qid of ["E3opETHurmVJflFsUBVuUQ", "V7H0Ap3_Hh2FyS75OCDO3Q", "9zwVLJ48lmVUk8u_Gh9DmA"]) {
-    const r = await fetchJson<unknown>(
-      `https://api.x.com/graphql/${qid}/UserTweets?variables=${tVars}&features=${feat}`,
-      Math.min(8_000, ms),
-      headers
-    );
-    tStatus = String(r.status);
-    if (r.json) {
-      extractLegacyTweets(r.json, handle, out, seen);
-      if (out.length) break;
+  const ops: { name: string; qids: string[] }[] = [
+    { name: "UserTweets", qids: ["E3opETHurmVJflFsUBVuUQ", "V7H0Ap3_Hh2FyS75OCDO3Q", "9zwVLJ48lmVUk8u_Gh9DmA"] },
+    { name: "UserTweetsAndReplies", qids: ["E4wA5vo2sjVyvpliUffSCw", "bt4TKuFdADcuA8vNMkC3Bg", "pz0IHaObdKyzM0i8_5-tGw"] },
+  ];
+  for (const op of ops) {
+    for (const qid of op.qids) {
+      const r = await fetchJson<unknown>(
+        `https://api.x.com/graphql/${qid}/${op.name}?variables=${tVars}&features=${feat}`,
+        Math.min(8_000, ms),
+        headers
+      );
+      tStatus = `${op.name}:${r.status}`;
+      if (r.json) {
+        extractLegacyTweets(r.json, handle, out, seen);
+        if (out.length) break;
+      }
     }
+    if (out.length) break;
   }
   return { tweets: out.length ? out : null, status: out.length ? `ok:${out.length}` : `tweets-${tStatus}` };
 }
