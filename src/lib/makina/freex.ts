@@ -382,8 +382,8 @@ export async function fetchGuestTimeline(handle: string, ms = 9_000): Promise<{ 
   const seen = new Set<string>();
   let tStatus = "gated";
   const ops: { name: string; qids: string[] }[] = [
-    { name: "UserTweets", qids: ["E3opETHurmVJflFsUBVuUQ", "V7H0Ap3_Hh2FyS75OCDO3Q", "9zwVLJ48lmVUk8u_Gh9DmA"] },
-    { name: "UserTweetsAndReplies", qids: ["E4wA5vo2sjVyvpliUffSCw", "bt4TKuFdADcuA8vNMkC3Bg", "pz0IHaObdKyzM0i8_5-tGw"] },
+    { name: "UserTweets", qids: ["E3opETHurmVJflFsUBVuUQ", "eoJ5zbv51Z_KVl81v9PmLQ", "V7H0Ap3_Hh2FyS75OCDO3Q"] },
+    { name: "UserTweetsAndReplies", qids: ["wc5DRl4VaW5lSqJ8YbftZQ", "RIWc55YCNyUJ-U3HHGYkdg", "bt4TKuFdADcuA8vNMkC3Bg"] },
   ];
   for (const op of ops) {
     for (const qid of op.qids) {
