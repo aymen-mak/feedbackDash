@@ -234,10 +234,11 @@ export async function fetchSyndicationTimeline(handle: string, ms = 6_000): Prom
 //    public metrics (likes/replies/reposts/quotes/views) in a single call. ──
 const X_WEB_BEARER =
   "AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs=1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA";
-let guestCache: { token: string; at: number } | null = null;
-
+// Always mint a FRESH guest token per handle — guest tokens carry a small
+// per-token read quota, and reusing one across handles let the first handle
+// (@makinafi) exhaust it, so the second (@makintern) got empty-but-200
+// timelines. No cache.
 async function guestToken(ms = 6_000): Promise<string | null> {
-  if (guestCache && Date.now() - guestCache.at < 2 * 3_600_000) return guestCache.token;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), ms);
   try {
@@ -249,10 +250,7 @@ async function guestToken(ms = 6_000): Promise<string | null> {
     });
     if (!res.ok) return null;
     const d = (await res.json()) as { guest_token?: string };
-    if (d?.guest_token) {
-      guestCache = { token: d.guest_token, at: Date.now() };
-      return d.guest_token;
-    }
+    if (d?.guest_token) return d.guest_token;
   } catch {
     /* ignore */
   } finally {
