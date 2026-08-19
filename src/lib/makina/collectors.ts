@@ -27,7 +27,7 @@ export interface CollectResult {
   tweets?: TweetMetric[];
   /** Per-week engagement aggregates (X only), keyed by Monday period start, so
    *  the service can backfill any past week that the timeline still covers. */
-  weekly?: Record<string, Record<string, number>>;
+  weekly?: Record<string, Record<string, number | null>>;
   /** Raw counts behind the result, for accurate diagnostics. */
   evidence?: Record<string, unknown>;
 }
