@@ -1,4 +1,4 @@
-import { type TweetMetric } from "./journal";
+import { type TweetMetric, defaultWeekStart } from "./journal";
 import { type CollectResult } from "./collectors";
 import { collectTwitter } from "@/lib/competitors/collectors";
 
@@ -25,7 +25,6 @@ import { collectTwitter } from "@/lib/competitors/collectors";
 
 const UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 MakinaPulse/1.0";
-const WEEK_MS = 7 * 24 * 3600 * 1000;
 
 interface TextResult {
   status: number; // 0 = network error / timeout
@@ -362,7 +361,7 @@ export async function fetchGuestTimeline(handle: string, ms = 9_000): Promise<{ 
   const tVars = encodeURIComponent(
     JSON.stringify({
       userId: restId,
-      count: 20,
+      count: 40,
       includePromotedContent: false,
       withQuickPromoteEligibilityTweetFields: false,
       withVoice: false,
@@ -549,6 +548,28 @@ function sumIfComplete(tweets: FreeTweet[], key: keyof FreeTweet): number | null
 const hasAnyCount = (t: FreeTweet) =>
   t.views != null || t.likes != null || t.replies != null || t.reposts != null;
 
+/** Weekly aggregate for a set of posts (only sums a metric when EVERY post in
+ *  the set has it — no partial sums). Includes the derived engagement rate. */
+function weekAgg(posts: FreeTweet[]): Record<string, number> {
+  const v: Record<string, number> = {};
+  const imp = sumIfComplete(posts, "views");
+  const lk = sumIfComplete(posts, "likes");
+  const rp = sumIfComplete(posts, "replies");
+  const rt = sumIfComplete(posts, "reposts");
+  const qt = sumIfComplete(posts, "quotes");
+  const bm = sumIfComplete(posts, "bookmarks");
+  if (imp != null) v.impressions = imp;
+  if (lk != null) v.likes = lk;
+  if (rp != null) v.replies = rp;
+  if (rt != null) v.reposts = rt;
+  if (qt != null) v.shares = qt;
+  if (bm != null) v.bookmarks = bm;
+  if (imp != null && imp > 0 && lk != null && rp != null && rt != null) {
+    v.engagementRate = +(((lk + rp + rt + (qt ?? 0) + (bm ?? 0)) / imp) * 100).toFixed(2);
+  }
+  return v;
+}
+
 /** Full free collection for one handle: followers + posts + engagement.
  *  `knownIds` (previously stored posts) keep metrics refreshing even when
  *  every discovery layer is dark. */
@@ -659,7 +680,7 @@ export async function collectXFree(
   tweets = tweets
     .filter((t) => (seen.has(t.id) ? false : (seen.add(t.id), true)))
     .sort((a, b) => (b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0))
-    .slice(0, 12);
+    .slice(0, 40); // wide enough to bucket several weeks for backfill
 
   // Enrich candidates lacking counts/date (search/stored/rss), ALL at once and
   // only while the budget lasts. Drop candidates whose verified author isn't
@@ -691,30 +712,23 @@ export async function collectXFree(
   }
   tweets = tweets.filter((t) => !t.author || t.author === h);
 
-  const cutoff = Date.now() - WEEK_MS;
-  const inWindow = tweets.filter((t) => {
-    const ms = Date.parse(t.createdAt);
-    return Number.isNaN(ms) ? false : ms >= cutoff;
-  });
-
-  const impressions = sumIfComplete(inWindow, "views");
-  const likes = sumIfComplete(inWindow, "likes");
-  const replies = sumIfComplete(inWindow, "replies");
-  const reposts = sumIfComplete(inWindow, "reposts");
-  const quotes = sumIfComplete(inWindow, "quotes");
-  const bookmarks = sumIfComplete(inWindow, "bookmarks");
-  if (inWindow.length > 0) {
-    if (impressions != null) values.impressions = impressions;
-    if (likes != null) values.likes = likes;
-    if (replies != null) values.replies = replies;
-    if (reposts != null) values.reposts = reposts;
-    if (quotes != null) values.shares = quotes;
-    if (bookmarks != null) values.bookmarks = bookmarks;
-    if (impressions != null && impressions > 0 && likes != null && replies != null && reposts != null) {
-      const engagements = likes + replies + reposts + (quotes ?? 0) + (bookmarks ?? 0);
-      values.engagementRate = +((engagements / impressions) * 100).toFixed(2);
-    }
+  // Bucket every fetched post into its Monday-week, using current cumulative
+  // metrics (≈ final for older posts). This fills the current week AND lets the
+  // service backfill past weeks — with no post ever counted in two weeks.
+  const byWeek: Record<string, FreeTweet[]> = {};
+  for (const t of tweets) {
+    if (!t.createdAt) continue;
+    const wk = defaultWeekStart(new Date(t.createdAt));
+    (byWeek[wk] ??= []).push(t);
   }
+  const weekly: Record<string, Record<string, number>> = {};
+  for (const [wk, posts] of Object.entries(byWeek)) {
+    const agg = weekAgg(posts);
+    if (Object.keys(agg).length) weekly[wk] = agg;
+  }
+  const currentPeriod = defaultWeekStart(new Date());
+  Object.assign(values, weekly[currentPeriod] ?? {});
+  const postsThisWeek = (byWeek[currentPeriod] ?? []).length;
 
   const metrics: TweetMetric[] = tweets.slice(0, 12).map((t) => ({
     id: t.id,
@@ -729,11 +743,13 @@ export async function collectXFree(
     bookmarks: t.bookmarks,
   }));
 
+  const curPosts = byWeek[currentPeriod] ?? [];
   const evidence: Record<string, unknown> = {
     source,
     instance: rssInstance,
     tweetsFound: tweets.length,
-    postsInWindow: inWindow.length,
+    postsThisWeek,
+    weeksCovered: Object.keys(weekly).length,
     enriched,
     authorRejected: authorRejected || null,
     enrichedVia: Object.entries(via).map(([k, n]) => `${k}:${n}`).join(", ") || null,
@@ -744,11 +760,11 @@ export async function collectXFree(
   let error: string | null = null;
   if (tweets.length === 0) {
     error = `X free scrape: discovery returned only other-author posts for @${h}; check the handle`;
-  } else if (inWindow.length === 0) {
-    error = `no posts in the last 7 days for @${h} (free scrape found ${tweets.length} older posts)`;
-  } else if (!inWindow.some(hasAnyCount)) {
-    error = `X free scrape: found ${inWindow.length} post(s) but the engagement APIs were unreachable (fxtwitter/vxtwitter/embed CDN); numbers carry forward`;
+  } else if (postsThisWeek === 0) {
+    error = `no posts yet this week for @${h} (backfilled ${Object.keys(weekly).length} week(s) from ${tweets.length} recent posts)`;
+  } else if (!curPosts.some(hasAnyCount)) {
+    error = `X free scrape: found ${postsThisWeek} post(s) this week but the engagement APIs were unreachable; numbers carry forward`;
   }
 
-  return { values, error, tweets: metrics, evidence };
+  return { values, error, tweets: metrics, weekly, evidence };
 }
