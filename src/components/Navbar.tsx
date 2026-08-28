@@ -111,6 +111,17 @@ export default function Navbar() {
 
         {/* Right controls */}
         <div className="flex items-center gap-1.5">
+          {/* Switch to the Pulse v2 interface (full page load) */}
+          <a
+            href="/pulse-v2.html"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-makina-accent/40 px-2.5 py-1.5 text-xs font-semibold text-makina-accent transition-all hover:bg-makina-accent-dim"
+            title="Switch to the Pulse v2 interface"
+          >
+            Pulse <span className="opacity-70">v2</span>
+          </a>
+
+          <div className="hidden sm:block w-px h-5 bg-makina-border/50" />
+
           {/* Reviewer identity */}
           <button
             onClick={openPrompt}
