@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
 import { useTheme } from "@/lib/theme";
-import { ArrowRight, Radar, Activity } from "lucide-react";
+import { ArrowRight, Radar, Activity, Globe } from "lucide-react";
 
 const ENTRIES = [
   {
@@ -17,6 +17,12 @@ const ENTRIES = [
     icon: <Activity size={18} />,
     title: "Makina metrics",
     desc: "Follower growth, engagement, and per-post performance.",
+  },
+  {
+    href: "/traffic",
+    icon: <Globe size={18} />,
+    title: "Web traffic",
+    desc: "Weekly site visitors and sources, with insights from each report.",
   },
 ];
 
@@ -58,7 +64,7 @@ export default function LandingPage() {
             Internal dashboard for competitor intelligence and Makina&apos;s social &amp; on-chain performance.
           </p>
 
-          <div className="mt-9 grid w-full max-w-lg grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="mt-9 grid w-full max-w-3xl grid-cols-1 gap-3 sm:grid-cols-3">
             {ENTRIES.map((e) => (
               <Link
                 key={e.href}
