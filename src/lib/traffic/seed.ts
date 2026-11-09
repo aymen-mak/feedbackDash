@@ -63,7 +63,7 @@ export function seedTraffic(): TrafficStore {
       { name: "tablet", visitors: 0, pageviews: 0, priorVisitors: 3, priorPageviews: 12 },
     ],
     observations:
-      "Weekday traffic is the gain: 662 vs 556 weekday visitors. Weekend pageviews fell (245 vs 315) even as weekend visitors held. Wed Nov 4 (183 / 562) replaced last week's Friday peak. Sitewide depth flat at 3.02 vs 3.06. Referral shift is t.co: 48→95 visitors (+97.9%), ahead of google.com 64→83. Direct still holds the deep sessions.",
+      "Weekday traffic drove the gain: 662 weekday visitors against 556 the week before. Weekend pageviews fell (245 vs 315) even though weekend visitors held. Wednesday Nov 4 (183 visitors, 562 pageviews) was the peak, taking over from last week's Friday. Depth held at 3.02 vs 3.06. The referrer that moved was t.co, from 48 to 95 visitors, ahead of google.com at 83. Direct still brings the deepest sessions.",
     research: null,
     createdAt: now,
     updatedAt: now,
@@ -73,7 +73,7 @@ export function seedTraffic(): TrafficStore {
     generatedAt: now,
     model: "heuristic",
     summary:
-      "Volume up (+17.6% visitors, +16.2% pageviews) with depth flat at 3.02 pages/visitor. t.co overtook Google as the top referrer; CH/DE/FR are the deepest real audience while the US is high-volume but shallow. Upload a report to refresh this with live cross-industry research.",
+      "Visitors up 17.6% and pageviews up 16.2%, with depth about the same at 3.02 pages per visitor. t.co passed Google as the top referrer. Switzerland, Germany and France read the most pages each, while the US brings volume but shallow visits. Upload a report to refresh this with live research.",
     insights: deriveInsights(week),
     suggestions: deriveSuggestions(week),
     sources: [],

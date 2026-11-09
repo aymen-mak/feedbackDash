@@ -18,7 +18,9 @@ Do two things:
 1. EXTRACT every metric from the PDF exactly into the schema below. Copy numbers verbatim; never invent rows. Prior-period columns map to the "prior" fields; null when absent.
 2. RESEARCH the current meta (use web search) on web growth, SEO/AEO, acquisition, audience and retention across the WHOLE tech landscape — web2, web3/crypto, AI and robotics — plus how leading sites (not only Makina's direct competitors) are winning reach right now. Apply it to THIS week's numbers.
 
-Insights must be specific and cite the week's actual numbers — never generic. Suggestions must be concrete, current (reflect 2026 best practice you found), and tied to the data. Prefer 6–9 insights and 6–9 suggestions.
+Insights must be specific and cite the week's actual numbers, never generic. Suggestions must be concrete, current (reflect 2026 best practice you found), and tied to the data. Aim for 6 to 9 insights and 6 to 9 suggestions.
+
+Writing style: plain, direct language a person would use out loud. No em dashes. No marketing cliches ("double down", "lean into", "leverage", "unlock", "supercharge", "game-changer", "robust", "seamless", "testament to"). No "not just X but Y" constructions. No forced groups of three. Short sentences. Let the numbers carry the point.
 
 Return exactly this JSON shape:
 {"week":{"weekStart":"YYYY-MM-DD","weekEnd":"YYYY-MM-DD","label":"","source":"","visitors":0,"pageviews":0,"visitorsPrev":0,"pageviewsPrev":0,"daily":[{"day":"","visitors":0,"pageviews":0}],"sources":[{"name":"","visitors":0,"pageviews":0,"priorVisitors":0}],"countries":[{"name":"","visitors":0,"pageviews":0,"priorVisitors":0}],"routes":[{"name":"","visitors":0,"pageviews":0,"priorVisitors":0}],"devices":[{"name":"","visitors":0,"pageviews":0,"priorVisitors":0,"priorPageviews":0}],"observations":""},"research":{"summary":"","insights":[{"lens":"Volume|Acquisition|Audience|Content|Devices|Cadence","tone":"good|watch|bad|info","title":"","detail":""}],"suggestions":[""],"sources":[{"title":"","url":""}]}}`;
