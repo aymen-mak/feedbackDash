@@ -137,15 +137,15 @@ function TrafficInner() {
   const flash = (tone: "ok" | "err", text: string) => { setMsg({ tone, text }); setTimeout(() => setMsg(null), 6000); };
 
   const uploadPdf = async (file: File) => {
-    setBusy("Researching the report — extracting metrics and scanning the current meta…");
+    setBusy("Reading the report and researching current trends. This can take a minute.");
     setMsg(null);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/traffic/ingest", { method: "POST", body: fd });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.ok) { await load(); setSel(data.week.id); setTab("insights"); flash("ok", "Report ingested and researched."); }
-      else flash("err", data?.error || "Ingest failed.");
+      if (res.ok && data?.ok) { await load(); setSel(data.week.id); setTab("insights"); flash("ok", "Done. Metrics and research updated."); }
+      else flash("err", data?.error || "Upload failed.");
     } catch (e) { flash("err", String(e)); }
     setBusy("");
   };
@@ -189,8 +189,8 @@ function TrafficInner() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {weeks.length > 1 && (
-              <select value={sel} onChange={(e) => setSel(e.target.value)} className="rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm text-makina-text outline-none">
+            {weeks.length > 0 && (
+              <select value={sel} onChange={(e) => setSel(e.target.value)} className="rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm text-makina-text outline-none" title="Pick a week">
                 {weeks.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
               </select>
             )}
@@ -244,7 +244,7 @@ function TrafficInner() {
               {research?.summary && (
                 <div className="rounded-xl border border-makina-accent/25 bg-makina-accent-dim/40 p-4">
                   <div className="mb-1 flex items-center gap-2 text-[11px] uppercase tracking-wider text-makina-accent">
-                    <Lightbulb size={13} /> Executive read {research.model !== "heuristic" && <span className="text-makina-subtle normal-case tracking-normal">· {research.model}</span>}
+                    <Lightbulb size={13} /> Summary {research.model !== "heuristic" && <span className="text-makina-subtle normal-case tracking-normal">· {research.model}</span>}
                   </div>
                   <p className="text-sm leading-relaxed text-makina-text/90">{research.summary}</p>
                 </div>
@@ -311,7 +311,7 @@ function TrafficInner() {
               <h3 className="text-sm font-semibold text-makina-text">Import a week (JSON)</h3>
               <button onClick={() => setShowImport(false)} className="text-makina-subtle hover:text-makina-text"><X size={16} /></button>
             </div>
-            <p className="mb-2 text-xs text-makina-muted">Fallback for when AI research is off. Paste a week object: visitors, pageviews, visitorsPrev, pageviewsPrev, and arrays for daily, sources, countries, routes, devices.</p>
+            <p className="mb-2 text-xs text-makina-muted">Use this if AI research is off. Paste one week as JSON: the totals plus the daily, sources, countries, routes and devices arrays.</p>
             <textarea value={jsonText} onChange={(e) => setJsonText(e.target.value)} rows={10} placeholder='{ "weekStart":"2026-11-09","label":"Nov 9–15","visitors":800, ... }' className="w-full rounded-lg border border-makina-border bg-makina-surface p-3 font-mono text-xs text-makina-text outline-none" />
             <div className="mt-3 flex justify-end gap-2">
               <button onClick={() => setShowImport(false)} className="rounded-lg border border-makina-border px-3 py-2 text-sm text-makina-muted">Cancel</button>
