@@ -84,20 +84,6 @@ export const ACCOUNTS: AccountDef[] = [
       { key: "messages", label: "Messages", kind: "count", category: "Activity", description: "Messages posted in the server this period." },
     ],
   },
-  {
-    key: "website",
-    label: "Website",
-    short: "Website",
-    platform: "website",
-    handle: "makina.finance",
-    autoMetric: "monthlyVisits",
-    metrics: [
-      { key: "monthlyVisits", label: "Monthly visits", kind: "count", category: "Audience", auto: true, description: "Total visits over the trailing month." },
-      { key: "uniqueVisitors", label: "Unique visitors", kind: "count", category: "Audience", description: "Distinct people who visited this period." },
-      { key: "avgVisitSec", label: "Avg visit (sec)", kind: "count", category: "Engagement", description: "Average time on site per visit, in seconds." },
-      { key: "signups", label: "App sign-ups", kind: "count", category: "Engagement", description: "New app sign-ups this period." },
-    ],
-  },
 ];
 
 export interface JournalEntry {
