@@ -71,6 +71,52 @@ function DailyChart({ week }: { week: TrafficWeek }) {
   );
 }
 
+function WeeksChart({ weeks, selId }: { weeks: TrafficWeek[]; selId: string }) {
+  const d = [...weeks].reverse(); // oldest to newest for the global view
+  if (d.length < 2) return null;
+  const W = 680, H = 200, padX = 34, padT = 16, padB = 28;
+  const maxV = Math.max(...d.map((x) => x.pageviews), 1);
+  const X = (i: number) => padX + (W - padX * 2) * (i / (d.length - 1));
+  const Y = (v: number) => H - padB - (H - padT - padB) * (v / maxV);
+  const line = (key: "visitors" | "pageviews") => d.map((x, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(x[key]).toFixed(1)}`).join(" ");
+  const area = `${line("pageviews")} L${X(d.length - 1).toFixed(1)} ${H - padB} L${X(0).toFixed(1)} ${H - padB} Z`;
+  const short = (w: TrafficWeek) => (w.label.split(/[–-]/)[0] || w.weekStart).trim();
+  return (
+    <div className="rounded-xl border border-makina-border bg-makina-card p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-makina-text">Activity since the first report</h3>
+        <div className="flex items-center gap-3 text-[11px] text-makina-muted">
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block h-0.5 w-4" style={{ background: "#5b9cf6" }} />Pageviews</span>
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block h-0.5 w-4" style={{ background: "#22c55e" }} />Visitors</span>
+        </div>
+      </div>
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ minWidth: 520 }}>
+          <defs>
+            <linearGradient id="weeksArea" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor="#5b9cf6" stopOpacity="0.18" />
+              <stop offset="100%" stopColor="#5b9cf6" stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          {[0, 0.5, 1].map((f) => (
+            <line key={f} x1={padX} x2={W - padX} y1={Y(maxV * f)} y2={Y(maxV * f)} stroke="rgba(120,130,150,0.22)" strokeWidth="1" />
+          ))}
+          <path d={area} fill="url(#weeksArea)" />
+          <path d={line("pageviews")} fill="none" stroke="#5b9cf6" strokeWidth="2" strokeLinejoin="round" />
+          <path d={line("visitors")} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" />
+          {d.map((x, i) => (
+            <g key={x.id}>
+              <circle cx={X(i)} cy={Y(x.pageviews)} r={x.id === selId ? 4 : 2.5} fill="#5b9cf6" />
+              <circle cx={X(i)} cy={Y(x.visitors)} r={x.id === selId ? 4 : 2.5} fill="#22c55e" />
+              <text x={X(i)} y={H - 8} textAnchor="middle" className={x.id === selId ? "fill-makina-text" : "fill-makina-subtle"} style={{ fontSize: 9 }}>{short(x)}</text>
+            </g>
+          ))}
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 function MetricTrend({ title, cur, prev, series, selIdx, fmtVal, color }: { title: string; cur: number; prev: number | null; series: number[]; selIdx: number; fmtVal: (n: number) => string; color: string }) {
   const W = 200, H = 40, pad = 4;
   const max = Math.max(...series, 1);
@@ -272,6 +318,7 @@ function TrafficInner() {
         ) : tab === "report" ? (
           <div className="mt-5 space-y-5">
             <WowOverview weeks={weeks} week={week} />
+            <WeeksChart weeks={weeks} selId={week.id} />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <KPI label="Busiest day" value={busiest?.day.split(" ").slice(1).join(" ") || "—"} sub={<span className="text-[11px] text-makina-subtle">{busiest?.visitors ?? 0} visitors</span>} />
               <KPI label="Top referrer" value={topRef?.name || "—"} sub={topRef ? <Delta cur={topRef.visitors} prev={topRef.priorVisitors} /> : undefined} />
