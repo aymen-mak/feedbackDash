@@ -38,6 +38,13 @@ const toInt = (s: string): number => {
   const n = toNum(s);
   return n == null ? 0 : Math.round(n);
 };
+// Prior-period visitor/pageview counts are whole numbers. A non-integer here
+// (e.g. 4.21) means we latched onto a pages-per-visitor ratio column, not a
+// prior count, so reject it and let week-over-week come from stored history.
+const intCount = (s: string): number | null => {
+  const n = toNum(s);
+  return n != null && Number.isInteger(n) ? n : null;
+};
 
 function pagerender(pageData: { getTextContent: (o: object) => Promise<{ items: { str: string; transform: number[] }[] }> }): Promise<string> {
   return pageData.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false }).then((tc) => {
@@ -125,10 +132,10 @@ export async function parsePdf(buf: Buffer): Promise<ParsedWeek> {
     if (!mode || toNum(cells[1]) == null) continue;
     const name = cells[0];
     if (mode === "day") daily.push({ day: name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0") });
-    else if (mode === "source") sources.push({ name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0"), priorVisitors: toNum(cells[3] || "") });
-    else if (mode === "country") countries.push({ name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0"), priorVisitors: toNum(cells[4] || "") });
-    else if (mode === "route") routes.push({ name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0"), priorVisitors: toNum(cells[3] || "") });
-    else if (mode === "device") devices.push({ name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0"), priorVisitors: toNum(cells[3] || ""), priorPageviews: toNum(cells[4] || "") });
+    else if (mode === "source") sources.push({ name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0"), priorVisitors: intCount(cells[3] || "") });
+    else if (mode === "country") countries.push({ name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0"), priorVisitors: intCount(cells[4] || "") });
+    else if (mode === "route") routes.push({ name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0"), priorVisitors: intCount(cells[3] || "") });
+    else if (mode === "device") devices.push({ name, visitors: toInt(cells[1]), pageviews: toInt(cells[2] || "0"), priorVisitors: intCount(cells[3] || ""), priorPageviews: intCount(cells[4] || "") });
   }
 
   if (!visitors && daily.length) visitors = daily.reduce((a, b) => a + b.visitors, 0);
