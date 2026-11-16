@@ -1,4 +1,4 @@
-import { type TrafficWeek, type Insight, pagesPerVisitor } from "./types";
+import { type TrafficWeek, type WeekResearch, type Insight, pagesPerVisitor } from "./types";
 
 // Deterministic, data-cited insights. Each line only fires when the week's own
 // numbers support it, and quotes them. Used as the fallback when AI research
@@ -169,4 +169,36 @@ export function deriveSuggestions(week: TrafficWeek): string[] {
   }
   out.push(`Read how the clearest explainer pages elsewhere are written, in DeFi but also AI and infra, and borrow what works. The best references are often outside the direct competitor set.`);
   return out;
+}
+
+/** One or two plain sentences reading the week. Seeds the heuristic summary. */
+export function summarize(week: TrafficWeek): string {
+  const w = week;
+  const vWow = pct(w.visitors, w.visitorsPrev);
+  const pWow = pct(w.pageviews, w.pageviewsPrev);
+  const depth = pagesPerVisitor(w.pageviews, w.visitors);
+  const lead =
+    vWow != null
+      ? `Visitors ${vWow >= 0 ? "up" : "down"} ${Math.abs(vWow)}%${pWow != null ? ` and pageviews ${pWow >= 0 ? "up" : "down"} ${Math.abs(pWow)}%` : ""} on last week, at ${depth} pages per visitor.`
+      : `${k(w.visitors)} visitors and ${k(w.pageviews)} pageviews this week, at ${depth} pages per visitor.`;
+  const refs = w.sources
+    .filter((s) => !/direct/i.test(s.name) && s.priorVisitors != null && s.visitors >= 10)
+    .map((s) => ({ s, g: s.visitors - (s.priorVisitors ?? 0) }))
+    .sort((a, b) => b.g - a.g);
+  const top = refs[0];
+  const note = top && top.g > 0 ? ` ${top.s.name} moved most among referrers, ${top.s.priorVisitors} to ${top.s.visitors} visitors.` : "";
+  return (lead + note).trim();
+}
+
+/** Full deterministic research block. The fallback when AI research is off, and
+ *  the shared builder both API routes use so insights never fall back to blank. */
+export function heuristicResearch(week: TrafficWeek): WeekResearch {
+  return {
+    generatedAt: week.updatedAt || new Date().toISOString(),
+    model: "heuristic",
+    summary: summarize(week),
+    insights: deriveInsights(week),
+    suggestions: deriveSuggestions(week),
+    sources: [],
+  };
 }

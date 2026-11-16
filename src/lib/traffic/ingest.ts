@@ -1,48 +1,72 @@
 import { type TrafficWeek, type WeekResearch, type Insight } from "./types";
 
-// Automated ingest: hand the uploaded PDF to Claude with web search, which both
-// extracts the week's metrics AND researches the current cross-industry meta
-// (web2 / web3 / AI / robotics) to produce data-cited insights and suggestions.
-// No chat interaction required. Falls back cleanly when no key is configured.
+// Research only. Metrics are extracted deterministically in parse.ts with no API
+// key. This module takes an already-parsed week and asks Claude (with web search)
+// to research the current cross-industry meta (web2 / web3 / AI / robotics) and
+// return data-cited insights + suggestions. When no key is set, or the call fails
+// or times out, the caller falls back to the heuristic research in insights.ts,
+// so uploads always succeed with metrics and insights either way.
 
 const API = "https://api.anthropic.com/v1/messages";
 const MODEL = process.env.TRAFFIC_MODEL || "claude-sonnet-5-5";
+const TIMEOUT_MS = 55_000; // stay under the route's maxDuration
 
 export function aiConfigured(): boolean {
   return !!process.env.ANTHROPIC_API_KEY;
 }
 
-const SYSTEM = `You are a senior web-growth analyst for Makina, a DeFi vault execution engine (makina.finance). You read a weekly web-traffic PDF and return STRICT JSON only — no prose, no code fences.
+const SYSTEM = `You are a senior web-growth analyst for Makina, a DeFi vault execution engine (makina.finance). You are given one week of web-traffic metrics as JSON. Return STRICT JSON only, no prose, no code fences.
 
-Do two things:
-1. EXTRACT every metric from the PDF exactly into the schema below. Copy numbers verbatim; never invent rows. Prior-period columns map to the "prior" fields; null when absent.
-2. RESEARCH the current meta (use web search) on web growth, SEO/AEO, acquisition, audience and retention across the WHOLE tech landscape — web2, web3/crypto, AI and robotics — plus how leading sites (not only Makina's direct competitors) are winning reach right now. Apply it to THIS week's numbers.
+Research the current meta (use web search) on web growth, SEO and AEO, acquisition, audience and retention across the whole tech landscape (web2, web3/crypto, AI and robotics), plus how leading sites beyond Makina's direct competitors are winning reach right now. Apply what you find to THIS week's numbers.
 
-Insights must be specific and cite the week's actual numbers, never generic. Suggestions must be concrete, current (reflect 2026 best practice you found), and tied to the data. Aim for 6 to 9 insights and 6 to 9 suggestions.
+Insights must cite the week's actual numbers, never generic. Suggestions must be concrete, reflect current best practice you found, and tie back to the data. Aim for 6 to 9 insights and 6 to 9 suggestions.
 
-Writing style: plain, direct language a person would use out loud. No em dashes. No marketing cliches ("double down", "lean into", "leverage", "unlock", "supercharge", "game-changer", "robust", "seamless", "testament to"). No "not just X but Y" constructions. No forced groups of three. Short sentences. Let the numbers carry the point.
+Writing style: plain, direct language a person would use out loud. No em dashes. No marketing cliches (double down, lean into, leverage, unlock, supercharge, game-changer, robust, seamless, testament to). No "not just X but Y". No forced groups of three. Short sentences. Let the numbers carry the point.
 
 Return exactly this JSON shape:
-{"week":{"weekStart":"YYYY-MM-DD","weekEnd":"YYYY-MM-DD","label":"","source":"","visitors":0,"pageviews":0,"visitorsPrev":0,"pageviewsPrev":0,"daily":[{"day":"","visitors":0,"pageviews":0}],"sources":[{"name":"","visitors":0,"pageviews":0,"priorVisitors":0}],"countries":[{"name":"","visitors":0,"pageviews":0,"priorVisitors":0}],"routes":[{"name":"","visitors":0,"pageviews":0,"priorVisitors":0}],"devices":[{"name":"","visitors":0,"pageviews":0,"priorVisitors":0,"priorPageviews":0}],"observations":""},"research":{"summary":"","insights":[{"lens":"Volume|Acquisition|Audience|Content|Devices|Cadence","tone":"good|watch|bad|info","title":"","detail":""}],"suggestions":[""],"sources":[{"title":"","url":""}]}}`;
+{"summary":"","insights":[{"lens":"Volume|Acquisition|Audience|Content|Devices|Cadence","tone":"good|watch|bad|info","title":"","detail":""}],"suggestions":[""],"sources":[{"title":"","url":""}]}`;
 
-interface RawResult {
-  week: Record<string, unknown>;
-  research: { summary?: string; insights?: Insight[]; suggestions?: string[]; sources?: { title: string; url: string }[] };
+interface RawResearch {
+  summary?: string;
+  insights?: Insight[];
+  suggestions?: string[];
+  sources?: { title: string; url: string }[];
 }
 
-function extractJson(text: string): RawResult | null {
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
+function extractJson(text: string): RawResearch | null {
   const fenced = text.replace(/```json\s*|\s*```/g, "");
   const start = fenced.indexOf("{");
   const end = fenced.lastIndexOf("}");
   if (start < 0 || end <= start) return null;
   try {
-    return JSON.parse(fenced.slice(start, end + 1)) as RawResult;
+    return JSON.parse(fenced.slice(start, end + 1)) as RawResearch;
   } catch {
     return null;
   }
 }
 
-async function callClaude(pdfBase64: string, withSearch: boolean): Promise<string> {
+function metricsFor(week: TrafficWeek) {
+  return {
+    label: week.label,
+    weekStart: week.weekStart,
+    weekEnd: week.weekEnd,
+    source: week.source,
+    visitors: week.visitors,
+    pageviews: week.pageviews,
+    visitorsPrev: week.visitorsPrev,
+    pageviewsPrev: week.pageviewsPrev,
+    daily: week.daily,
+    sources: week.sources,
+    countries: week.countries,
+    routes: week.routes,
+    devices: week.devices,
+    observations: week.observations,
+  };
+}
+
+async function callClaude(week: TrafficWeek, withSearch: boolean, signal: AbortSignal): Promise<string> {
   const body = {
     model: MODEL,
     max_tokens: 6000,
@@ -51,10 +75,7 @@ async function callClaude(pdfBase64: string, withSearch: boolean): Promise<strin
     messages: [
       {
         role: "user",
-        content: [
-          { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfBase64 } },
-          { type: "text", text: "Extract this weekly web-traffic report and research the current cross-industry meta, then return the JSON." },
-        ],
+        content: `Here is the week's traffic. Research the current cross-industry meta, then return the research JSON.\n\n${JSON.stringify(metricsFor(week))}`,
       },
     ],
   };
@@ -66,6 +87,7 @@ async function callClaude(pdfBase64: string, withSearch: boolean): Promise<strin
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify(body),
+    signal,
   });
   if (!res.ok) {
     const t = await res.text().catch(() => "");
@@ -75,57 +97,34 @@ async function callClaude(pdfBase64: string, withSearch: boolean): Promise<strin
   return (data.content ?? []).filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n");
 }
 
-const num = (v: unknown): number => (typeof v === "number" && Number.isFinite(v) ? v : typeof v === "string" ? +v.replace(/[, ]/g, "") || 0 : 0);
-const numOrNull = (v: unknown): number | null => (v == null ? null : num(v));
-const str = (v: unknown): string => (typeof v === "string" ? v : "");
-
-function mapWeek(raw: Record<string, unknown>, research: WeekResearch): TrafficWeek {
-  const arr = (k: string) => (Array.isArray(raw[k]) ? (raw[k] as Record<string, unknown>[]) : []);
-  const weekStart = str(raw.weekStart) || new Date().toISOString().slice(0, 10);
-  const now = new Date().toISOString();
-  return {
-    id: weekStart,
-    weekStart,
-    weekEnd: str(raw.weekEnd) || weekStart,
-    label: str(raw.label) || weekStart,
-    source: str(raw.source) || null,
-    visitors: num(raw.visitors),
-    pageviews: num(raw.pageviews),
-    visitorsPrev: numOrNull(raw.visitorsPrev),
-    pageviewsPrev: numOrNull(raw.pageviewsPrev),
-    daily: arr("daily").map((d) => ({ day: str(d.day), visitors: num(d.visitors), pageviews: num(d.pageviews) })),
-    sources: arr("sources").map((d) => ({ name: str(d.name), visitors: num(d.visitors), pageviews: num(d.pageviews), priorVisitors: numOrNull(d.priorVisitors) })),
-    countries: arr("countries").map((d) => ({ name: str(d.name), visitors: num(d.visitors), pageviews: num(d.pageviews), priorVisitors: numOrNull(d.priorVisitors) })),
-    routes: arr("routes").map((d) => ({ name: str(d.name), visitors: num(d.visitors), pageviews: num(d.pageviews), priorVisitors: numOrNull(d.priorVisitors) })),
-    devices: arr("devices").map((d) => ({ name: str(d.name), visitors: num(d.visitors), pageviews: num(d.pageviews), priorVisitors: numOrNull(d.priorVisitors), priorPageviews: numOrNull(d.priorPageviews) })),
-    observations: str(raw.observations) || null,
-    research,
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-/** Ingest a PDF via Claude. Throws on failure so the caller can report it. */
-export async function ingestPdf(pdfBase64: string): Promise<TrafficWeek> {
-  if (!aiConfigured()) throw new Error("ANTHROPIC_API_KEY is not set on this deployment.");
-  let text: string;
+/** Research an already-parsed week with Claude. Returns null (never throws) when
+ *  no key is set or the call fails/times out, so the caller uses the heuristic. */
+export async function researchWeek(week: TrafficWeek): Promise<WeekResearch | null> {
+  if (!aiConfigured()) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    text = await callClaude(pdfBase64, true);
-  } catch (e) {
-    // Web-search tool may be unavailable on this account/version — retry plain.
-    if (/web_search|tool/i.test(String(e))) text = await callClaude(pdfBase64, false);
-    else throw e;
+    let text: string;
+    try {
+      text = await callClaude(week, true, controller.signal);
+    } catch (e) {
+      // Web-search tool may be unavailable on this account/version: retry plain.
+      if (/web_search|tool/i.test(String(e))) text = await callClaude(week, false, controller.signal);
+      else throw e;
+    }
+    const r = extractJson(text);
+    if (!r) return null;
+    return {
+      generatedAt: new Date().toISOString(),
+      model: MODEL,
+      summary: str(r.summary),
+      insights: Array.isArray(r.insights) ? r.insights.slice(0, 12) : [],
+      suggestions: Array.isArray(r.suggestions) ? r.suggestions.map(str).filter(Boolean).slice(0, 12) : [],
+      sources: Array.isArray(r.sources) ? r.sources.filter((s) => s && s.url).slice(0, 12) : [],
+    };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
-  const parsed = extractJson(text);
-  if (!parsed || !parsed.week) throw new Error("Could not parse the report. Check the PDF or model output.");
-  const r = parsed.research ?? {};
-  const research: WeekResearch = {
-    generatedAt: new Date().toISOString(),
-    model: MODEL,
-    summary: str(r.summary),
-    insights: Array.isArray(r.insights) ? r.insights.slice(0, 12) : [],
-    suggestions: Array.isArray(r.suggestions) ? r.suggestions.map(str).filter(Boolean).slice(0, 12) : [],
-    sources: Array.isArray(r.sources) ? r.sources.filter((s) => s && s.url).slice(0, 12) : [],
-  };
-  return mapWeek(parsed.week, research);
 }
