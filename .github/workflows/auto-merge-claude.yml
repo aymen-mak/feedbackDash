@@ -1,9 +1,11 @@
 name: Auto-merge Claude branches to master
 
+# Manual only. Auto-merging every claude/** push into master triggered a failing
+# Vercel production build on each push and sent a deployment-failure email every
+# time. Run this by hand from the Actions tab when you deliberately want to merge
+# a branch to master.
 on:
-  push:
-    branches:
-      - "claude/**"
+  workflow_dispatch:
 
 jobs:
   merge-to-master:

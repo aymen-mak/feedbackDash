@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Upload, Plus, Trash2, Check, ExternalLink, FileText, X, Lightbulb } from "lucide-react";
+import { Upload, Plus, Trash2, Check, ExternalLink, FileText, X, Lightbulb, ChevronDown, ChevronUp } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { PageLoader, Spinner } from "@/components/Spinner";
 import { type TrafficWeek, type ActionItem, type Insight, type TrafficRow, pagesPerVisitor } from "@/lib/traffic/types";
@@ -71,6 +71,57 @@ function DailyChart({ week }: { week: TrafficWeek }) {
   );
 }
 
+function MetricTrend({ title, cur, prev, series, selIdx, fmtVal, color }: { title: string; cur: number; prev: number | null; series: number[]; selIdx: number; fmtVal: (n: number) => string; color: string }) {
+  const W = 200, H = 40, pad = 4;
+  const max = Math.max(...series, 1);
+  const min = Math.min(...series);
+  const range = max - min || 1;
+  const X = (i: number) => (series.length <= 1 ? W / 2 : pad + (W - pad * 2) * (i / (series.length - 1)));
+  const Y = (v: number) => H - pad - (H - pad * 2) * ((v - min) / range);
+  const d = series.map((v, i) => `${i ? "L" : "M"}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`).join(" ");
+  const area = series.length > 1 ? `${d} L${X(series.length - 1).toFixed(1)} ${H - pad} L${X(0).toFixed(1)} ${H - pad} Z` : "";
+  const gid = `spark-${title.replace(/\W/g, "")}`;
+  return (
+    <div className="rounded-xl border border-makina-border bg-makina-card p-4">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[11px] uppercase tracking-wider text-makina-subtle">{title}</span>
+        <Delta cur={cur} prev={prev} />
+      </div>
+      <div className="mt-1 text-2xl font-bold tabular-nums text-makina-text">{fmtVal(cur)}</div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 block w-full" style={{ height: 42 }}>
+        <defs>
+          <linearGradient id={gid} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.22" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {area && <path d={area} fill={`url(#${gid})`} />}
+        <path d={d} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {series.map((v, i) => (i === selIdx ? <circle key={i} cx={X(i)} cy={Y(v)} r="3.5" fill={color} /> : null))}
+      </svg>
+    </div>
+  );
+}
+
+function WowOverview({ weeks, week }: { weeks: TrafficWeek[]; week: TrafficWeek }) {
+  const chrono = [...weeks].reverse(); // oldest to newest for the trend line
+  const selIdx = Math.max(0, chrono.findIndex((w) => w.id === week.id));
+  const depthPrev = week.visitorsPrev && week.pageviewsPrev ? pagesPerVisitor(week.pageviewsPrev, week.visitorsPrev) : null;
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-makina-text">Week over week</h3>
+        <span className="text-[11px] text-makina-subtle">{chrono.length > 1 ? `${chrono.length} weeks · ` : ""}vs prior week</span>
+      </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <MetricTrend title="Visitors" cur={week.visitors} prev={week.visitorsPrev} series={chrono.map((w) => w.visitors)} selIdx={selIdx} fmtVal={fmt} color="#22c55e" />
+        <MetricTrend title="Pageviews" cur={week.pageviews} prev={week.pageviewsPrev} series={chrono.map((w) => w.pageviews)} selIdx={selIdx} fmtVal={fmt} color="#5b9cf6" />
+        <MetricTrend title="Pages / visitor" cur={pagesPerVisitor(week.pageviews, week.visitors)} prev={depthPrev} series={chrono.map((w) => pagesPerVisitor(w.pageviews, w.visitors))} selIdx={selIdx} fmtVal={(n) => String(n)} color="#94a3b8" />
+      </div>
+    </div>
+  );
+}
+
 function RowTable({ title, rows, unit, depth }: { title: string; rows: TrafficRow[]; unit?: string; depth?: boolean }) {
   if (!rows.length) return null;
   return (
@@ -111,6 +162,7 @@ function TrafficInner() {
   const [loading, setLoading] = useState(true);
   const [sel, setSel] = useState<string>("");
   const [tab, setTab] = useState<"report" | "insights">("report");
+  const [showDetails, setShowDetails] = useState(false);
   const [busy, setBusy] = useState<string>("");
   const [msg, setMsg] = useState<{ tone: "ok" | "err"; text: string } | null>(null);
   const [newAction, setNewAction] = useState("");
@@ -137,14 +189,14 @@ function TrafficInner() {
   const flash = (tone: "ok" | "err", text: string) => { setMsg({ tone, text }); setTimeout(() => setMsg(null), 6000); };
 
   const uploadPdf = async (file: File) => {
-    setBusy("Reading the report and researching current trends. This can take a minute.");
+    setBusy("Reading the report and generating insights. This can take a minute when AI research is on.");
     setMsg(null);
     try {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch("/api/traffic/ingest", { method: "POST", body: fd });
       const data = await res.json().catch(() => null);
-      if (res.ok && data?.ok) { await load(); setSel(data.week.id); setTab("insights"); flash("ok", "Done. Metrics and research updated."); }
+      if (res.ok && data?.ok) { await load(); setSel(data.week.id); setTab("insights"); flash("ok", data.researched ? "Done. Metrics and AI research updated." : "Done. Metrics in, insights generated."); }
       else flash("err", data?.error || "Upload failed.");
     } catch (e) { flash("err", String(e)); }
     setBusy("");
@@ -171,6 +223,8 @@ function TrafficInner() {
   if (loading) return <PageLoader />;
 
   const research = week?.research;
+  const busiest = week ? [...week.daily].sort((a, b) => b.visitors - a.visitors)[0] : undefined;
+  const topRef = week ? [...week.sources].filter((s) => !/direct/i.test(s.name)).sort((a, b) => b.visitors - a.visitors)[0] : undefined;
   const openActions = actions.filter((a) => !a.done);
   const doneActions = actions.filter((a) => a.done);
 
@@ -217,23 +271,30 @@ function TrafficInner() {
           <div className="mt-10 text-center text-sm text-makina-muted">No reports yet. Upload a weekly PDF to begin.</div>
         ) : tab === "report" ? (
           <div className="mt-5 space-y-5">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <KPI label="Visitors" value={fmt(week.visitors)} sub={<Delta cur={week.visitors} prev={week.visitorsPrev} />} />
-              <KPI label="Pageviews" value={fmt(week.pageviews)} sub={<Delta cur={week.pageviews} prev={week.pageviewsPrev} />} />
-              <KPI label="Pages / visitor" value={String(pagesPerVisitor(week.pageviews, week.visitors))} />
-              <KPI label="Busiest day" value={[...week.daily].sort((a, b) => b.visitors - a.visitors)[0]?.day.split(" ").slice(1).join(" ") ?? "—"} sub={<span className="text-[11px] text-makina-subtle">{[...week.daily].sort((a, b) => b.visitors - a.visitors)[0]?.visitors ?? 0} visitors</span>} />
+            <WowOverview weeks={weeks} week={week} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <KPI label="Busiest day" value={busiest?.day.split(" ").slice(1).join(" ") || "—"} sub={<span className="text-[11px] text-makina-subtle">{busiest?.visitors ?? 0} visitors</span>} />
+              <KPI label="Top referrer" value={topRef?.name || "—"} sub={topRef ? <Delta cur={topRef.visitors} prev={topRef.priorVisitors} /> : undefined} />
             </div>
-            <DailyChart week={week} />
-            <div className="grid gap-5 lg:grid-cols-2">
-              <RowTable title="Referrers" rows={week.sources} unit="Source" />
-              <RowTable title="Countries" rows={week.countries} unit="Country" depth />
-              <RowTable title="Routes" rows={week.routes} unit="Route" />
-              <RowTable title="Devices" rows={week.devices} unit="Device" />
-            </div>
-            {week.observations && (
-              <div className="rounded-xl border border-makina-border bg-makina-card p-4">
-                <h3 className="mb-2 text-sm font-semibold text-makina-text">Report notes</h3>
-                <p className="text-sm leading-relaxed text-makina-muted">{week.observations}</p>
+            <button onClick={() => setShowDetails((v) => !v)} className="flex w-full items-center justify-center gap-2 rounded-xl border border-makina-border bg-makina-card py-2.5 text-sm font-medium text-makina-muted transition-colors hover:border-makina-accent/40 hover:text-makina-text">
+              {showDetails ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+              {showDetails ? "Hide details" : "Show daily chart, referrers, countries, routes and devices"}
+            </button>
+            {showDetails && (
+              <div className="space-y-5">
+                <DailyChart week={week} />
+                <div className="grid gap-5 lg:grid-cols-2">
+                  <RowTable title="Referrers" rows={week.sources} unit="Source" />
+                  <RowTable title="Countries" rows={week.countries} unit="Country" depth />
+                  <RowTable title="Routes" rows={week.routes} unit="Route" />
+                  <RowTable title="Devices" rows={week.devices} unit="Device" />
+                </div>
+                {week.observations && (
+                  <div className="rounded-xl border border-makina-border bg-makina-card p-4">
+                    <h3 className="mb-2 text-sm font-semibold text-makina-text">Report notes</h3>
+                    <p className="text-sm leading-relaxed text-makina-muted">{week.observations}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -8,15 +8,11 @@ import {
   deleteActionItem,
   replaceAutoActions,
 } from "@/lib/traffic/store";
-import { deriveInsights, deriveSuggestions } from "@/lib/traffic/insights";
+import { heuristicResearch } from "@/lib/traffic/insights";
 import { aiConfigured } from "@/lib/traffic/ingest";
-import { type TrafficWeek, type WeekResearch, type TrafficRow } from "@/lib/traffic/types";
+import { type TrafficWeek, type TrafficRow } from "@/lib/traffic/types";
 
 export const dynamic = "force-dynamic";
-
-function heuristicResearch(w: TrafficWeek): WeekResearch {
-  return { generatedAt: w.updatedAt, model: "heuristic", summary: "", insights: deriveInsights(w), suggestions: deriveSuggestions(w), sources: [] };
-}
 
 export async function GET() {
   try {
