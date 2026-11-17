@@ -64,14 +64,22 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: TipItem
   );
 }
 
-function TrafficArea({ data, height, highlight }: { data: Datum[]; height: number; highlight?: string }) {
+function TrafficArea({ data, height, highlight, onPointClick }: { data: Datum[]; height: number; highlight?: string; onPointClick?: (d: Datum) => void }) {
   const c = useChartColors();
   const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
   const gPv = `pv-${uid}`;
   const gV = `v-${uid}`;
+  const handleClick = onPointClick
+    ? (state: unknown) => {
+        const s = state as { activePayload?: Array<{ payload?: Datum }> };
+        const p = s.activePayload?.[0]?.payload;
+        if (p) onPointClick(p);
+      }
+    : undefined;
   return (
+    <div style={onPointClick ? { cursor: "pointer" } : undefined}>
     <ResponsiveContainer width="100%" height={height}>
-      <AreaChart data={data} margin={{ top: 8, right: 10, bottom: 2, left: 2 }}>
+      <AreaChart data={data} margin={{ top: 8, right: 10, bottom: 2, left: 2 }} onClick={handleClick}>
         <defs>
           <linearGradient id={gPv} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor={ACCENT} stopOpacity={0.35} />
@@ -91,6 +99,7 @@ function TrafficArea({ data, height, highlight }: { data: Datum[]; height: numbe
         <Area type="monotone" dataKey="visitors" name="Visitors" stroke={GREEN} strokeWidth={2} fill={`url(#${gV})`} dot={false} activeDot={{ r: 4, strokeWidth: 2, stroke: c.dotStroke }} />
       </AreaChart>
     </ResponsiveContainer>
+    </div>
   );
 }
 
@@ -117,7 +126,7 @@ function ChartCard({ title, children }: { title: string; children: React.ReactNo
 
 const short = (w: TrafficWeek): string => (w.label.split(/[–-]/)[0] || w.weekStart).trim();
 
-export function WeeksArea({ weeks, selId }: { weeks: TrafficWeek[]; selId: string }) {
+export function WeeksArea({ weeks, selId, onSelectWeek }: { weeks: TrafficWeek[]; selId: string; onSelectWeek?: (id: string) => void }) {
   const chrono = [...weeks].reverse(); // oldest to newest
   if (chrono.length < 2) return null; // a trend needs at least two reports
   const data: Datum[] = chrono.map((w) => ({
@@ -131,7 +140,7 @@ export function WeeksArea({ weeks, selId }: { weeks: TrafficWeek[]; selId: strin
   const highlight = data.find((d) => d.id === selId)?.name;
   return (
     <ChartCard title="Activity since the first report">
-      <TrafficArea data={data} height={260} highlight={highlight} />
+      <TrafficArea data={data} height={260} highlight={highlight} onPointClick={onSelectWeek ? (d) => d.id && onSelectWeek(d.id) : undefined} />
     </ChartCard>
   );
 }

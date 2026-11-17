@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { Upload, Plus, Trash2, Check, ExternalLink, FileText, X, Lightbulb, ChevronDown, ChevronUp } from "lucide-react";
+import { Upload, Plus, Trash2, Check, ExternalLink, FileText, X, Lightbulb, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { PageLoader, Spinner } from "@/components/Spinner";
 import { type TrafficWeek, type ActionItem, type Insight, type TrafficRow, pagesPerVisitor } from "@/lib/traffic/types";
@@ -102,6 +102,41 @@ function RowTable({ title, rows, unit, depth }: { title: string; rows: TrafficRo
   );
 }
 
+function WeekRail({ weeks, sel, onSelect }: { weeks: TrafficWeek[]; sel: string; onSelect: (id: string) => void }) {
+  const railRef = useRef<HTMLDivElement>(null);
+  const ordered = useMemo(() => [...weeks].reverse(), [weeks]); // oldest to newest
+  const idx = ordered.findIndex((w) => w.id === sel);
+  useEffect(() => {
+    const el = railRef.current?.querySelector('[data-active="true"]') as HTMLElement | null;
+    el?.scrollIntoView({ inline: "center", block: "nearest" });
+  }, [sel]);
+  const range = (w: TrafficWeek) => w.label.replace(/,\s*20\d{2}\s*$/, "").trim() || w.weekStart;
+  const step = "flex h-[46px] w-8 shrink-0 items-center justify-center rounded-lg border border-makina-border text-makina-muted transition-colors enabled:hover:border-makina-accent/40 enabled:hover:text-makina-text disabled:opacity-30";
+  return (
+    <div className="mt-4 flex items-stretch gap-2">
+      <button type="button" aria-label="Previous week" onClick={() => idx > 0 && onSelect(ordered[idx - 1].id)} disabled={idx <= 0} className={step}><ChevronLeft size={16} /></button>
+      <div ref={railRef} className="flex flex-1 gap-2 overflow-x-auto py-0.5">
+        {ordered.map((w) => {
+          const active = w.id === sel;
+          return (
+            <button
+              key={w.id}
+              type="button"
+              data-active={active}
+              onClick={() => onSelect(w.id)}
+              className={`shrink-0 rounded-lg border px-3 py-1.5 text-left transition-colors ${active ? "border-makina-accent bg-makina-accent-dim text-makina-text" : "border-makina-border bg-makina-card text-makina-muted hover:border-makina-accent/40 hover:text-makina-text"}`}
+            >
+              <div className="whitespace-nowrap text-xs font-semibold">{range(w)}</div>
+              <div className="text-[10px] tabular-nums text-makina-subtle">{fmt(w.visitors)} visitors</div>
+            </button>
+          );
+        })}
+      </div>
+      <button type="button" aria-label="Next week" onClick={() => idx < ordered.length - 1 && onSelect(ordered[idx + 1].id)} disabled={idx >= ordered.length - 1} className={step}><ChevronRight size={16} /></button>
+    </div>
+  );
+}
+
 function TrafficInner() {
   const [weeks, setWeeks] = useState<TrafficWeek[]>([]);
   const [actions, setActions] = useState<ActionItem[]>([]);
@@ -190,11 +225,6 @@ function TrafficInner() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {weeks.length > 0 && (
-              <select value={sel} onChange={(e) => setSel(e.target.value)} className="rounded-lg border border-makina-border bg-makina-surface px-3 py-2 text-sm text-makina-text outline-none" title="Pick a week">
-                {weeks.map((w) => <option key={w.id} value={w.id}>{w.label}</option>)}
-              </select>
-            )}
             <button onClick={() => setShowImport(true)} className="rounded-lg border border-makina-border px-3 py-2 text-xs font-medium text-makina-muted hover:text-makina-text" title="Paste a week's JSON">
               <FileText size={14} className="mr-1 inline" />JSON
             </button>
@@ -214,12 +244,14 @@ function TrafficInner() {
           ))}
         </div>
 
+        {week && weeks.length > 1 && <WeekRail weeks={weeks} sel={week.id} onSelect={setSel} />}
+
         {!week ? (
           <div className="mt-10 text-center text-sm text-makina-muted">No reports yet. Upload a weekly PDF to begin.</div>
         ) : tab === "report" ? (
           <div className="mt-5 space-y-5">
             <WowOverview weeks={weeks} week={week} />
-            <WeeksArea weeks={weeks} selId={week.id} />
+            <WeeksArea weeks={weeks} selId={week.id} onSelectWeek={setSel} />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <KPI label="Busiest day" value={busiest?.day.split(" ").slice(1).join(" ") || "—"} sub={<span className="text-[11px] text-makina-subtle">{busiest?.visitors ?? 0} visitors</span>} />
               <KPI label="Top referrer" value={topRef?.name || "—"} sub={topRef ? <Delta cur={topRef.visitors} prev={topRef.priorVisitors} /> : undefined} />
